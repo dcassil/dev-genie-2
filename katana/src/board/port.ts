@@ -1,0 +1,75 @@
+import type { ShortCode } from "../types/document.js";
+
+/** A single column on the board. id is stable across renders. */
+export interface Column {
+  id: string;            // e.g. "todo", "active", "completed", or external id
+  title: string;         // human label
+  order: number;         // 0-based left-to-right position
+  wip_limit?: number;    // optional, advisory; null/undefined = none
+}
+
+/** A card pinned to a column. */
+export interface Card {
+  id: string;                        // backend-stable id
+  column_id: string;                 // FK -> Column.id
+  title: string;
+  short_code?: ShortCode;            // present for internal cards; absent for foreign
+  level?: "product-doc" | "epic" | "user-story"
+        | "task-high-pass" | "task-low-pass" | "task-ui";
+  phase?: string;                    // doc phase if internal
+  parent?: ShortCode;
+  url?: string;                      // deep link (file://, https://...)
+  updated_at: string;                // ISO-8601
+  archived: boolean;
+  extra?: Record<string, unknown>;   // backend-specific opaque payload
+}
+
+/** A point-in-time snapshot returned by list_board(). */
+export interface BoardSnapshot {
+  generated_at: string;              // ISO-8601
+  backend: string;                   // "internal" | "external-stub" | ...
+  columns: Column[];
+  cards: Card[];                     // unsorted; render layer groups by column_id
+}
+
+/** Filter accepted by list_board(). All fields AND together. */
+export interface BoardFilter {
+  level?: Card["level"];
+  parent?: ShortCode;
+  include_archived?: boolean;        // default false
+}
+
+/** Stub mapping config — MVP does not implement a mapper.
+ *  Shape is reserved so post-MVP foreign-card import can land
+ *  without a breaking change. All fields optional, no semantics in MVP. */
+export interface ForeignCardMapping {
+  /** Map external column id -> katana phase string. */
+  column_to_phase?: Record<string, string>;
+  /** Default level to assign to imported foreign cards. */
+  default_level?: Card["level"];
+  /** Identity field to dedupe by (e.g. "external_id"). */
+  identity_key?: string;
+}
+
+/** Construction-time options. Backends ignore unknown keys. */
+export interface BoardPortOptions {
+  workspace_root: string;            // absolute path to .katana/
+  mapping?: ForeignCardMapping;      // reserved; MVP backends MUST ignore
+}
+
+/** The plugin contract. */
+export interface BoardPort {
+  /** Identifier used in BoardSnapshot.backend and CLI output. */
+  readonly backend: string;
+
+  /** Read the full board. Pure / side-effect free for MVP backends. */
+  list_board(filter?: BoardFilter): Promise<BoardSnapshot>;
+
+  /** Lookup a single card by id. Returns null if missing. */
+  get_card(card_id: string): Promise<Card | null>;
+
+  /** Move a card between columns. Internal backend MUST delegate to
+   *  MCP transition_phase (no separate write path). External backends
+   *  call their own API. Returns the updated card. */
+  move_card(card_id: string, to_column_id: string): Promise<Card>;
+}

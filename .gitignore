@@ -1,0 +1,22 @@
+.DS_Store
+
+# Dependencies and builds
+node_modules/
+dist/
+coverage/
+.next/
+
+# Local databases and logs
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Local runtime state
+.audit/
+.katana/
+.dev-genie/
+
+# Local editor / agent settings
+.claude/settings.local.json
+

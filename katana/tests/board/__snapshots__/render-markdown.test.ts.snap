@@ -1,0 +1,27 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`render_markdown > renders a board snapshot to deterministic markdown 1`] = `
+"# Katana Board
+
+## To Do (2)
+
+| Short Code | Level | Title | Parent | Updated |
+|---|---|---|---|---|
+| KAT-T-0120 | task-high-pass | Implement parser | KAT-I-0005 | 2026-05-08T10:00:00Z |
+| KAT-T-0121 | task-ui | Add pipe \\| escaping | KAT-I-0005 | 2026-05-08T11:00:00Z |
+
+## In Progress (1)
+
+| Short Code | Level | Title | Parent | Updated |
+|---|---|---|---|---|
+| KAT-T-0123 | task-high-pass | Render markdown | KAT-I-0005 | 2026-05-09T09:00:00Z |
+
+## Done (1)
+
+| Short Code | Level | Title | Parent | Updated |
+|---|---|---|---|---|
+| KAT-T-0119 | epic | Define port types | KAT-I-0005 | 2026-05-07T15:00:00Z |
+
+_backend: internal · generated_at: 2026-05-09T18:00:00Z_
+"
+`;

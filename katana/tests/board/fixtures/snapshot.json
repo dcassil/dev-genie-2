@@ -1,0 +1,63 @@
+{
+  "generated_at": "2026-05-09T18:00:00Z",
+  "backend": "internal",
+  "columns": [
+    {
+      "id": "todo",
+      "title": "To Do",
+      "order": 0
+    },
+    {
+      "id": "active",
+      "title": "In Progress",
+      "order": 1
+    },
+    {
+      "id": "completed",
+      "title": "Done",
+      "order": 2
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "column_id": "todo",
+      "title": "Implement parser",
+      "short_code": "KAT-T-0120",
+      "level": "task-high-pass",
+      "parent": "KAT-I-0005",
+      "updated_at": "2026-05-08T10:00:00Z",
+      "archived": false
+    },
+    {
+      "id": "card-2",
+      "column_id": "todo",
+      "title": "Add pipe | escaping",
+      "short_code": "KAT-T-0121",
+      "level": "task-ui",
+      "parent": "KAT-I-0005",
+      "updated_at": "2026-05-08T11:00:00Z",
+      "archived": false
+    },
+    {
+      "id": "card-3",
+      "column_id": "active",
+      "title": "Render markdown",
+      "short_code": "KAT-T-0123",
+      "level": "task-high-pass",
+      "parent": "KAT-I-0005",
+      "updated_at": "2026-05-09T09:00:00Z",
+      "archived": false
+    },
+    {
+      "id": "card-4",
+      "column_id": "completed",
+      "title": "Define port types",
+      "short_code": "KAT-T-0119",
+      "level": "epic",
+      "parent": "KAT-I-0005",
+      "updated_at": "2026-05-07T15:00:00Z",
+      "archived": false
+    }
+  ]
+}

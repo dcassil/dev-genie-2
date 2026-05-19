@@ -1,0 +1,17 @@
+{
+  "name": "katana",
+  "owner": {
+    "name": "Daniel Cassil",
+    "email": "me@danielcassil.com"
+  },
+  "plugins": [
+    {
+      "name": "katana",
+      "source": {
+        "source": "github",
+        "repo": "dcassil/katana"
+      },
+      "description": "Agent-driven kanban workflow: product docs → epics → user stories → two-pass tasks (strong-model scaffold + cheap-model fill-in). Ships as a Claude Code plugin + MCP server + template set. Standalone or composable with dev-genie."
+    }
+  ]
+}

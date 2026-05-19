@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "platform": "openai-codex",
+  "mcp": {
+    "command": "{{mcpCommand}}",
+    "args": {{mcpArgs}},
+    "transport": "stdio"
+  },
+  "commands": [
+    {
+      "id": "katana-decompose",
+      "description": "Decompose a parent doc into children",
+      "handlerHint": {
+        "mcpTool": "decompose_document"
+      }
+    },
+    {
+      "id": "katana-work",
+      "description": "Start working a task",
+      "handlerHint": {
+        "mcpTool": "list_documents"
+      }
+    },
+    {
+      "id": "katana-board",
+      "description": "Show the kanban board",
+      "handlerHint": {
+        "mcpTool": "list_documents"
+      }
+    },
+    {
+      "id": "katana-validate",
+      "description": "Validate a document",
+      "handlerHint": {
+        "mcpTool": "validate_document"
+      }
+    }
+  ]
+}

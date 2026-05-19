@@ -1,0 +1,23 @@
+{
+  "name": "katana",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "katana-mcp": "bin/katana-mcp.js"
+  },
+  "scripts": {
+    "build": "esbuild src/mcp/server-entry.ts --bundle --platform=node --format=esm --target=node18 --external:better-sqlite3 --outfile=dist/katana-mcp.mjs --banner:js='import{createRequire as __cr}from \"node:module\";const require=__cr(import.meta.url);' && mkdir -p dist/migrations && cp src/storage/sqlite/migrations/*.sql dist/migrations/"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.22.2",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.10.0",
+    "gray-matter": "^4.0.3",
+    "yaml": "^2.9.0"
+  }
+}
