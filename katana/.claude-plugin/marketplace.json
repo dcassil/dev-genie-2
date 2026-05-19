@@ -8,8 +8,8 @@
     {
       "name": "katana",
       "source": {
-        "source": "github",
-        "repo": "dcassil/katana"
+        "source": "url",
+        "url": "https://github.com/dcassil/katana.git"
       },
       "description": "Agent-driven kanban workflow: product docs → epics → user stories → two-pass tasks (strong-model scaffold + cheap-model fill-in). Ships as a Claude Code plugin + MCP server + template set. Standalone or composable with dev-genie."
     }
