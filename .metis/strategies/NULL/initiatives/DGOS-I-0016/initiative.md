@@ -3,6 +3,7 @@ id: workflow-test-autonomous-design
 level: initiative
 title: "Workflow Test: Autonomous Design Decision Modes"
 short_code: "DGOS-I-0016"
+runtime_primitive: meta
 created_at: 2026-05-19T17:18:49.956797+00:00
 updated_at: 2026-05-19T17:18:49.956797+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: workflow-test-autonomous-design
 
 ## Context
 
-Design decisions vary in risk. Some should be autonomous, some should require review, and some should be forbidden without human input. This scenario proves design scopes are configurable.
+Design decisions vary in risk. Some should be autonomous, some should require review, and some should be forbidden without human input. This meta test initiative proves the Designer Role obeys Decision Policy Engine outcomes for configurable design scopes.
 
 ## Goals & Non-Goals
 

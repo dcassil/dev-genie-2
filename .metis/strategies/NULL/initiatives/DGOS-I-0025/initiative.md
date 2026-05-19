@@ -1,8 +1,9 @@
 ---
-id: architect-plugin-autonomous
+id: architect-role-autonomous
 level: initiative
-title: "Architect Plugin Autonomous Architecture Decision Behavior"
+title: "Architect Role Autonomous Architecture Decision Behavior"
 short_code: "DGOS-I-0025"
+runtime_primitive: role
 created_at: 2026-05-19T17:19:29.514687+00:00
 updated_at: 2026-05-19T17:19:29.514687+00:00
 parent: DGOS-V-0001
@@ -17,14 +18,14 @@ tags:
 exit_criteria_met: false
 estimated_complexity: L
 strategy_id: NULL
-initiative_id: architect-plugin-autonomous
+initiative_id: architect-role-autonomous
 ---
 
-# Architect Plugin Autonomous Architecture Decision Behavior Initiative
+# Architect Role Autonomous Architecture Decision Behavior Initiative
 
 ## Context
 
-The Architect plugin must be able to make routine pattern-following decisions autonomously while escalating architectural choices that define shared contracts, schema, auth, deployment, or quality rules.
+The Architect Role must be able to make routine pattern-following decisions autonomously while escalating architectural choices that define shared contracts, schema, auth, deployment, or quality rules. It is model-backed, consumes RepoProfile and Guardrails Engine facts, and emits architecture artifacts or DecisionRecords.
 
 ## Goals & Non-Goals
 

@@ -3,6 +3,7 @@ id: artifact-protocol-and-document
 level: initiative
 title: "Artifact Protocol and Document Engine"
 short_code: "DGOS-I-0002"
+runtime_primitive: protocol
 created_at: 2026-05-19T16:57:05.709267+00:00
 updated_at: 2026-05-19T16:57:05.709267+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: artifact-protocol-and-document
 
 ## Context
 
-Katana already has markdown/YAML documents, short codes, SQLite-backed storage, templates, gates, and MCP CRUD tools. The target system needs those primitives generalized into a shared artifact protocol that all role plugins can consume and produce.
+Katana already has markdown/YAML documents, short codes, SQLite-backed storage, templates, gates, and MCP CRUD tools. This initiative defines the shared artifact protocol that Engines, Roles, and Loops consume and produce, including primitive-specific metadata for deterministic results, model-backed outputs, and stateful execution records.
 
 ## Goals & Non-Goals
 
@@ -47,7 +48,7 @@ Every artifact must be validatable without model interpretation. Markdown carrie
 
 ## Alternatives Considered
 
-- Keep separate schemas per plugin: rejected because orchestration would require adapter glue for every handoff.
+- Keep separate schemas per primitive: rejected because orchestration would require adapter glue for every handoff.
 - Store artifacts only in SQLite: rejected because repo-native files are the durable memory humans and agents can review.
 - Make all artifacts Katana tasks: rejected because planning, design, architecture, and validation artifacts need different lifecycle semantics.
 
@@ -57,4 +58,4 @@ Every artifact must be validatable without model interpretation. Markdown carrie
 - [ ] Add typed supporting artifact kinds required for the existing-repo major feature MVP.
 - [ ] Add validation gates for artifact metadata completeness and skip result correctness.
 - [ ] Add legacy import notes for katana/.metis.legacy-katana and legacy-guardrails-boilerplate/.metis.legacy-dev-genie.
-- [ ] Document the artifact contract for plugin authors.
+- [ ] Document the artifact contract for primitive authors.

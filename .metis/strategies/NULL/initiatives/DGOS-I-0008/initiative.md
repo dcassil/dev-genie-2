@@ -3,6 +3,7 @@ id: existing-repo-major-feature-mvp
 level: initiative
 title: "Existing Repo Major Feature MVP Flow"
 short_code: "DGOS-I-0008"
+runtime_primitive: protocol
 created_at: 2026-05-19T16:57:23.448785+00:00
 updated_at: 2026-05-19T16:57:23.448785+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: existing-repo-major-feature-mvp
 
 ## Context
 
-The recommended MVP is the existing-repo major feature flow. It exercises repo intelligence, planning, architecture impact, FE/BE planning, task generation, developer execution, and validation without requiring greenfield scaffolding or full multi-agent orchestration first.
+The recommended MVP is the existing-repo major feature flow. This initiative defines the protocol across primitives: Repo Intelligence and Strategy Engines, Planner/Architect/Principal FE/Principal BE/Project Manager/Quality Governor Roles, the Developer Execution Loop, and the Validation Engine. It proves artifact handoff without requiring greenfield scaffolding or full multi-agent orchestration first.
 
 ## Goals & Non-Goals
 
@@ -32,7 +33,7 @@ The recommended MVP is the existing-repo major feature flow. It exercises repo i
 - Implement request -> classify -> inspect repo -> product/stories -> architecture impact -> FE/BE plans -> task set -> first execution record.
 - Make no-UI and no-backend skip results first-class.
 - Dogfood on this repository after the restructure.
-- Prove artifacts can hand off between plugins without prompt-only coupling.
+- Prove artifacts can hand off between primitives without prompt-only coupling.
 
 **Non-Goals:**
 - Complete every supported workflow shape.
@@ -52,7 +53,7 @@ This flow starts with a user request and RepoProfile. Strategy selects existing_
 ## Implementation Plan
 
 - [ ] Define the existing_repo_major_feature strategy recipe.
-- [ ] Implement the minimum artifact types and plugin outputs for the flow.
+- [ ] Implement the minimum artifact types and primitive outputs for the flow.
 - [ ] Wire repo-intelligence scan into planner input.
 - [ ] Generate FE/BE plan skip records when no surface exists.
 - [ ] Execute one task and persist ExecutionRecord + ValidationReport.

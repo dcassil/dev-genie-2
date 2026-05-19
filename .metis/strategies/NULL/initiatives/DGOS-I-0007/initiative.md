@@ -3,6 +3,7 @@ id: validation-engine-and-gate-adapter
 level: initiative
 title: "Validation Engine and Gate Adapter Integration"
 short_code: "DGOS-I-0007"
+runtime_primitive: engine
 created_at: 2026-05-19T16:57:20.660936+00:00
 updated_at: 2026-05-19T16:57:20.660936+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: validation-engine-and-gate-adapter
 
 ## Context
 
-Katana has document gates. Guardrails has architecture and lint/type constraints. Audit has quality regression scoring. These should be coordinated through a Validation Engine so completion is decided mechanically rather than by developer-agent assertion.
+Katana has document gates. Guardrails has architecture and lint/type constraints. Audit has quality regression scoring. These should be coordinated through a deterministic Validation Engine so completion is decided mechanically and written to ValidationReport artifacts rather than accepted from Developer Execution Loop assertion.
 
 ## Goals & Non-Goals
 
@@ -47,7 +48,7 @@ Pre-commit rules from Audit and Guardrails should become reusable gate adapters 
 
 ## Alternatives Considered
 
-- Keep validation in plugin-specific commands only: rejected because the execution loop needs one completion decision.
+- Keep validation in package-specific commands only: rejected because the execution loop needs one completion decision.
 - Trust test scripts from package.json blindly: rejected because some repos lack scripts or have incomplete coverage.
 - Fail on absolute quality scores: rejected because existing repos need regression-based adoption.
 

@@ -3,6 +3,7 @@ id: workflow-test-architecture
 level: initiative
 title: "Workflow Test: Architecture Escalation and Approval"
 short_code: "DGOS-I-0017"
+runtime_primitive: meta
 created_at: 2026-05-19T17:18:53.535907+00:00
 updated_at: 2026-05-19T17:18:53.535907+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: workflow-test-architecture
 
 ## Context
 
-Architecture decisions create compounding cost when wrong. This scenario validates escalation rules for architecture and proves autonomous architecture decisions are limited by scope and risk.
+Architecture decisions create compounding cost when wrong. This meta test initiative validates escalation rules for the Architect Role and proves autonomous architecture decisions are limited by Decision Policy Engine scope and risk outcomes.
 
 ## Goals & Non-Goals
 

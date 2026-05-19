@@ -3,6 +3,7 @@ id: workflow-test-vision-to-reviewed
 level: initiative
 title: "Workflow Test: Vision to Reviewed Task Set"
 short_code: "DGOS-I-0013"
+runtime_primitive: meta
 created_at: 2026-05-19T17:18:39.129335+00:00
 updated_at: 2026-05-19T17:18:39.129335+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: workflow-test-vision-to-reviewed
 
 ## Context
 
-This scenario validates the main planning path from product vision to reviewed task set. It is the top-level acceptance scenario for planning without implementation.
+This scenario validates the main planning path from product vision to reviewed task set. It is a meta test initiative that exercises the Strategy and Repo Intelligence Engines, planning and specialist Roles, policy evaluation, and artifact protocol compliance without invoking the Developer Execution Loop.
 
 ## Goals & Non-Goals
 

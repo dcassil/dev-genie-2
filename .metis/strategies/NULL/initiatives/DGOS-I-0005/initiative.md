@@ -3,6 +3,7 @@ id: runtime-decision-request-and-micro
 level: initiative
 title: "Runtime Decision Request and Micro-Workflow Protocol"
 short_code: "DGOS-I-0005"
+runtime_primitive: protocol
 created_at: 2026-05-19T16:57:14.775150+00:00
 updated_at: 2026-05-19T16:57:14.775150+00:00
 parent: DGOS-V-0001
@@ -24,13 +25,13 @@ initiative_id: runtime-decision-request-and-micro
 
 ## Context
 
-During implementation, agents often encounter product, planning, design, architecture, backend, frontend, migration, or quality questions. Today the agent either guesses, stops for the human, or expands the task informally. The system needs a typed micro-workflow that starts at the correct role and returns updated instructions to the current task.
+During implementation, the Developer Execution Loop often encounters product, planning, design, architecture, backend, frontend, migration, or quality questions. Today the executing agent either guesses, stops for the human, or expands the task informally. This initiative defines the DecisionRequest and micro-workflow protocol that lets a Loop route to the correct Role, capture the DecisionRecord, and return updated instructions to the current task.
 
 ## Goals & Non-Goals
 
 **Goals:**
 - Let a running task raise a typed DecisionRequest.
-- Route the request to the correct plugin role based on question type and artifact context.
+- Route the request to the correct Role based on question type and artifact context.
 - Put the task into an awaiting-ai-decision state when needed.
 - Return a DecisionRecord and patch the active task instructions.
 - Create new tasks only when the decision is large enough to require independent execution.
@@ -52,12 +53,12 @@ Lifecycle options: working -> awaiting-ai-decision -> working, or working -> blo
 
 - Let developer agents decide locally: rejected because it hides product/design/architecture drift.
 - Always create a new task: rejected because most runtime questions are small clarifications.
-- Always ask the human: rejected because role plugins can handle many scoped decisions.
+- Always ask the human: rejected because Roles can handle many scoped decisions.
 
 ## Implementation Plan
 
 - [ ] Define DecisionRequest and DecisionRecord artifacts.
 - [ ] Add task phase/status support for awaiting AI decision.
-- [ ] Add routing rules from question type to plugin role.
+- [ ] Add routing rules from question type to Role.
 - [ ] Implement task patching with decision provenance.
 - [ ] Add gates that require high-risk decisions to be reviewed before completion.

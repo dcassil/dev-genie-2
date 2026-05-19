@@ -1,8 +1,9 @@
 ---
-id: developer-plugin-decisionrequest
+id: developer-loop-decisionrequest
 level: initiative
-title: "Developer Plugin DecisionRequest Behavior"
+title: "Developer Loop DecisionRequest Behavior"
 short_code: "DGOS-I-0022"
+runtime_primitive: loop
 created_at: 2026-05-19T17:19:16.558638+00:00
 updated_at: 2026-05-19T17:19:16.558638+00:00
 parent: DGOS-V-0001
@@ -17,14 +18,14 @@ tags:
 exit_criteria_met: false
 estimated_complexity: M
 strategy_id: NULL
-initiative_id: developer-plugin-decisionrequest
+initiative_id: developer-loop-decisionrequest
 ---
 
-# Developer Plugin DecisionRequest Behavior Initiative
+# Developer Loop DecisionRequest Behavior Initiative
 
 ## Context
 
-The Developer plugin must stop making hidden planning, product, design, or architecture decisions during execution. It should recognize decision boundaries and emit typed DecisionRequests.
+The Developer Execution Loop must stop making hidden planning, product, design, or architecture decisions during execution. It should recognize decision boundaries, emit typed DecisionRequests, pause or continue according to policy, and resume only after the active task has durable decision context.
 
 ## Goals & Non-Goals
 
@@ -49,8 +50,8 @@ Developer behavior changes:
 
 ## Alternatives Considered
 
-- Let developer agents ask humans directly: rejected because the orchestration engine should route to the right role first.
-- Let developer agents call all plugins manually: rejected because routing belongs to the orchestration engine.
+- Let developer agents ask humans directly: rejected because the Orchestrator Loop should route to the right role first.
+- Let developer agents call all primitives manually: rejected because routing belongs to the orchestration engine.
 
 ## Implementation Plan
 

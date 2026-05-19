@@ -3,6 +3,7 @@ id: human-review-and-decision
 level: initiative
 title: "Human Review and Decision Governance"
 short_code: "DGOS-I-0011"
+runtime_primitive: meta
 created_at: 2026-05-19T16:57:36.820989+00:00
 updated_at: 2026-05-19T16:57:36.820989+00:00
 parent: DGOS-V-0001
@@ -24,13 +25,13 @@ initiative_id: human-review-and-decision
 
 ## Context
 
-The system should automate routine planning and implementation support, but humans must remain in control of strategic direction, architecture trade-offs, high-risk migrations, protected branches, deployment, and unresolved model disagreement.
+The system should automate routine planning and implementation support across Engines, Roles, and Loops, but humans must remain in control of strategic direction, architecture trade-offs, high-risk migrations, protected branches, deployment, and unresolved model disagreement. This meta initiative defines the governance boundary that every primitive must honor.
 
 ## Goals & Non-Goals
 
 **Goals:**
 - Define which decisions require human review.
-- Define which decisions can be answered by role plugins.
+- Define which decisions can be answered by Roles.
 - Record every non-trivial decision as a DecisionRecord.
 - Make review requirements visible in artifacts and gates.
 - Keep runtime micro-workflows fast without hiding important choices.
@@ -58,4 +59,4 @@ Examples requiring human review: product scope changes, public API contracts, ar
 - [ ] Add approval artifacts or frontmatter fields for high-risk decisions.
 - [ ] Add gates that block completion or active transition without required approval.
 - [ ] Integrate governance with the micro-workflow protocol.
-- [ ] Document examples for planner, architect, designer, developer, and quality-governor plugins.
+- [ ] Document examples for Planner, Architect, Designer, Developer Execution Loop, and Quality Governor Role.

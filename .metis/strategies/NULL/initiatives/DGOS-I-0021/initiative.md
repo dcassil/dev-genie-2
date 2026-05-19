@@ -3,6 +3,7 @@ id: decision-scope-configuration-and
 level: initiative
 title: "Decision Scope Configuration and Review Modes"
 short_code: "DGOS-I-0021"
+runtime_primitive: protocol
 created_at: 2026-05-19T17:19:12.415252+00:00
 updated_at: 2026-05-19T17:19:12.415252+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: decision-scope-configuration-and
 
 ## Context
 
-Users need to control how autonomous the system is per decision scope. Planning may be fully autonomous, design may be review-on-major, architecture may be review-required, and implementation details may be autonomous.
+Users need to control how autonomous the system is per decision scope. This initiative defines the policy configuration protocol consumed by the Decision Policy Engine and surfaced to Roles and Loops. Planning may be fully autonomous, design may be review-on-major, architecture may be review-required, and implementation details may be autonomous.
 
 ## Goals & Non-Goals
 
@@ -49,7 +50,7 @@ Each decision scope can be autonomous, notify, review, human_only, or forbidden.
 ## Alternatives Considered
 
 - One global autonomy toggle: rejected because teams trust different scopes differently.
-- Per-plugin local settings only: rejected because orchestration needs a single policy source.
+- Per-primitive local settings only: rejected because orchestration needs a single policy source.
 - Hidden CLI flags only: rejected because policy must be durable repo memory.
 
 ## Implementation Plan

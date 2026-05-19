@@ -1,8 +1,9 @@
 ---
-id: planner-plugin-autonomous-planning
+id: planner-role-autonomous-planning
 level: initiative
-title: "Planner Plugin Autonomous Planning and Product Decisions"
+title: "Planner Role Autonomous Planning and Product Decisions"
 short_code: "DGOS-I-0023"
+runtime_primitive: role
 created_at: 2026-05-19T17:19:20.461126+00:00
 updated_at: 2026-05-19T17:19:20.461126+00:00
 parent: DGOS-V-0001
@@ -17,19 +18,19 @@ tags:
 exit_criteria_met: false
 estimated_complexity: L
 strategy_id: NULL
-initiative_id: planner-plugin-autonomous-planning
+initiative_id: planner-role-autonomous-planning
 ---
 
-# Planner Plugin Autonomous Planning and Product Decisions Initiative
+# Planner Role Autonomous Planning and Product Decisions Initiative
 
 ## Context
 
-The Planner plugin should become the autonomous engine for product and planning decisions inside configured policy boundaries. It should handle initial planning and runtime product/planning questions.
+The Planner Role should become the model-backed specialist for product and planning decisions inside configured policy boundaries. It should handle initial planning and runtime product/planning questions while relying on the Strategy Engine for deterministic classification and the Decision Policy Engine for autonomy limits.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Convert planner.md concepts into artifact-producing plugin behavior.
+- Convert planner.md concepts into artifact-producing Role behavior.
 - Answer product/planning DecisionRequests when policy allows.
 - Produce ProductDoc, Epic, Story, PlanningPass, Roadmap, and TaskSet seed artifacts.
 - Mark decisions with confidence and review requirements.
@@ -47,11 +48,11 @@ Runtime product questions should usually patch the current task; larger scope ch
 ## Alternatives Considered
 
 - Keep planner as documentation only: rejected because orchestration needs callable behavior.
-- Make Planner create all downstream artifacts itself: rejected because role-specific plugins should own design, architecture, FE, BE, and quality.
+- Make Planner create all downstream artifacts itself: rejected because role-specific Roles should own design, architecture, FE, BE, and quality.
 
 ## Implementation Plan
 
-- [ ] Define Planner plugin input/output schemas.
+- [ ] Define Planner Role input/output schemas.
 - [ ] Implement strategy recipe selection hooks.
 - [ ] Implement runtime product/planning DecisionRequest handling.
 - [ ] Add review policy integration.

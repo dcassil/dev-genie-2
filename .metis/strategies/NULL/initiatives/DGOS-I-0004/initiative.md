@@ -3,6 +3,7 @@ id: repo-intelligence-engine-extraction
 level: initiative
 title: "Repo Intelligence Engine Extraction"
 short_code: "DGOS-I-0004"
+runtime_primitive: engine
 created_at: 2026-05-19T16:57:11.868341+00:00
 updated_at: 2026-05-19T16:57:11.868341+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: repo-intelligence-engine-extraction
 
 ## Context
 
-Dev-Genie already has read-only repo detection modules for package managers, lint/type configs, CI, hooks, audit state, scripts, and agent-config locks. These should become a reusable Repo Intelligence engine instead of remaining hidden inside init/reconciliation.
+Dev-Genie already has read-only repo detection modules for package managers, lint/type configs, CI, hooks, audit state, scripts, and agent-config locks. These should become a reusable Repo Intelligence Engine: a deterministic primitive that emits RepoProfile facts for Roles and Loops instead of remaining hidden inside init/reconciliation.
 
 ## Goals & Non-Goals
 
@@ -32,7 +33,7 @@ Dev-Genie already has read-only repo detection modules for package managers, lin
 - Produce a RepoProfile artifact from deterministic scanners.
 - Preserve the existing detection and reconciliation behavior.
 - Add framework/package/route/component/schema/test/command inventory over time.
-- Make downstream plugins query repo facts instead of re-scanning ad hoc.
+- Make downstream Roles and Loops query repo facts instead of re-scanning ad hoc.
 
 **Non-Goals:**
 - Build a full semantic code index in the first pass.

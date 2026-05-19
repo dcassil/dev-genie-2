@@ -3,6 +3,7 @@ id: workflow-test-runtime-product
 level: initiative
 title: "Workflow Test: Runtime Product Decision Loop"
 short_code: "DGOS-I-0014"
+runtime_primitive: meta
 created_at: 2026-05-19T17:18:42.660489+00:00
 updated_at: 2026-05-19T17:18:42.660489+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: workflow-test-runtime-product
 
 ## Context
 
-This scenario validates the runtime micro-workflow where a developer executing a task hits a product question and routes it to the correct decision engine instead of guessing.
+This scenario validates the runtime micro-workflow where the Developer Execution Loop hits a product question and emits a DecisionRequest instead of guessing. The Orchestrator Loop routes that request to the Planner Role, captures the DecisionRecord, patches the task, and resumes execution when policy allows.
 
 ## Goals & Non-Goals
 

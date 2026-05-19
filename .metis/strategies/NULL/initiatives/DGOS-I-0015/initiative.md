@@ -3,6 +3,7 @@ id: workflow-test-dashboard-strategy
 level: initiative
 title: "Workflow Test: Dashboard Strategy and Task Mapping"
 short_code: "DGOS-I-0015"
+runtime_primitive: meta
 created_at: 2026-05-19T17:18:46.174117+00:00
 updated_at: 2026-05-19T17:18:46.174117+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: workflow-test-dashboard-strategy
 
 ## Context
 
-Dashboard work is the canonical strategy test because it needs product planning, UX, architecture, FE/BE planning, reusable components, vertical slices, and hardening. It also tests whether the system avoids naive page-only decomposition.
+Dashboard work is the canonical strategy test because it needs Strategy Engine classification, product planning, UX, architecture, FE/BE planning Roles, reusable components, vertical slices, and hardening. It also tests whether the Project Manager Role avoids naive page-only decomposition.
 
 ## Goals & Non-Goals
 
@@ -62,6 +63,6 @@ Expected task strategy:
 ## Implementation Plan
 
 - [ ] Add dashboard repo fixture with partial component library.
-- [ ] Add expected plugin route graph.
+- [ ] Add expected primitive route graph.
 - [ ] Assert task categories and dependency order.
 - [ ] Assert reusable component tasks precede vertical feature slice tasks.

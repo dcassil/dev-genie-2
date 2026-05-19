@@ -1,8 +1,9 @@
 ---
-id: designer-plugin-autonomous-ux
+id: designer-role-autonomous-ux
 level: initiative
-title: "Designer Plugin Autonomous UX Decision Behavior"
+title: "Designer Role Autonomous UX Decision Behavior"
 short_code: "DGOS-I-0024"
+runtime_primitive: role
 created_at: 2026-05-19T17:19:25.638493+00:00
 updated_at: 2026-05-19T17:19:25.638493+00:00
 parent: DGOS-V-0001
@@ -17,14 +18,14 @@ tags:
 exit_criteria_met: false
 estimated_complexity: M
 strategy_id: NULL
-initiative_id: designer-plugin-autonomous-ux
+initiative_id: designer-role-autonomous-ux
 ---
 
-# Designer Plugin Autonomous UX Decision Behavior Initiative
+# Designer Role Autonomous UX Decision Behavior Initiative
 
 ## Context
 
-The Designer plugin should autonomously resolve low-risk UX decisions while escalating high-impact user-flow decisions according to policy.
+The Designer Role should autonomously resolve low-risk UX decisions while escalating high-impact user-flow decisions according to Decision Policy Engine outcomes. It is a model-backed Role with explicit design artifacts, skip behavior, and runtime DecisionRequest handling.
 
 ## Goals & Non-Goals
 

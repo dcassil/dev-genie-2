@@ -3,6 +3,7 @@ id: principal-fe-be-autonomous
 level: initiative
 title: "Principal FE/BE Autonomous Implementation Planning"
 short_code: "DGOS-I-0026"
+runtime_primitive: role
 created_at: 2026-05-19T17:19:32.943351+00:00
 updated_at: 2026-05-19T17:19:32.943351+00:00
 parent: DGOS-V-0001
@@ -24,15 +25,15 @@ initiative_id: principal-fe-be-autonomous
 
 ## Context
 
-Principal FE and Principal BE planning should convert approved product/design/architecture intent into implementation plans, reusable component plans, data contracts, schema plans, and task seeds. They should also answer runtime FE/BE planning questions.
+The Principal FE Role and Principal BE Role should convert approved product/design/architecture intent into implementation plans, reusable component plans, data contracts, schema plans, and task seeds. They should also answer runtime FE/BE planning DecisionRequests while respecting Architect Role decisions and policy boundaries.
 
 ## Goals & Non-Goals
 
 **Goals:**
 - Principal FE emits FrontendPlan, component plan, page/view plan, state plan, and FE task seeds.
 - Principal BE emits BackendPlan, DomainModel, SchemaPlan, APIContract, migration map, and BE task seeds.
-- Both plugins can return skip records when their surface is not involved.
-- Both plugins answer scoped runtime DecisionRequests.
+- Both Roles can return skip records when their surface is not involved.
+- Both Roles answer scoped runtime DecisionRequests.
 
 **Non-Goals:**
 - Execute developer tasks.

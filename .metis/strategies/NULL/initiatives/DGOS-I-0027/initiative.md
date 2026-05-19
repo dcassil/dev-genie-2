@@ -3,6 +3,7 @@ id: project-manager-hybrid-task
 level: initiative
 title: "Project Manager Hybrid Task Mapping Strategies"
 short_code: "DGOS-I-0027"
+runtime_primitive: role
 created_at: 2026-05-19T17:19:37.335676+00:00
 updated_at: 2026-05-19T17:19:37.335676+00:00
 parent: DGOS-V-0001
@@ -24,7 +25,7 @@ initiative_id: project-manager-hybrid-task
 
 ## Context
 
-The Project Manager plugin should map strategy outputs into executable work. For dashboards and similar features, it must support hybrid task mapping: foundation/skeleton, reusable primitives, contracts, vertical slices, and hardening.
+The Project Manager Role should map strategy outputs into executable work. For dashboards and similar features, this model-backed Role must support hybrid task mapping: foundation/skeleton, reusable primitives, contracts, vertical slices, and hardening.
 
 ## Goals & Non-Goals
 
