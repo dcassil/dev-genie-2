@@ -113,7 +113,8 @@ All Role outputs declare `status`, `confidence`, `missing_context`, `human_revie
 
 ## Success Criteria
 
-- A major feature in an existing repo can flow from request -> repo profile -> product/stories -> architecture impact -> FE/BE plans -> task set -> first execution record with minimal manual glue.
+- DGOS-I-0031 proves the protocol thesis first: a hand-authored Story flows through one Architect Role invocation into one validated ArchitectureImpact artifact, then that output is dogfooded on a real Dev-Genie planning change.
+- After the protocol proof, a major feature in an existing repo can flow from request -> repo profile -> product/stories -> architecture impact -> FE/BE plans -> task set -> first execution record with minimal manual glue.
 - A running implementation agent can pause for an AI planning/design/architecture decision, receive updated task instructions, and continue without losing state.
 - The same artifacts can be consumed by Claude Code, OpenAI/Codex, Cursor, and MCP-capable clients through platform adapters.
 - Validation gates, not developer-agent promises, determine whether documents and implementation tasks are complete.
@@ -139,5 +140,5 @@ All Role outputs declare `status`, `confidence`, `missing_context`, `human_revie
 - Use repo-native files for durable state; avoid global hidden state except user-level tool configuration.
 - Do not require one linear workflow. Strategy recipes must be declarative and composable.
 - Avoid broad script piles. Prefer small CLIs/MCP tools with typed inputs and outputs.
-- Support greenfield and existing repos, but implement existing-repo major feature flow first.
+- Support greenfield and existing repos, but prove the one-role artifact protocol before implementing the existing-repo major feature v0.5 flow.
 - Do not replace human judgment for strategic decisions, architecture trade-offs, or unresolved model disagreements.
