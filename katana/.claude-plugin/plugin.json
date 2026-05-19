@@ -6,8 +6,8 @@
     "name": "Daniel Cassil",
     "email": "me@danielcassil.com"
   },
-  "homepage": "https://github.com/dcassil/katana",
-  "repository": "https://github.com/dcassil/katana",
+  "homepage": "https://github.com/dcassil/dev-genie-2",
+  "repository": "https://github.com/dcassil/dev-genie-2",
   "license": "MIT",
   "keywords": [
     "kanban",
@@ -22,6 +22,7 @@
     "claude-code",
     "cursor"
   ],
+  "commands": "./commands",
   "mcpServers": {
     "katana": {
       "command": "node",

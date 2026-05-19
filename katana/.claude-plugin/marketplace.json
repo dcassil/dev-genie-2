@@ -9,7 +9,7 @@
       "name": "katana",
       "source": {
         "source": "url",
-        "url": "https://github.com/dcassil/katana.git"
+        "url": "https://github.com/dcassil/dev-genie-2.git"
       },
       "description": "Agent-driven kanban workflow: product docs → epics → user stories → two-pass tasks (strong-model scaffold + cheap-model fill-in). Ships as a Claude Code plugin + MCP server + template set. Standalone or composable with dev-genie."
     }
