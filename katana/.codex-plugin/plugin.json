@@ -1,0 +1,41 @@
+{
+  "name": "katana",
+  "version": "0.1.3",
+  "description": "Agent-driven kanban workflow for AI coding agents with MCP tools for Katana documents, phases, validation, and decomposition.",
+  "author": {
+    "name": "Daniel Cassil",
+    "email": "me@danielcassil.com",
+    "url": "https://github.com/dcassil"
+  },
+  "homepage": "https://github.com/dcassil/dev-genie-2",
+  "repository": "https://github.com/dcassil/dev-genie-2",
+  "license": "MIT",
+  "keywords": [
+    "kanban",
+    "workflow",
+    "agent",
+    "mcp",
+    "decomposition",
+    "validation",
+    "codex"
+  ],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Katana",
+    "shortDescription": "Kanban workflow and decomposition tools for coding agents.",
+    "longDescription": "Adds Katana MCP tools for creating, reading, editing, listing, searching, transitioning, validating, and decomposing workflow documents in a .katana workspace.",
+    "developerName": "Daniel Cassil",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/dcassil/dev-genie-2",
+    "defaultPrompt": [
+      "Set up Katana workflow for this repo.",
+      "Show my Katana board.",
+      "Decompose this Katana document into tasks."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

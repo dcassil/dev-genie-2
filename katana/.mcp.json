@@ -1,3 +1,9 @@
 {
-  "mcpServers": {}
+  "mcpServers": {
+    "katana": {
+      "command": "node",
+      "args": ["${CODEX_PLUGIN_ROOT}/bin/katana-mcp.js"],
+      "transport": "stdio"
+    }
+  }
 }
