@@ -6,6 +6,12 @@ dist/
 coverage/
 .next/
 
+# Plugin build artifacts MUST ship to the marketplace cache, so un-ignore
+# every plugin's dist/ even though `dist/` is ignored above. Add new plugins
+# here as they grow a build step.
+!katana/dist/
+!katana/dist/**
+
 # Local databases and logs
 *.db
 *.db-shm
