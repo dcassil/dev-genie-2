@@ -17,7 +17,7 @@ export interface ServerOptions { workspaceRoot: string; }
 export async function startServer(opts: ServerOptions): Promise<void> {
   const storage: StoragePort = openSqliteStorage({ workspaceRoot: opts.workspaceRoot });
   const server = new Server(
-    { name: "katana", version: "0.1.4" },
+    { name: "katana", version: "0.1.5" },
     { capabilities: { tools: {} } },
   );
 

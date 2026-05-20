@@ -47,7 +47,7 @@ function installDeps(reason) {
   const result = spawnSync(
     "npm",
     ["install", "--omit=dev", "--no-audit", "--no-fund", "--loglevel=error"],
-    { cwd: pluginRoot, stdio: ["ignore", "inherit", "inherit"] },
+    { cwd: pluginRoot, stdio: ["ignore", "ignore", "inherit"] },
   );
   if (result.status !== 0) {
     process.stderr.write(

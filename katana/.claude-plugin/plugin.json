@@ -1,6 +1,6 @@
 {
   "name": "katana",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Agent-driven kanban workflow for AI coding agents. Decomposes work into product docs → epics → user stories → two-pass tasks (scaffold high-pass + fill-in low-pass), with templates, validation gates, and a phase-machine workflow runtime. Provides an MCP server for create/read/edit/list/search/transition/validate/decompose operations on a `.katana/` workspace, plus a CLI `katana board` for kanban rendering and `katana install <platform>` for installing into Claude Code, Cursor, or OpenAI/Codex-style agent surfaces.",
   "author": {
     "name": "Daniel Cassil",
