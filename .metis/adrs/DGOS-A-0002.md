@@ -1,7 +1,7 @@
 ---
 id: 002-role-plugin-invocation-convention
 level: adr
-title: "Role Plugin Invocation Convention"
+title: "Role Invocation Convention"
 number: 2
 short_code: "DGOS-A-0002"
 created_at: 2026-05-19T20:01:28.192767+00:00
@@ -21,7 +21,7 @@ strategy_id: NULL
 initiative_id: NULL
 ---
 
-# ADR-2: Role Plugin Invocation Convention
+# ADR-2: Role Invocation Convention
 
 ## Context
 
@@ -86,6 +86,37 @@ The exact binary name can change, but the convention is fixed:
 - errors and diagnostics
 - retry recommendation
 - trace refs
+
+### DGOS-I-0031 v0.1 Subset
+
+DGOS-I-0031 uses the smallest stable subset of this convention needed to prove one Role consuming one artifact, producing one artifact, and passing one validation gate. The v0.1 proof must not implement the full v1 envelope before the protocol thesis is tested.
+
+For the Protocol Proof MVP, `RoleInvocation` requires only:
+
+- `invocation_id`
+- `role_id`
+- `role_version`
+- `operation`
+- `decision_scope`
+- `input_artifacts`
+- `expected_output_artifacts`
+- `trace`
+- `timeout_ms`
+
+For the Protocol Proof MVP, `RoleResult` requires only:
+
+- `invocation_id`
+- `role_id`
+- `role_version`
+- `status`
+- `output_artifacts`
+- `confidence`
+- `missing_context`
+- `human_review_required`
+- `diagnostics`
+- `trace`
+
+Budget policy, allowed tools, context bundle refs, policy refs, retry policy, and cost accounting remain part of the v1 convention but are optional in the v0.1 proof.
 
 ## Rationale
 
