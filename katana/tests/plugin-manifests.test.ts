@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(__dirname, "..");
@@ -15,8 +15,17 @@ describe("plugin manifests", () => {
 
     expect(manifest.name).toBe("katana");
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(manifest.skills).toBe("./skills/");
     expect(manifest.mcpServers).toBe("./.mcp.json");
     expect(manifest.interface.displayName).toBe("Katana");
+    for (const skill of [
+      "katana-board",
+      "katana-decompose",
+      "katana-validate",
+      "katana-work",
+    ]) {
+      expect(existsSync(resolve(root, "skills", skill, "SKILL.md"))).toBe(true);
+    }
     expect(mcp.mcpServers.katana).toEqual({
       command: "node",
       args: ["${CODEX_PLUGIN_ROOT}/bin/katana-mcp.js"],
@@ -26,10 +35,16 @@ describe("plugin manifests", () => {
 
   it("keeps package and plugin manifest versions aligned", () => {
     const pkg = readJson("package.json");
+    const lock = readJson("package-lock.json");
     const codex = readJson(".codex-plugin/plugin.json");
     const claude = readJson(".claude-plugin/plugin.json");
 
     expect(codex.version).toBe(pkg.version);
     expect(claude.version).toBe(pkg.version);
+    expect(lock.version).toBe(pkg.version);
+    expect(lock.packages[""].version).toBe(pkg.version);
+    expect(lock.packages[""].dependencies["better-sqlite3"]).toBe(
+      pkg.dependencies["better-sqlite3"],
+    );
   });
 });

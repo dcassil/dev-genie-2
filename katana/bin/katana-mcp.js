@@ -30,9 +30,11 @@ function depsLoadable() {
   // Probe each native dep in a child process using the same Node binary that
   // will run the MCP server. A mismatched NODE_MODULE_VERSION (e.g. installed
   // under Node 20, now running under Node 18) throws ERR_DLOPEN_FAILED here.
-  const probe = requiredRuntimeDeps
-    .map((d) => `require(${JSON.stringify(d)});`)
-    .join("");
+  const probe = `
+    const Database = require("better-sqlite3");
+    const db = new Database(":memory:");
+    db.close();
+  `;
   const result = spawnSync(process.execPath, ["-e", probe], {
     cwd: pluginRoot,
     stdio: ["ignore", "ignore", "pipe"],
