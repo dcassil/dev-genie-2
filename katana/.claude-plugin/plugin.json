@@ -26,7 +26,7 @@
   "mcpServers": {
     "katana": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/dist/katana-mcp.mjs"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/katana-mcp.js"],
       "transport": "stdio"
     }
   }
