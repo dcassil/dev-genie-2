@@ -19861,7 +19861,7 @@ if (ALL_TOOLS.length !== 8) throw new Error("MCP tool surface must be exactly 8 
 async function startServer(opts) {
   const storage = openSqliteStorage({ workspaceRoot: opts.workspaceRoot });
   const server = new Server(
-    { name: "katana", version: "0.1.5" },
+    { name: "katana", version: "0.1.6" },
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

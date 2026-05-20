@@ -27,8 +27,11 @@ describe("plugin manifests", () => {
       expect(existsSync(resolve(root, "skills", skill, "SKILL.md"))).toBe(true);
     }
     expect(mcp.mcpServers.katana).toEqual({
-      command: "node",
-      args: ["${CODEX_PLUGIN_ROOT}/bin/katana-mcp.js"],
+      command: "/bin/sh",
+      args: [
+        "-lc",
+        'root="${CODEX_PLUGIN_ROOT:-$(ls -dt "$HOME"/.codex/plugins/cache/dev-genie/katana/* 2>/dev/null | head -n 1)}"; exec node "$root/bin/katana-mcp.js"',
+      ],
       transport: "stdio",
     });
   });
