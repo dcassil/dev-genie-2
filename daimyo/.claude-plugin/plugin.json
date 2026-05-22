@@ -1,0 +1,28 @@
+{
+  "name": "daimyo",
+  "version": "0.1.0",
+  "description": "Out-of-process deterministic supervisor substrate for recursive govern-verify loops. Provides the Daimyo MCP server and core port contracts for agent transport, work sources, and decision routing.",
+  "author": {
+    "name": "Daniel Cassil",
+    "email": "me@danielcassil.com"
+  },
+  "homepage": "https://github.com/dcassil/dev-genie-2",
+  "repository": "https://github.com/dcassil/dev-genie-2",
+  "license": "MIT",
+  "keywords": [
+    "loop",
+    "supervisor",
+    "agent",
+    "mcp",
+    "workflow",
+    "govern-verify",
+    "dev-genie"
+  ],
+  "mcpServers": {
+    "daimyo": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/daimyo-mcp.js"],
+      "transport": "stdio"
+    }
+  }
+}

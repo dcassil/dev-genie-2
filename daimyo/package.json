@@ -1,0 +1,27 @@
+{
+  "name": "daimyo",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "daimyo-mcp": "bin/daimyo-mcp.js"
+  },
+  "scripts": {
+    "build": "esbuild src/mcp/server-entry.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/daimyo-mcp.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.4",
+    "@typescript-eslint/parser": "^8.46.4",
+    "esbuild": "^0.28.0",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "vitest": "^1.6.0"
+  }
+}

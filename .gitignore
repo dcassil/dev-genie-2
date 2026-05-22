@@ -11,6 +11,8 @@ coverage/
 # here as they grow a build step.
 !katana/dist/
 !katana/dist/**
+!daimyo/dist/
+!daimyo/dist/**
 
 # Local databases and logs
 *.db
@@ -25,4 +27,3 @@ coverage/
 
 # Local editor / agent settings
 .claude/settings.local.json
-
