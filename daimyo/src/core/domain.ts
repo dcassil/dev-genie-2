@@ -34,6 +34,11 @@ export interface ExecutionEvidence {
   readonly summary: string;
   readonly artifacts?: readonly string[];
   readonly touchedFiles?: readonly string[];
+  readonly touchedInterfaces?: readonly string[];
+  readonly touchedData?: readonly string[];
+  readonly intendedFiles?: readonly string[];
+  readonly intendedInterfaces?: readonly string[];
+  readonly intendedData?: readonly string[];
   readonly report_ref?: string;
 }
 

@@ -407,6 +407,163 @@ describe("Supervisor", () => {
     expect(harness.transport.pendingCorrelations()).toHaveLength(0);
   });
 
+  it("runs independent siblings in the same bounded wave without conflict", async () => {
+    const root = task("task-wave-root", "Wave root");
+    const left = task("task-wave-left", "Left sibling", root.id, {
+      owns_files: ["src/left.ts"],
+    });
+    const right = task("task-wave-right", "Right sibling", root.id, {
+      owns_files: ["src/right.ts"],
+    });
+    const harness = await makeHarness({
+      tasks: [root, left, right],
+      events: [
+        turnEnded("fake-session-2", doneResult("right done", { touchedFiles: ["src/right.ts"] })),
+        turnEnded("fake-session-1", doneResult("left done", { touchedFiles: ["src/left.ts"] })),
+      ],
+      validation: validationScript(["pass", "pass", "pass"]),
+      maxConcurrency: 2,
+    });
+
+    const result = await harness.supervisor.run(root.id);
+
+    expect(result.status).toBe("done");
+    expect(harness.transport.spawnRequests.slice(0, 2).map((request) => request.nodeId)).toEqual([
+      asNodeId("node:task-wave-left"),
+      asNodeId("node:task-wave-right"),
+    ]);
+    expect(harness.transport.interrupts).toHaveLength(0);
+    expect(harness.validation.requests.map((request) => request.scope)).toEqual([
+      "leaf",
+      "leaf",
+      "parent",
+    ]);
+  });
+
+  it("quiesces and resumes an affected sibling after a hard shared-interface conflict", async () => {
+    const root = task("task-hard-root", "Hard root");
+    const producer = task("task-hard-producer", "Producer", root.id, {
+      owns_interfaces: ["SharedApi"],
+    });
+    const consumer = task("task-hard-consumer", "Consumer", root.id, {
+      owns_interfaces: ["SharedApi"],
+    });
+    const harness = await makeHarness({
+      tasks: [root, producer, consumer],
+      events: [
+        turnEnded(
+          "fake-session-2",
+          doneResult("producer changed the shared API", { touchedInterfaces: ["SharedApi"] }),
+        ),
+        turnEnded(
+          "fake-session-1",
+          doneResult("consumer resumed against patched API", { touchedInterfaces: ["SharedApi"] }),
+        ),
+      ],
+      validation: validationScript(["pass", "pass", "pass"]),
+      decisionProvider: new FakeDecisionProvider([
+        decisionTemplate(decisionVerdict("decision", "patch", "Update consumer for SharedApi.")),
+      ]),
+      maxConcurrency: 2,
+    });
+
+    const result = await harness.supervisor.run(root.id);
+
+    expect(result.status).toBe("done");
+    expect(harness.transport.interrupts).toEqual([
+      {
+        sessionId: asAgentSessionId("fake-session-1"),
+        reason: expect.stringContaining("Hard sibling conflict"),
+      },
+    ]);
+    expect(harness.transport.spawnRequests[2]?.resumeFromSessionId).toBe(
+      asAgentSessionId("fake-session-1"),
+    );
+    expect(harness.workSource.patches[0]).toMatchObject({
+      id: consumer.id,
+      patch: {
+        body: expect.stringContaining("Update consumer for SharedApi."),
+      },
+    });
+  });
+
+  it("loads sibling context for a soft dependency impact without quiescing", async () => {
+    const root = task("task-soft-root", "Soft root");
+    const producer = task("task-soft-producer", "Producer", root.id, {
+      owns_files: ["src/provider.ts"],
+    });
+    const dependent = task("task-soft-dependent", "Dependent", root.id, {
+      owns_files: ["src/dependent.ts"],
+      depends_on: ["src/provider.ts"],
+    });
+    const harness = await makeHarness({
+      tasks: [root, producer, dependent],
+      events: [
+        turnEnded(
+          "fake-session-2",
+          doneResult("producer touched provider", { touchedFiles: ["src/provider.ts"] }),
+        ),
+        turnEnded(
+          "fake-session-1",
+          doneResult("dependent finished with context", { touchedFiles: ["src/dependent.ts"] }),
+        ),
+      ],
+      validation: validationScript(["pass", "pass", "pass"]),
+      maxConcurrency: 2,
+    });
+
+    const result = await harness.supervisor.run(root.id);
+
+    expect(result.status).toBe("done");
+    expect(harness.transport.interrupts).toHaveLength(0);
+    expect(harness.workSource.patches[0]).toMatchObject({
+      id: dependent.id,
+      patch: {
+        body: expect.stringContaining("Daimyo Sibling Context"),
+      },
+    });
+  });
+
+  it("bubbles cross-sibling decisions to the node that owns all affected siblings", async () => {
+    const root = task("task-bubble-root", "Bubble root");
+    const group = task("task-bubble-group", "Bubble group", root.id);
+    const local = task("task-bubble-local", "Local child", group.id);
+    const outside = task("task-bubble-outside", "Outside sibling", root.id);
+    const harness = await makeHarness({
+      tasks: [root, group, local, outside],
+      events: [
+        turnEnded(
+          "fake-session-1",
+          needsDecisionResult("Change shared contract?", ["patch"], {
+            affectedTaskIds: [local.id, outside.id],
+          }),
+        ),
+        turnEnded("fake-session-2", doneResult("local resumed")),
+        turnEnded("fake-session-3", doneResult("outside done")),
+      ],
+      validation: validationScript(["pass", "pass", "pass", "pass"]),
+      decisionProvider: new FakeDecisionProvider([
+        decisionTemplate(decisionVerdict("decision", "patch", "Patch at root scope.")),
+      ]),
+      maxConcurrency: 2,
+    });
+
+    const result = await harness.supervisor.run(root.id);
+
+    expect(result.status).toBe("done");
+    expect(harness.decisionProvider.requests[0]).toMatchObject({
+      nodeId: asNodeId("node:task-bubble-root"),
+      taskId: root.id,
+      prompt: "Change shared contract?",
+    });
+    expect(harness.workSource.patches[0]).toMatchObject({
+      id: group.id,
+      patch: {
+        body: expect.stringContaining("Patch at root scope."),
+      },
+    });
+  });
+
   it("restarts from task definition and evidence when a persisted resume token is invalid", async () => {
     const taskId = asTaskId("task-invalid-resume");
     const nodeId = asNodeId("node:task-invalid-resume");
@@ -559,6 +716,7 @@ interface Harness {
   readonly validation: ScriptedValidation;
   readonly supervisor: Supervisor;
   readonly maxRetries?: number;
+  readonly maxConcurrency?: number;
 }
 
 async function makeHarness(options: {
@@ -567,6 +725,7 @@ async function makeHarness(options: {
   readonly validation: ScriptedValidation;
   readonly decisionProvider?: FakeDecisionProvider;
   readonly maxRetries?: number;
+  readonly maxConcurrency?: number;
 }): Promise<Harness> {
   const workspaceDir = await makeWorkspace();
   const store = new JsonlExecutionStore({ workspaceDir });
@@ -589,8 +748,10 @@ async function makeHarness(options: {
       cwd: workspaceDir,
       now: fixedNow,
       ...(options.maxRetries === undefined ? {} : { maxRetries: options.maxRetries }),
+      ...(options.maxConcurrency === undefined ? {} : { maxConcurrency: options.maxConcurrency }),
     }),
     ...(options.maxRetries === undefined ? {} : { maxRetries: options.maxRetries }),
+    ...(options.maxConcurrency === undefined ? {} : { maxConcurrency: options.maxConcurrency }),
   };
   return harness;
 }
@@ -605,10 +766,16 @@ function makeSupervisor(harness: Harness): Supervisor {
     cwd: harness.workspaceDir,
     now: fixedNow,
     ...(harness.maxRetries === undefined ? {} : { maxRetries: harness.maxRetries }),
+    ...(harness.maxConcurrency === undefined ? {} : { maxConcurrency: harness.maxConcurrency }),
   });
 }
 
-function task(id: string | TaskId, title: string, parentId?: TaskId): WorkTask {
+function task(
+  id: string | TaskId,
+  title: string,
+  parentId?: TaskId,
+  metadata?: JsonObject,
+): WorkTask {
   const taskId = typeof id === "string" ? asTaskId(id) : id;
   return {
     id: taskId,
@@ -617,6 +784,7 @@ function task(id: string | TaskId, title: string, parentId?: TaskId): WorkTask {
     acceptanceCriteria: [`${title} accepted`],
     status: "todo",
     revision: "1",
+    ...(metadata === undefined ? {} : { metadata }),
     ...(parentId === undefined ? {} : { parentId }),
   };
 }
@@ -639,12 +807,13 @@ function turnEnded(sessionId: string, result: string | DecisionVerdict): AgentEv
   };
 }
 
-function doneResult(summary: string): string {
+function doneResult(summary: string, evidence: JsonObject = {}): string {
   return JSON.stringify({
     type: "done",
     evidence: {
       summary,
       touchedFiles: ["src/example.ts"],
+      ...evidence,
     },
   });
 }
