@@ -1,4 +1,4 @@
-import type { JsonObject, NodeId } from "../domain.js";
+import type { ExecutionEvidence, JsonObject, NodeId } from "../domain.js";
 
 export type AgentSessionId = string & { readonly __agentSessionId: unique symbol };
 export type TransportCorrelationId = string & {
@@ -129,6 +129,10 @@ export interface AgentPendingCorrelation {
   readonly acceptedCommands: readonly AgentCommand["type"][];
 }
 
+export interface AgentInterruptResult {
+  readonly workProduct?: ExecutionEvidence;
+}
+
 export class AgentCommandRejectedError extends Error {
   readonly correlationId: TransportCorrelationId;
   readonly commandType: AgentCommand["type"];
@@ -200,6 +204,9 @@ export interface AgentTransport {
 
   /** Send a correlated command that answers the current pending event. */
   sendCommand(sessionId: AgentSessionId, command: AgentCommand): Promise<void>;
+
+  /** Interrupt an in-flight worker outside a pending pause, such as checkpoint superseding. */
+  interruptSession(sessionId: AgentSessionId, reason: string): Promise<AgentInterruptResult>;
 
   /** Dispose a worker session after its node reaches a terminal loop state. */
   disposeSession(sessionId: AgentSessionId): Promise<void>;

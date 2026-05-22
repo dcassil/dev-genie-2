@@ -17,6 +17,7 @@ import type {
   AgentCommand,
   AgentEvent,
   AgentEventReadOptions,
+  AgentInterruptResult,
   AgentTerminalReason,
   AgentSession,
   AgentSessionId,
@@ -180,6 +181,32 @@ export class ClaudeSdkAgentTransport implements AgentTransport {
       return;
     }
     await this.resolveStalled(state, command);
+  }
+
+  async interruptSession(
+    sessionId: AgentSessionId,
+    reason: string,
+  ): Promise<AgentInterruptResult> {
+    const state = this.requireSession(sessionId);
+    state.pending = undefined;
+    this.clearStalledTimer(state);
+    state.interrupting = true;
+    const query = this.requireQuery(state);
+    await query.interrupt();
+    state.abortController.abort(reason);
+    this.clearInterruptTimer(state);
+    state.interruptTimer = setTimeout(() => {
+      if (state.terminal) return;
+      query.close();
+      this.enqueueExit(state, "interrupt_timeout", "Agent ignored interrupt before timeout");
+    }, this.interruptTimeoutMs);
+    unrefTimer(state.interruptTimer);
+    return {
+      workProduct: {
+        summary: `Interrupted worker session ${sessionId} before a terminal result.`,
+        artifacts: [`agent-session:${sessionId}`],
+      },
+    };
   }
 
   async disposeSession(sessionId: AgentSessionId): Promise<void> {

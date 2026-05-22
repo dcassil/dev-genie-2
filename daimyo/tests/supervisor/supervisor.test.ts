@@ -20,6 +20,7 @@ import {
   JsonlExecutionStore,
   Supervisor,
   TieredDecisionProvider,
+  workDefinitionFingerprint,
 } from "../../src/index.js";
 import {
   FakeAgentTransport,
@@ -443,6 +444,110 @@ describe("Supervisor", () => {
     );
     expect(snapshot.nodes[0]?.session).toBeUndefined();
   });
+
+  it("interrupts and supersedes an in-flight node when checkpoint reconciliation sees changed acceptance", async () => {
+    const oldTask = task("task-superseded", "Superseded leaf");
+    const changedTask: WorkTask = {
+      ...oldTask,
+      acceptanceCriteria: ["changed acceptance"],
+      revision: "2",
+    };
+    const inflightSessionId = asAgentSessionId("inflight-session");
+    const harness = await makeHarness({
+      tasks: [changedTask],
+      events: [turnEnded("fake-session-1", doneResult("replacement completed"))],
+      validation: validationScript(["pass"]),
+    });
+    await harness.store.upsertNode(oldTask.id, {
+      id: asNodeId("node:task-superseded"),
+      taskId: oldTask.id,
+      type: "leaf",
+      status: "running",
+      retryCount: 0,
+      session: {
+        sessionId: inflightSessionId,
+        resumeToken: "inflight-token",
+        tokenStatus: "resumable",
+      },
+      workSourceRevision: oldTask.revision,
+      workDefinitionFingerprint: workDefinitionFingerprint(oldTask),
+    });
+    harness.transport.setInterruptResult(inflightSessionId, {
+      workProduct: {
+        summary: "partial worker patch before interrupt",
+        artifacts: ["work-product:partial.patch"],
+      },
+    });
+
+    const result = await harness.supervisor.run(oldTask.id);
+    const snapshot = await harness.store.load(oldTask.id);
+    const superseded = requireValue(
+      snapshot.nodes.find((node) => node.id === asNodeId("node:task-superseded")),
+      "superseded node",
+    );
+    const replacement = requireValue(
+      snapshot.nodes.find((node) => node.id !== asNodeId("node:task-superseded")),
+      "replacement node",
+    );
+
+    expect(result.status).toBe("done");
+    expect(harness.transport.interrupts).toEqual([
+      {
+        sessionId: inflightSessionId,
+        reason: expect.stringContaining("definition-changed"),
+      },
+    ]);
+    expect(superseded.status).toBe("superseded");
+    expect(superseded.evidence).toContainEqual({
+      summary: "partial worker patch before interrupt",
+      artifacts: ["work-product:partial.patch"],
+    });
+    expect(replacement.status).toBe("done");
+    expect(replacement.workSourceRevision).toBe("2");
+  });
+
+  it("does not rollback prior work product when a completed stale node is re-run", async () => {
+    const oldTask = task("task-no-rollback", "No rollback leaf");
+    const changedTask: WorkTask = {
+      ...oldTask,
+      acceptanceCriteria: ["new acceptance"],
+      revision: "2",
+    };
+    const harness = await makeHarness({
+      tasks: [changedTask],
+      events: [turnEnded("fake-session-1", doneResult("rerun completed"))],
+      validation: validationScript(["pass"]),
+    });
+    await harness.store.upsertNode(oldTask.id, {
+      id: asNodeId("node:task-no-rollback"),
+      taskId: oldTask.id,
+      type: "leaf",
+      status: "done",
+      retryCount: 0,
+      workSourceRevision: oldTask.revision,
+      workDefinitionFingerprint: workDefinitionFingerprint(oldTask),
+    });
+    await harness.store.appendEvidence(oldTask.id, asNodeId("node:task-no-rollback"), {
+      summary: "already merged work product",
+      artifacts: ["merged:abc123"],
+    });
+
+    const result = await harness.supervisor.run(oldTask.id);
+    const snapshot = await harness.store.load(oldTask.id);
+    const nodeState = requireValue(snapshot.nodes[0], "node state");
+
+    expect(result.status).toBe("done");
+    expect(harness.workSource.patches).toHaveLength(0);
+    expect(harness.transport.spawnRequests).toHaveLength(1);
+    expect(harness.transport.spawnRequests[0]?.prompt).toContain("already merged work product");
+    expect(nodeState.evidence).toContainEqual({
+      summary: "already merged work product",
+      artifacts: ["merged:abc123"],
+    });
+    expect(nodeState.evidence).toContainEqual({
+      summary: expect.stringContaining("existing work product was not reverted"),
+    });
+  });
 });
 
 interface Harness {
@@ -669,4 +774,9 @@ async function makeWorkspace(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "daimyo-supervisor-"));
   tempDirs.push(dir);
   return dir;
+}
+
+function requireValue<T>(value: T | undefined, label: string): T {
+  if (value === undefined) throw new Error(`Missing ${label}`);
+  return value;
 }

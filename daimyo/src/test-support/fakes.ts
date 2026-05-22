@@ -12,6 +12,7 @@ import type {
   AgentCommandRejectedError,
   AgentEvent,
   AgentEventReadOptions,
+  AgentInterruptResult,
   AgentPendingCorrelation,
   AgentSession,
   AgentSessionId,
@@ -41,10 +42,12 @@ export class FakeAgentTransport implements AgentTransport {
   readonly spawnRequests: AgentSessionRequest[] = [];
   readonly commands: { readonly sessionId: AgentSessionId; readonly command: AgentCommand }[] =
     [];
+  readonly interrupts: { readonly sessionId: AgentSessionId; readonly reason: string }[] = [];
   readonly disposedSessionIds: AgentSessionId[] = [];
   private readonly events: AgentEvent[] = [];
   private readonly pending = new Map<string, AgentPendingCorrelation>();
   private readonly rejectedResumeSessionIds = new Set<string>();
+  private readonly interruptResults = new Map<string, AgentInterruptResult>();
 
   constructor(events: readonly AgentEvent[] = []) {
     this.events.push(...events);
@@ -94,6 +97,15 @@ export class FakeAgentTransport implements AgentTransport {
     this.commands.push({ sessionId, command });
   }
 
+  async interruptSession(
+    sessionId: AgentSessionId,
+    reason: string,
+  ): Promise<AgentInterruptResult> {
+    this.pending.delete(sessionId);
+    this.interrupts.push({ sessionId, reason });
+    return this.interruptResults.get(sessionId) ?? {};
+  }
+
   async disposeSession(sessionId: AgentSessionId): Promise<void> {
     this.pending.delete(sessionId);
     this.disposedSessionIds.push(sessionId);
@@ -105,6 +117,10 @@ export class FakeAgentTransport implements AgentTransport {
 
   rejectResumeFor(sessionId: AgentSessionId): void {
     this.rejectedResumeSessionIds.add(sessionId);
+  }
+
+  setInterruptResult(sessionId: AgentSessionId, result: AgentInterruptResult): void {
+    this.interruptResults.set(sessionId, result);
   }
 
   pendingCorrelations(): readonly AgentPendingCorrelation[] {

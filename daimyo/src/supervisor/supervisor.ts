@@ -13,7 +13,6 @@ import type {
 } from "../core/domain.js";
 import {
   asDecisionId,
-  asNodeId,
 } from "../core/domain.js";
 import type {
   ExecutionNodeInput,
@@ -21,6 +20,16 @@ import type {
   ExecutionStore,
 } from "../core/execution-store.js";
 import { workerRequiresRestart } from "../core/execution-store.js";
+import {
+  defaultNodeIdForTask,
+  reconcileCheckpoints,
+  workDefinitionFingerprint,
+  type ExecutionStoreReconciliationSnapshot,
+  type ReconciliationAction,
+  type ReconciliationNodeSnapshot,
+  type ReconciliationWorkTaskSnapshot,
+  type WorkSourceReconciliationSnapshot,
+} from "../core/reconciliation.js";
 import type {
   AgentCommand,
   AgentEvent,
@@ -121,6 +130,7 @@ export class Supervisor {
   }
 
   async run(taskId: TaskId, options: SupervisorRunOptions = {}): Promise<SupervisorRunResult> {
+    await this.reconcileAtCheckpoint();
     const task = await this.workSource.getTask(taskId);
     const budget: RunBudget = {
       processedEvents: 0,
@@ -141,6 +151,7 @@ export class Supervisor {
     budget: RunBudget,
     resumeInstruction: string | undefined,
   ): Promise<NodeExecutionResult> {
+    await this.reconcileAtCheckpoint();
     const childTasks = await this.childTasks(task.id);
     if (childTasks.length > 0) {
       return await this.executeInnerNode(task, childTasks, parent, budget);
@@ -167,6 +178,7 @@ export class Supervisor {
 
       if (childReturn.type === "done") {
         const handled = await this.verifyChildDone(task, node, childTask, childReturn, budget);
+        await this.reconcileAtCheckpoint();
         if (handled.returnValue.type !== "done") return handled;
         continue;
       }
@@ -175,6 +187,7 @@ export class Supervisor {
         const action = await this.routeNeedsDecision(task, node, childTask, childReturn);
         if (action.type === "await-human") {
           await this.markNode(task, node, "awaiting-human", node.retryCount, undefined);
+          await this.reconcileAtCheckpoint();
           return {
             returnValue: {
               type: "needs-decision",
@@ -192,18 +205,22 @@ export class Supervisor {
           await this.executionStore.appendEvidence(childTask.id, childReturn.nodeId, evidence);
           await this.markNode(childTask, await this.reloadNode(childTask.id, childReturn.nodeId), "done", 0, undefined);
           await this.workSource.markStatus(childTask.id, "done", evidence);
+          await this.reconcileAtCheckpoint();
           continue;
         }
 
         const patchedChildTask = await this.workSource.getTask(childTask.id);
         const resumed = await this.executeNode(patchedChildTask, node, budget, action.instruction);
+        await this.reconcileAtCheckpoint();
         if (resumed.returnValue.type !== "done") return resumed;
         const handled = await this.verifyChildDone(task, node, childTask, resumed.returnValue, budget);
+        await this.reconcileAtCheckpoint();
         if (handled.returnValue.type !== "done") return handled;
         continue;
       }
 
       const handled = await this.handleChildFailure(task, node, childTask, childReturn, budget);
+      await this.reconcileAtCheckpoint();
       if (handled.returnValue.type !== "done") return handled;
     }
 
@@ -663,26 +680,197 @@ export class Supervisor {
     }
   }
 
+  private async reconcileAtCheckpoint(): Promise<void> {
+    const summaries = await this.workSource.listTasks();
+    const executionTaskIds = await this.executionStore.listTaskIds();
+    const taskIds = uniqueTaskIds([
+      ...summaries.map((summary) => summary.id),
+      ...executionTaskIds,
+    ]);
+    const snapshots = await Promise.all(taskIds.map((taskId) => this.executionStore.load(taskId)));
+    const nodes = snapshots.flatMap((snapshot) => snapshot.nodes);
+    const executionSnapshot: ExecutionStoreReconciliationSnapshot = {
+      nodes: nodes.map((node) => reconciliationNodeSnapshot(node)),
+    };
+    const workSnapshot = await this.workSourceSnapshot(summaries, nodes);
+    const actions = reconcileCheckpoints(workSnapshot, executionSnapshot);
+    for (const action of actions) {
+      await this.applyReconciliationAction(action, nodes);
+    }
+  }
+
+  private async workSourceSnapshot(
+    summaries: readonly WorkTaskSummary[],
+    nodes: readonly ExecutionNodeState[],
+  ): Promise<WorkSourceReconciliationSnapshot> {
+    const parentTaskIds = new Set(
+      summaries
+        .map((summary) => summary.parentId)
+        .filter((parentId) => parentId !== undefined),
+    );
+    const tasks: ReconciliationWorkTaskSnapshot[] = [];
+
+    for (const summary of summaries) {
+      const node = nodes.find((candidate) =>
+        candidate.taskId === summary.id &&
+        candidate.status !== "cancelled" &&
+        candidate.status !== "superseded"
+      );
+      const needsDefinitionRead =
+        node === undefined ||
+        node.workSourceRevision !== summary.revision ||
+        node.workDefinitionFingerprint === undefined;
+      const definitionFingerprint = needsDefinitionRead
+        ? workDefinitionFingerprint(await this.workSource.getTask(summary.id))
+        : node.workDefinitionFingerprint;
+      tasks.push({
+        id: summary.id,
+        status: summary.status,
+        revision: summary.revision,
+        type: parentTaskIds.has(summary.id) ? "inner" : "leaf",
+        ...(summary.parentId === undefined ? {} : { parentTaskId: summary.parentId }),
+        definitionFingerprint,
+      });
+    }
+
+    return { tasks };
+  }
+
+  private async applyReconciliationAction(
+    action: ReconciliationAction,
+    nodes: readonly ExecutionNodeState[],
+  ): Promise<void> {
+    if (action.type === "schedule-node") {
+      await this.executionStore.upsertNode(action.taskId, {
+        id: action.nodeId,
+        taskId: action.taskId,
+        type: action.nodeType,
+        status: "pending",
+        retryCount: 0,
+        ...(action.parentNodeId === undefined ? {} : { parentId: action.parentNodeId }),
+        workSourceRevision: action.workSourceRevision,
+        ...(action.workDefinitionFingerprint === undefined
+          ? {}
+          : { workDefinitionFingerprint: action.workDefinitionFingerprint }),
+      });
+      return;
+    }
+
+    const node = requireReconciliationNode(nodes, action.nodeId);
+
+    if (action.type === "cancel-node") {
+      await this.executionStore.upsertNode(action.taskId, {
+        ...executionNodeInput(node),
+        status: "cancelled",
+      });
+      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
+        summary: `Checkpoint reconciliation cancelled node ${action.nodeId}: task disappeared from WorkSource.`,
+      });
+      return;
+    }
+
+    if (action.type === "drop-from-queue") {
+      await this.executionStore.upsertNode(action.taskId, {
+        ...executionNodeInput(node),
+        status: "done",
+        workSourceRevision: action.workSourceRevision,
+        ...(action.workDefinitionFingerprint === undefined
+          ? {}
+          : { workDefinitionFingerprint: action.workDefinitionFingerprint }),
+      });
+      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
+        summary: `Checkpoint reconciliation dropped node ${action.nodeId}: task was externally marked done.`,
+      });
+      return;
+    }
+
+    if (action.type === "mark-stale") {
+      await this.executionStore.upsertNode(action.taskId, {
+        ...executionNodeInput(node),
+        status: "pending",
+        retryCount: 0,
+        workSourceRevision: action.workSourceRevision,
+        workDefinitionFingerprint: action.workDefinitionFingerprint,
+      });
+      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
+        summary: `Checkpoint reconciliation marked node ${action.nodeId} stale after WorkSource definition changed; existing work product was not reverted.`,
+      });
+      return;
+    }
+
+    if (action.type === "refresh-observed-revision") {
+      await this.executionStore.upsertNode(action.taskId, {
+        ...executionNodeInput(node),
+        workSourceRevision: action.workSourceRevision,
+        ...(action.workDefinitionFingerprint === undefined
+          ? {}
+          : { workDefinitionFingerprint: action.workDefinitionFingerprint }),
+      });
+      return;
+    }
+
+    const interrupt = await this.agentTransport.interruptSession(
+      action.sessionId,
+      `Checkpoint reconciliation superseded node ${action.nodeId}: ${action.reason}.`,
+    );
+    if (interrupt.workProduct !== undefined) {
+      await this.executionStore.appendEvidence(action.taskId, action.nodeId, interrupt.workProduct);
+    }
+    await this.executionStore.upsertNode(action.taskId, {
+      ...executionNodeInput(node),
+      status: "superseded",
+    });
+    await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
+      summary: `Checkpoint reconciliation marked node ${action.nodeId} superseded after ${action.reason}.`,
+    });
+    await this.agentTransport.disposeSession(action.sessionId);
+
+    if (action.replacement !== undefined) {
+      await this.executionStore.upsertNode(action.taskId, {
+        id: action.replacement.nodeId,
+        taskId: action.taskId,
+        type: action.replacement.nodeType,
+        status: "pending",
+        retryCount: 0,
+        ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
+        workSourceRevision: action.replacement.workSourceRevision,
+        workDefinitionFingerprint: action.replacement.workDefinitionFingerprint,
+      });
+    }
+  }
+
   private async ensureNode(
     task: WorkTask,
     type: "leaf" | "inner",
     parent: ExecutionNodeState | undefined,
   ): Promise<ExecutionNodeState> {
-    const id = nodeIdForTask(task.id);
     const snapshot = await this.executionStore.load(task.id);
-    const existing = snapshot.nodes.find((candidate) => candidate.id === id);
-    if (existing !== undefined) return existing;
+    const existing = snapshot.nodes.find((candidate) =>
+      candidate.taskId === task.id && candidate.status !== "cancelled" && candidate.status !== "superseded"
+    );
+    if (existing !== undefined) {
+      if (existing.parentId === undefined && parent !== undefined) {
+        await this.executionStore.upsertNode(task.id, {
+          ...executionNodeInput(existing),
+          parentId: parent.id,
+        });
+        return await this.reloadNode(task.id, existing.id);
+      }
+      return existing;
+    }
 
     const input: ExecutionNodeInput = {
-      id,
+      id: nodeIdForTask(task.id),
       taskId: task.id,
       type,
       status: "pending",
       retryCount: 0,
       ...(parent === undefined ? {} : { parentId: parent.id }),
+      workSourceRevision: task.revision,
+      workDefinitionFingerprint: workDefinitionFingerprint(task),
     };
     await this.executionStore.upsertNode(task.id, input);
-    return await this.reloadNode(task.id, id);
+    return await this.reloadNode(task.id, input.id);
   }
 
   private async markNode(
@@ -700,6 +888,12 @@ export class Supervisor {
       retryCount,
       ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
       ...(session === undefined ? {} : { session }),
+      ...(node.workSourceRevision === undefined
+        ? {}
+        : { workSourceRevision: node.workSourceRevision }),
+      ...(node.workDefinitionFingerprint === undefined
+        ? {}
+        : { workDefinitionFingerprint: node.workDefinitionFingerprint }),
     });
   }
 
@@ -749,7 +943,58 @@ export class Supervisor {
 }
 
 function nodeIdForTask(taskId: TaskId): NodeId {
-  return asNodeId(`node:${taskId}`);
+  return defaultNodeIdForTask(taskId);
+}
+
+function uniqueTaskIds(taskIds: readonly TaskId[]): readonly TaskId[] {
+  return Array.from(new Set(taskIds)).sort((left, right) => left.localeCompare(right));
+}
+
+function reconciliationNodeSnapshot(node: ExecutionNodeState): ReconciliationNodeSnapshot {
+  const evidence = latestEvidence(node);
+  return {
+    id: node.id,
+    taskId: node.taskId,
+    type: node.type,
+    status: node.status,
+    retryCount: node.retryCount,
+    ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
+    ...(node.session === undefined ? {} : { sessionId: node.session.sessionId }),
+    ...(node.workSourceRevision === undefined
+      ? {}
+      : { workSourceRevision: node.workSourceRevision }),
+    ...(node.workDefinitionFingerprint === undefined
+      ? {}
+      : { workDefinitionFingerprint: node.workDefinitionFingerprint }),
+    ...(evidence === undefined ? {} : { latestEvidence: evidence }),
+  };
+}
+
+function executionNodeInput(node: ExecutionNodeState): ExecutionNodeInput {
+  return {
+    id: node.id,
+    taskId: node.taskId,
+    type: node.type,
+    status: node.status,
+    retryCount: node.retryCount,
+    ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
+    ...(node.session === undefined ? {} : { session: node.session }),
+    ...(node.workSourceRevision === undefined
+      ? {}
+      : { workSourceRevision: node.workSourceRevision }),
+    ...(node.workDefinitionFingerprint === undefined
+      ? {}
+      : { workDefinitionFingerprint: node.workDefinitionFingerprint }),
+  };
+}
+
+function requireReconciliationNode(
+  nodes: readonly ExecutionNodeState[],
+  nodeId: NodeId,
+): ExecutionNodeState {
+  const node = nodes.find((candidate) => candidate.id === nodeId);
+  if (node === undefined) throw new Error(`Reconciliation action referenced unknown node ${nodeId}`);
+  return node;
 }
 
 function nodeRef(node: ExecutionNodeState, status: NodeRef["status"]): NodeRef {

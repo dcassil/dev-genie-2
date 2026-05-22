@@ -28,6 +28,8 @@ export interface ExecutionNodeInput {
   readonly parentId?: NodeId;
   readonly retryCount: number;
   readonly session?: WorkerSessionState;
+  readonly workSourceRevision?: string;
+  readonly workDefinitionFingerprint?: string;
 }
 
 export interface ExecutionNodeState extends ExecutionNodeInput {
@@ -77,6 +79,7 @@ export interface ExecutionStore {
     reason: string,
     invalidatedAt: string,
   ): Promise<void>;
+  listTaskIds(): Promise<readonly TaskId[]>;
   load(taskId: TaskId): Promise<ExecutionSnapshot>;
 }
 

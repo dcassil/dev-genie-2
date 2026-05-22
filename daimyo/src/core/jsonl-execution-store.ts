@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, mkdir, open, readFile, truncate } from "node:fs/promises";
+import { access, mkdir, open, readFile, readdir, truncate } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   DecisionRecord,
@@ -132,6 +132,20 @@ export class JsonlExecutionStore implements ExecutionStore {
       reason,
       invalidatedAt,
     });
+  }
+
+  async listTaskIds(): Promise<readonly TaskId[]> {
+    let entries: readonly string[];
+    try {
+      entries = await readdir(this.executionDir);
+    } catch (error) {
+      if (isNodeError(error) && error.code === "ENOENT") return [];
+      throw error;
+    }
+    return entries
+      .filter((entry) => entry.endsWith(".jsonl"))
+      .map((entry) => asTaskId(decodeURIComponent(entry.slice(0, -".jsonl".length))))
+      .sort((left, right) => left.localeCompare(right));
   }
 
   async load(taskId: TaskId): Promise<ExecutionSnapshot> {
@@ -324,6 +338,8 @@ function decodeStoredEvent(line: string): StoredExecutionEvent {
 function readNodeInput(value: JsonObject): ExecutionNodeInput {
   const parentId = readOptionalString(value, "parentId");
   const session = readOptionalObject(value, "session");
+  const workSourceRevision = readOptionalString(value, "workSourceRevision");
+  const workDefinitionFingerprint = readOptionalString(value, "workDefinitionFingerprint");
   const node: ExecutionNodeInput = {
     id: asNodeId(readString(value, "id")),
     taskId: asTaskId(readString(value, "taskId")),
@@ -332,6 +348,8 @@ function readNodeInput(value: JsonObject): ExecutionNodeInput {
     retryCount: readNonNegativeInteger(value, "retryCount"),
     ...(parentId === undefined ? {} : { parentId: asNodeId(parentId) }),
     ...(session === undefined ? {} : { session: readSession(session) }),
+    ...(workSourceRevision === undefined ? {} : { workSourceRevision }),
+    ...(workDefinitionFingerprint === undefined ? {} : { workDefinitionFingerprint }),
   };
   return node;
 }
@@ -543,6 +561,7 @@ function readNodeStatus(source: JsonObject, key: string): NodeStatus {
     "needs-decision",
     "failed",
     "awaiting-human",
+    "cancelled",
     "superseded",
   ]);
 }

@@ -11,6 +11,7 @@ export type NodeStatus =
   | "needs-decision"
   | "failed"
   | "awaiting-human"
+  | "cancelled"
   | "superseded";
 
 export type Score0To10 = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
