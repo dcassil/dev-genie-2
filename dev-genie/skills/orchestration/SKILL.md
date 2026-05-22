@@ -53,6 +53,14 @@ The order matters: guardrails must run before audit so audit takes its baseline 
 - **Post-setup verification**: confirm `.katana/config.toml` and `.katana/vision.md` exist in the target repo, and that the katana MCP server is registered (e.g. visible in `claude mcp list`).
 - **Notes**: katana is standalone-first. The greenfield walk MUST ask the user whether to install katana (it is optional; not every project wants kanban-shaped doc decomposition). Default to "no" unless project-detection signals an agent-workflow project.
 
+### 4. daimyo
+
+- **Purpose**: out-of-process recursive govern-verify Loop supervisor. Installs the same `daimyo` artifact used standalone and by dev-genie; dev-genie may inject richer WorkSource, DecisionProvider, Validation, and notifier adapters only through Daimyo ports.
+- **Install check**: a daimyo plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../daimyo/` exists, OR a `daimyo/` directory exists at the workspace root, OR `daimyo --help` runs, OR the Daimyo MCP server is visible in `claude mcp list`. If none of these is true, instruct the user to install the `daimyo` plugin and pause.
+- **Setup command**: no project mutation is required for standalone install. For a standalone markdown plan, run `daimyo run --plan <plan.md>` after confirming the selected plan and model API key environment. For dev-genie integration, instantiate Daimyo through its composition root and inject dev-genie adapters through the port options.
+- **Post-setup verification**: confirm `daimyo --help` works or the Daimyo MCP server is registered, then confirm a Supervisor can be constructed from `createStandaloneDaimyo(...)` with either the default adapters or injected dev-genie adapters.
+- **Notes**: daimyo depends on sibling capabilities only through port adapters. Do not import katana, guardrails, or audit from Daimyo core. If katana was installed, dev-genie can supply a katana WorkSource adapter at the composition root; Daimyo itself remains standalone with markdown/JSON WorkSource adapters.
+
 ## Adding a new sub-plugin
 
 To extend dev-genie with a new sub-plugin (e.g. `security-review`, `test-coverage`, `doc-coverage`):
@@ -74,6 +82,8 @@ After walking the registry (or finishing the reconciliation path), verify the pr
 - [ ] Q3 (edit-time ESLint `PostToolUse` hook) was offered. If accepted, `.claude/settings.json` contains a `PostToolUse` entry whose `command` is `guardrails/scripts/lint-edited-file.sh`, and `guardrails/scripts/lint-edited-file.sh` exists in the repo. If declined or skipped, recommend `/guardrails-add-edit-hook` as the top-up.
 - [ ] If katana was offered and accepted: `.katana/config.toml` and `.katana/vision.md` exist, and `claude mcp list` shows the katana MCP server.
 - [ ] If katana was declined: the orchestration log records the decline and recommends `/katana-init` as a follow-up command.
+- [ ] If daimyo was offered and accepted: `daimyo --help` works or `claude mcp list` shows the Daimyo MCP server, and dev-genie records whether it will use standalone markdown/JSON WorkSource or injected adapters.
+- [ ] If daimyo was declined: the orchestration log records the decline and recommends installing `daimyo` before long-running autonomous Loop execution.
 
 Additional checks for the **reconciliation path**:
 

@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const portsDir = fileURLToPath(new URL("../../src/core/ports", import.meta.url));
+const coreDir = dirname(portsDir);
+const siblingImportPattern =
+  /from ["'][^"']*(?:katana|guardrails|audit)[^"']*["']|require\(["'][^"']*(?:katana|guardrails|audit)[^"']*["']\)/;
 
 describe("core port boundaries", () => {
   it("keeps DecisionProvider -> AgentTransport as the only named cross-port edge", async () => {
@@ -29,7 +32,6 @@ describe("core port boundaries", () => {
   });
 
   it("keeps core imports inside src/core", async () => {
-    const coreDir = dirname(portsDir);
     const entries = await readdir(coreDir);
     const coreFiles = entries.filter((entry) => entry.endsWith(".ts"));
     const externalCoreImports: string[] = [];
@@ -46,5 +48,20 @@ describe("core port boundaries", () => {
     }
 
     expect(externalCoreImports).toEqual([]);
+  });
+
+  it("keeps daimyo core free of hard sibling plugin imports", async () => {
+    const entries = await readdir(coreDir);
+    const coreFiles = entries.filter((entry) => entry.endsWith(".ts"));
+    const siblingImports: string[] = [];
+
+    for (const file of coreFiles) {
+      const content = await readFile(join(coreDir, file), "utf8");
+      if (siblingImportPattern.test(content)) {
+        siblingImports.push(file);
+      }
+    }
+
+    expect(siblingImports).toEqual([]);
   });
 });

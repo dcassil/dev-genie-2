@@ -39,14 +39,11 @@ import {
   DEFAULT_TIER1_DECISION_PROMPT,
   type Tier1DecisionPrompt,
 } from "./tier1-prompt.js";
+import { ConsoleHumanDecisionNotifier, type HumanDecisionNotifier } from "../notification/notifier.js";
 
 export interface StaticDecisionRules {
   readonly allowTools?: readonly string[];
   readonly denyTools?: readonly string[];
-}
-
-export interface HumanDecisionNotifier {
-  notify(record: DecisionRecord): Promise<void>;
 }
 
 export interface DecisionModelClient {
@@ -97,14 +94,6 @@ const DEFAULT_STATIC_RULES: StaticDecisionRules = {
   allowTools: ["Read", "Grep", "Glob", "LS", "TodoRead"],
   denyTools: [],
 };
-
-export class ConsoleHumanDecisionNotifier implements HumanDecisionNotifier {
-  async notify(record: DecisionRecord): Promise<void> {
-    console.error(
-      `Daimyo awaiting human decision ${record.id} for node ${record.request.nodeId}: ${record.rationale}`,
-    );
-  }
-}
 
 export class AgentTransportTier2InvestigationHook implements Tier2InvestigationHook {
   private readonly agentTransport: AgentTransport;
