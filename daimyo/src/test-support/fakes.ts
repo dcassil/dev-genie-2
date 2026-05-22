@@ -2,6 +2,8 @@ import type {
   DecisionRecord,
   DecisionRequest,
   ExecutionEvidence,
+  PermissionDecisionRequest,
+  RoutingDecisionRequest,
   TaskId,
 } from "../core/domain.js";
 import { asDecisionId } from "../core/domain.js";
@@ -207,7 +209,15 @@ export class FakeDecisionProvider implements DecisionProvider {
     this.records = [...records];
   }
 
-  async decide(request: DecisionRequest): Promise<DecisionRecord> {
+  async decidePermission(request: PermissionDecisionRequest): Promise<DecisionRecord> {
+    return this.decide(request);
+  }
+
+  async decideRouting(request: RoutingDecisionRequest): Promise<DecisionRecord> {
+    return this.decide(request);
+  }
+
+  private decide(request: DecisionRequest): DecisionRecord {
     this.requests.push(request);
     const record = this.records.shift();
     if (record !== undefined) return record;

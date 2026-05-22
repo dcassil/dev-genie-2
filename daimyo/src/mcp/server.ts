@@ -11,7 +11,7 @@ import {
 
 export async function startServer(): Promise<void> {
   const server = new Server(
-    { name: "daimyo", version: "0.5.0" },
+    { name: "daimyo", version: "0.6.0" },
     { capabilities: { tools: {} } },
   );
 

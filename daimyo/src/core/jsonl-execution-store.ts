@@ -377,14 +377,28 @@ function readDecisionRecord(value: JsonObject): DecisionRecord {
 function readDecisionRequest(value: JsonObject): DecisionRecord["request"] {
   const options = readOptionalStringArray(value, "options");
   const context = readOptionalObject(value, "context");
-  return {
+  const base = {
     id: asDecisionId(readString(value, "id")),
     nodeId: asNodeId(readString(value, "nodeId")),
     taskId: asTaskId(readString(value, "taskId")),
-    surface: readStringUnion(value, "surface", ["permission", "routing"]),
     prompt: readString(value, "prompt"),
-    ...(options === undefined ? {} : { options }),
     ...(context === undefined ? {} : { context }),
+  };
+  const surface = readStringUnion(value, "surface", ["permission", "routing"]);
+
+  if (surface === "permission") {
+    return {
+      ...base,
+      surface,
+      toolName: readString(value, "toolName"),
+      arguments: readObject(value, "arguments"),
+    };
+  }
+
+  return {
+    ...base,
+    surface,
+    ...(options === undefined ? {} : { options }),
   };
 }
 

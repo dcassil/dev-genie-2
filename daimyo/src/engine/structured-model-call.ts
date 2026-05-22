@@ -3,8 +3,9 @@ import type { JsonObject, JsonValue } from "../core/domain.js";
 export type JsonSchema = JsonObject;
 
 export interface StructuredModelInput {
-  readonly context: string;
-  readonly request: string;
+  readonly context: JsonValue;
+  readonly rules?: JsonValue;
+  readonly request: JsonValue;
 }
 
 export interface StructuredModelSchema<T> {

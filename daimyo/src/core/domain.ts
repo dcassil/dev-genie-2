@@ -53,15 +53,26 @@ export interface ValidationReport {
   readonly createdAt: string;
 }
 
-export interface DecisionRequest {
+export interface BaseDecisionRequest {
   readonly id: DecisionId;
   readonly nodeId: NodeId;
   readonly taskId: TaskId;
-  readonly surface: "permission" | "routing";
   readonly prompt: string;
-  readonly options?: readonly string[];
   readonly context?: JsonObject;
 }
+
+export interface PermissionDecisionRequest extends BaseDecisionRequest {
+  readonly surface: "permission";
+  readonly toolName: string;
+  readonly arguments: JsonObject;
+}
+
+export interface RoutingDecisionRequest extends BaseDecisionRequest {
+  readonly surface: "routing";
+  readonly options?: readonly string[];
+}
+
+export type DecisionRequest = PermissionDecisionRequest | RoutingDecisionRequest;
 
 export interface ChildDone {
   readonly type: "done";

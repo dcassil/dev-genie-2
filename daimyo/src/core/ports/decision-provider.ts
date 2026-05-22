@@ -1,4 +1,8 @@
-import type { DecisionRecord, DecisionRequest } from "../domain.js";
+import type {
+  DecisionRecord,
+  PermissionDecisionRequest,
+  RoutingDecisionRequest,
+} from "../domain.js";
 import type { AgentTransport } from "./agent-transport.js";
 
 export interface DecisionProviderDependencies {
@@ -19,9 +23,15 @@ export interface DecisionProviderDependencies {
  * is an adapter responsibility, not a core concern.
  */
 export interface DecisionProvider {
-  /** Resolve a typed decision request into a record the Supervisor can persist. */
-  decide(
-    request: DecisionRequest,
+  /** Resolve an SDK PreToolUse/canUseTool-style permission gate. */
+  decidePermission(
+    request: PermissionDecisionRequest,
+    dependencies?: DecisionProviderDependencies,
+  ): Promise<DecisionRecord>;
+
+  /** Resolve an ADR-3 needs-decision routing bubble. */
+  decideRouting(
+    request: RoutingDecisionRequest,
     dependencies?: DecisionProviderDependencies,
   ): Promise<DecisionRecord>;
 }
