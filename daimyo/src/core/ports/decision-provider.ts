@@ -9,10 +9,11 @@ export interface DecisionProviderDependencies {
   /**
    * The only allowed cross-port edge in the Daimyo core.
    *
-   * DGOS-A-0005 permits DecisionProvider -> AgentTransport solely for future
+   * DGOS-A-0005 permits DecisionProvider -> AgentTransport solely for
    * Tier-2 read-only investigation. No other port may depend on another port.
    */
   readonly agentTransport?: AgentTransport;
+  readonly cwd?: string;
 }
 
 /**

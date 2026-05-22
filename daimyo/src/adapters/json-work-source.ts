@@ -5,6 +5,7 @@ import { asTaskId } from "../core/domain.js";
 import type { ExecutionEvidence, JsonObject, TaskId } from "../core/domain.js";
 import type {
   CreateTaskInput,
+  PatchTaskInput,
   WorkSource,
   WorkStatus,
   WorkStatusMapping,
@@ -91,6 +92,31 @@ export class JsonWorkSource implements WorkSource {
       tasks: store.tasks.map((candidate) => (candidate.id === task.id ? updatedTask : candidate)),
     };
     await this.writeStore(updatedStore);
+    return toWorkTask(updatedTask);
+  }
+
+  async patchTask(
+    id: TaskId,
+    patch: PatchTaskInput,
+    evidence: ExecutionEvidence,
+  ): Promise<WorkTask> {
+    const store = await this.readStore();
+    const task = findTask(store, id);
+    const updatedTask = withRevision({
+      ...task,
+      body: patch.body ?? task.body,
+      acceptanceCriteria: patch.acceptanceCriteria ?? task.acceptanceCriteria,
+      evidence: [...task.evidence, evidence],
+      ...(patch.metadata === undefined
+        ? task.metadata === undefined
+          ? {}
+          : { metadata: task.metadata }
+        : { metadata: patch.metadata }),
+    });
+    await this.writeStore({
+      version: 1,
+      tasks: store.tasks.map((candidate) => (candidate.id === task.id ? updatedTask : candidate)),
+    });
     return toWorkTask(updatedTask);
   }
 

@@ -33,6 +33,15 @@ import { AgentSessionResumeRejectedError } from "../core/ports/agent-transport.j
 import type { Validation } from "../core/ports/capabilities.js";
 import type { DecisionProvider } from "../core/ports/decision-provider.js";
 import type { WorkSource, WorkTask, WorkTaskSummary } from "../core/ports/work-source.js";
+import {
+  DEFAULT_AUTONOMY_PROFILE,
+  type AutonomyProfile,
+} from "../decision/autonomy.js";
+import {
+  selectDecisionAction,
+  verdictInstruction,
+  type DecisionActionSelection,
+} from "./decision-actions.js";
 
 export interface SupervisorOptions {
   readonly agentTransport: AgentTransport;
@@ -43,6 +52,7 @@ export interface SupervisorOptions {
   readonly cwd: string;
   readonly maxRetries?: number;
   readonly stallAfterMs?: number;
+  readonly autonomyProfile?: AutonomyProfile;
   readonly now?: () => string;
 }
 
@@ -65,11 +75,12 @@ export interface SupervisorRunResult {
 }
 
 export interface RoutedDecisionAction {
-  readonly type: "minimal-resume" | "await-human";
+  readonly type: "patch-and-resume" | "create-follow-up" | "await-human";
   readonly record: DecisionRecord;
   readonly affectedNodeId: NodeId;
   readonly affectedTaskId: TaskId;
-  readonly instruction: string;
+  readonly instruction?: string;
+  readonly followUpTaskId?: TaskId;
 }
 
 interface RunBudget {
@@ -93,6 +104,7 @@ export class Supervisor {
   private readonly cwd: string;
   private readonly maxRetries: number;
   private readonly stallAfterMs: number | undefined;
+  private readonly autonomyProfile: AutonomyProfile;
   private readonly now: () => string;
 
   constructor(options: SupervisorOptions) {
@@ -104,6 +116,7 @@ export class Supervisor {
     this.cwd = options.cwd;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.stallAfterMs = options.stallAfterMs;
+    this.autonomyProfile = options.autonomyProfile ?? DEFAULT_AUTONOMY_PROFILE;
     this.now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -172,7 +185,18 @@ export class Supervisor {
           };
         }
 
-        const resumed = await this.executeNode(childTask, node, budget, action.instruction);
+        if (action.type === "create-follow-up") {
+          const evidence: ExecutionEvidence = {
+            summary: `Large decision ${action.record.id} was extracted to follow-up task ${action.followUpTaskId}.`,
+          };
+          await this.executionStore.appendEvidence(childTask.id, childReturn.nodeId, evidence);
+          await this.markNode(childTask, await this.reloadNode(childTask.id, childReturn.nodeId), "done", 0, undefined);
+          await this.workSource.markStatus(childTask.id, "done", evidence);
+          continue;
+        }
+
+        const patchedChildTask = await this.workSource.getTask(childTask.id);
+        const resumed = await this.executeNode(patchedChildTask, node, budget, action.instruction);
         if (resumed.returnValue.type !== "done") return resumed;
         const handled = await this.verifyChildDone(task, node, childTask, resumed.returnValue, budget);
         if (handled.returnValue.type !== "done") return handled;
@@ -431,7 +455,10 @@ export class Supervisor {
         childError: failed.error,
       },
     };
-    const record = await this.decisionProvider.decideRouting(request);
+    const record = await this.decisionProvider.decideRouting(request, {
+      agentTransport: this.agentTransport,
+      cwd: this.cwd,
+    });
     await this.persistDecisionRecord(record);
     await this.markNode(parentTask, parentNode, "needs-decision", parentNode.retryCount, undefined);
     return {
@@ -466,30 +493,65 @@ export class Supervisor {
         ...(childReturn.request.context === undefined ? {} : childReturn.request.context),
       },
     };
-    const record = await this.decisionProvider.decideRouting(request);
+    const record = await this.decisionProvider.decideRouting(request, {
+      agentTransport: this.agentTransport,
+      cwd: this.cwd,
+    });
     await this.persistDecisionRecord(record);
+    return await this.applyDecisionAction(record, childTask, childReturn.nodeId);
+  }
 
-    if (record.verdict.type === "human" || record.verdict.block_trigger) {
+  private async applyDecisionAction(
+    record: DecisionRecord,
+    childTask: WorkTask,
+    affectedNodeId: NodeId,
+  ): Promise<RoutedDecisionAction> {
+    const selection = selectDecisionAction(record, this.autonomyProfile);
+    await this.recordActionDecision(record, selection, affectedNodeId);
+
+    if (selection.type === "await-human") {
       return {
         type: "await-human",
         record,
-        affectedNodeId: childReturn.nodeId,
+        affectedNodeId,
         affectedTaskId: childTask.id,
-        instruction: "Await human decision.",
+        instruction: selection.reason,
       };
     }
 
-    const instruction =
-      record.verdict.suggested_response ??
-      record.verdict.suggested_choice ??
-      "Decision resolved; continue with the selected approach.";
-    await this.executionStore.appendEvidence(childTask.id, childReturn.nodeId, {
-      summary: `Parent routed decision ${record.id}: ${instruction}`,
-    });
+    if (selection.type === "create-follow-up") {
+      const followUpTaskId = await this.workSource.createTask(selection.task, childTask.parentId);
+      await this.executionStore.appendEvidence(childTask.id, affectedNodeId, {
+        summary: `Created follow-up task ${followUpTaskId} for large decision ${record.id}.`,
+      });
+      return {
+        type: "create-follow-up",
+        record,
+        affectedNodeId,
+        affectedTaskId: childTask.id,
+        followUpTaskId,
+      };
+    }
+
+    const instruction = selection.instruction;
+    const patchEvidence: ExecutionEvidence = {
+      summary: `Applied decision patch ${record.id}: ${instruction}`,
+    };
+    await this.executionStore.appendEvidence(childTask.id, affectedNodeId, patchEvidence);
+    await this.workSource.patchTask(
+      childTask.id,
+      {
+        body: patchedTaskBody(childTask, record, instruction),
+        metadata: patchedTaskMetadata(childTask, record),
+      },
+      patchEvidence,
+    );
+    await this.workSource.markStatus(childTask.id, "active", patchEvidence);
+    await this.markNode(childTask, await this.reloadNode(childTask.id, affectedNodeId), "pending", 0, undefined);
     return {
-      type: "minimal-resume",
+      type: "patch-and-resume",
       record,
-      affectedNodeId: childReturn.nodeId,
+      affectedNodeId,
       affectedTaskId: childTask.id,
       instruction,
     };
@@ -510,7 +572,10 @@ export class Supervisor {
       prompt: event.prompt ?? `May worker ${node.id} use ${event.toolName}?`,
       ...(event.origin === undefined ? {} : { context: event.origin }),
     };
-    const record = await this.decisionProvider.decidePermission(request);
+    const record = await this.decisionProvider.decidePermission(request, {
+      agentTransport: this.agentTransport,
+      cwd: this.cwd,
+    });
     await this.persistDecisionRecord(record);
     await this.agentTransport.sendCommand(
       event.sessionId,
@@ -531,7 +596,10 @@ export class Supervisor {
       prompt: event.prompt,
       ...(event.options === undefined ? {} : { options: event.options }),
     };
-    const record = await this.decisionProvider.decideRouting(request);
+    const record = await this.decisionProvider.decideRouting(request, {
+      agentTransport: this.agentTransport,
+      cwd: this.cwd,
+    });
     await this.persistDecisionRecord(record);
     await this.agentTransport.sendCommand(event.sessionId, inputCommand(event.correlationId, event.options, record));
   }
@@ -662,6 +730,22 @@ export class Supervisor {
   private async persistDecisionRecord(record: DecisionRecord): Promise<void> {
     await this.executionStore.recordDecision(record.request.taskId, record.request.nodeId, record);
   }
+
+  private async recordActionDecision(
+    source: DecisionRecord,
+    selection: DecisionActionSelection,
+    affectedNodeId: NodeId,
+  ): Promise<void> {
+    const record: DecisionRecord = {
+      id: asDecisionId(`${source.id}:action:${selection.type}`),
+      request: source.request,
+      verdict: source.verdict,
+      tier: source.tier,
+      rationale: `Decision action ${selection.type} selected for ${affectedNodeId} (${selection.size} decision).`,
+      createdAt: this.now(),
+    };
+    await this.executionStore.recordDecision(source.request.taskId, source.request.nodeId, record);
+  }
 }
 
 function nodeIdForTask(taskId: TaskId): NodeId {
@@ -680,6 +764,27 @@ function nodeRef(node: ExecutionNodeState, status: NodeRef["status"]): NodeRef {
 
 function latestEvidence(node: ExecutionNodeState): ExecutionEvidence | undefined {
   return node.evidence[node.evidence.length - 1];
+}
+
+function patchedTaskBody(task: WorkTask, record: DecisionRecord, instruction: string): string {
+  return [
+    task.body,
+    "",
+    "## Daimyo Decision Patch",
+    "",
+    `Decision ${record.id}: ${instruction}`,
+  ].join("\n");
+}
+
+function patchedTaskMetadata(task: WorkTask, record: DecisionRecord): JsonObject {
+  return {
+    ...(task.metadata ?? {}),
+    daimyo_last_decision_patch: {
+      decision_id: record.id,
+      action: "patch-and-resume",
+      instruction: verdictInstruction(record.verdict),
+    },
+  };
 }
 
 function childFailed(

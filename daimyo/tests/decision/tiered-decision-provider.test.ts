@@ -4,8 +4,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   asDecisionId,
+  asAgentSessionId,
   asNodeId,
   asTaskId,
+  asTransportCorrelationId,
+  AgentCommandRejectedError,
+  AgentTransportTier2InvestigationHook,
   decisionVerdictToRoleResult,
   evaluateAutonomyThreshold,
   JsonlExecutionStore,
@@ -24,6 +28,7 @@ import {
   type StructuredModelRequest,
   type Tier2InvestigationHook,
 } from "../../src/index.js";
+import { FakeAgentTransport } from "../../src/test-support/index.js";
 
 const tempDirs: string[] = [];
 
@@ -147,10 +152,10 @@ describe("TieredDecisionProvider", () => {
     expect(snapshot.decisions).toEqual([record]);
   });
 
-  it("parks the node awaiting human, notifies, and flags the Tier 2 hook on low confidence", async () => {
+  it("parks the node awaiting human, notifies, and records Tier 2 when investigation still exceeds policy", async () => {
     const harness = await makeHarness();
     const notifier = new FakeNotifier();
-    const hook = new FakeTier2Hook();
+    const hook = new FakeTier2Hook(decisionVerdict("decision", "option-a", 4, 6));
     const model = new FakeDecisionModelClient(decisionVerdict("decision", "option-a", 4, 6));
     const provider = new TieredDecisionProvider({
       executionStore: harness.store,
@@ -173,10 +178,110 @@ describe("TieredDecisionProvider", () => {
     expect(record.tier).toBe(3);
     expect(record.verdict.type).toBe("human");
     expect(snapshot.nodes[0]?.status).toBe("awaiting-human");
-    expect(snapshot.decisions).toEqual([record]);
+    expect(snapshot.decisions.map((decision) => decision.tier)).toEqual([2, 3]);
     expect(notifier.records).toEqual([record]);
     expect(hook.requests).toHaveLength(1);
     expect(hook.requests[0]?.thresholdReason).toMatch(/confidence/);
+  });
+
+  it("uses Tier 2 read-only investigation to improve a low-confidence Tier 1 verdict", async () => {
+    const harness = await makeHarness();
+    const model = new FakeDecisionModelClient(decisionVerdict("decision", "option-a", 4, 6));
+    const transport = new FakeAgentTransport([
+      turnEnded("fake-session-1", decisionVerdict("decision", "option-b", 8, 3)),
+    ]);
+    const provider = new TieredDecisionProvider({
+      executionStore: harness.store,
+      modelClient: model,
+      clock: fixedClock,
+    });
+
+    await harness.upsertNode("tier2-improved");
+    const record = await provider.decideRouting(
+      routingRequest("tier2-improved", {
+        options: ["option-a", "option-b"],
+        context: { domain: "engineering", scope: "moderate" },
+      }),
+      {
+        agentTransport: transport,
+        cwd: "/tmp/daimyo-tier2-test",
+      },
+    );
+
+    const snapshot = await harness.store.load(asTaskId("task-tier2-improved"));
+
+    expect(record.tier).toBe(2);
+    expect(record.verdict.suggested_choice).toBe("option-b");
+    expect(snapshot.decisions).toEqual([record]);
+    expect(transport.spawnRequests[0]).toMatchObject({
+      cwd: "/tmp/daimyo-tier2-test",
+      metadata: {
+        tier: 2,
+        mode: "read-only",
+        cross_port_edge: "DecisionProvider->AgentTransport Tier-2 investigation",
+      },
+    });
+  });
+
+  it("denies edit and mutating bash permissions for the Tier 2 read-only worker", async () => {
+    const editCorrelation = asTransportCorrelationId("edit-denied");
+    const bashCorrelation = asTransportCorrelationId("bash-denied");
+    const transport = new FakeAgentTransport([
+      {
+        type: "needs_permission",
+        sessionId: asAgentSessionId("fake-session-1"),
+        correlationId: editCorrelation,
+        toolName: "Edit",
+        arguments: { file_path: "src/example.ts" },
+      },
+      {
+        type: "needs_permission",
+        sessionId: asAgentSessionId("fake-session-1"),
+        correlationId: bashCorrelation,
+        toolName: "Bash",
+        arguments: { command: "sed -i '' s/a/b/ src/example.ts" },
+      },
+      turnEnded("fake-session-1", decisionVerdict("decision", "safe", 8, 3)),
+    ]);
+    const hook = new AgentTransportTier2InvestigationHook({
+      agentTransport: transport,
+      cwd: "/tmp/daimyo-tier2-test",
+    });
+
+    const verdict = await hook.investigate({
+      request: routingRequest("tier2-readonly", {
+        context: { domain: "engineering", scope: "moderate" },
+      }),
+      tier1Verdict: decisionVerdict("decision", "unsafe", 4, 6),
+      thresholdReason: "Tier 1 returned low confidence",
+    });
+
+    expect(verdict.suggested_choice).toBe("safe");
+    expect(transport.commands).toEqual([
+      {
+        sessionId: asAgentSessionId("fake-session-1"),
+        command: {
+          type: "deny",
+          correlationId: editCorrelation,
+          reason: "Tier 2 read-only investigation denied Edit.",
+        },
+      },
+      {
+        sessionId: asAgentSessionId("fake-session-1"),
+        command: {
+          type: "deny",
+          correlationId: bashCorrelation,
+          reason: "Tier 2 read-only investigation denied mutating bash.",
+        },
+      },
+    ]);
+    await expect(
+      transport.sendCommand(asAgentSessionId("fake-session-1"), {
+        type: "approve",
+        correlationId: editCorrelation,
+        reason: "attempt after denial",
+      }),
+    ).rejects.toBeInstanceOf(AgentCommandRejectedError);
   });
 
   it("degrades cleanly to Tier 0 plus Tier 3 when the Tier 1 prompt is absent", async () => {
@@ -325,8 +430,11 @@ class FakeTier2Hook implements Tier2InvestigationHook {
     readonly thresholdReason: string;
   }[] = [];
 
-  async investigationRequired(request: Parameters<Tier2InvestigationHook["investigationRequired"]>[0]): Promise<void> {
+  constructor(private readonly verdict: DecisionVerdict) {}
+
+  async investigate(request: Parameters<Tier2InvestigationHook["investigate"]>[0]): Promise<DecisionVerdict> {
     this.requests.push({ thresholdReason: request.thresholdReason });
+    return this.verdict;
   }
 }
 
@@ -419,6 +527,15 @@ function verdictAsJson(verdict: DecisionVerdict): JsonObject {
     confidence: verdict.confidence,
     risk: verdict.risk,
     block_trigger: verdict.block_trigger,
+  };
+}
+
+function turnEnded(sessionId: string, verdict: DecisionVerdict) {
+  return {
+    type: "turn_ended" as const,
+    sessionId: asAgentSessionId(sessionId),
+    result: JSON.stringify(verdictAsJson(verdict)),
+    stopReason: null,
   };
 }
 

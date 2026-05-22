@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import type {
   DecisionRecord,
   DecisionVerdict,
+  JsonObject,
   TaskId,
+  StructuredModelRequest,
   ValidationRequest,
   ValidationResult,
 } from "../../src/index.js";
@@ -17,6 +19,7 @@ import {
   asTransportCorrelationId,
   JsonlExecutionStore,
   Supervisor,
+  TieredDecisionProvider,
 } from "../../src/index.js";
 import {
   FakeAgentTransport,
@@ -91,7 +94,7 @@ describe("Supervisor", () => {
     ]);
   });
 
-  it("bubbles leaf needs-decision to the owning inner node and minimally resumes the leaf", async () => {
+  it("patches and resumes a leaf after needs-decision is resolved", async () => {
     const root = task("task-root", "Root inner");
     const child = task("task-child", "Child leaf", root.id);
     const harness = await makeHarness({
@@ -119,12 +122,159 @@ describe("Supervisor", () => {
       prompt: "Choose API shape",
     });
     expect(harness.transport.spawnRequests[1]?.prompt).toContain("Use option a.");
-    expect(rootSnapshot.decisions).toHaveLength(1);
+    expect(harness.workSource.patches).toHaveLength(1);
+    expect(harness.workSource.patches[0]).toMatchObject({
+      id: child.id,
+      patch: {
+        body: expect.stringContaining("Daimyo Decision Patch"),
+      },
+    });
+    expect(harness.workSource.statusMarks).toContainEqual({
+      id: child.id,
+      status: "active",
+      evidence: {
+        summary: expect.stringContaining("Applied decision patch"),
+      },
+    });
+    expect(rootSnapshot.decisions.map((decision) => decision.rationale)).toEqual([
+      "queued fake decision",
+      expect.stringContaining("Decision action patch-and-resume selected"),
+    ]);
     expect(childSnapshot.nodes[0]?.evidence).toContainEqual({
-      summary: expect.stringContaining("Parent routed decision"),
+      summary: expect.stringContaining("Applied decision patch"),
     });
     await expect(harness.workSource.getTask(root.id)).resolves.toMatchObject({ status: "done" });
     await expect(harness.workSource.getTask(child.id)).resolves.toMatchObject({ status: "done" });
+  });
+
+  it("creates a follow-up for a large below-threshold decision and schedules it on the next checkpoint", async () => {
+    const root = task("task-large-root", "Large root");
+    const child = task("task-large-child", "Large child", root.id);
+    const harness = await makeHarness({
+      tasks: [root, child],
+      events: [
+        turnEnded(
+          "fake-session-1",
+          needsDecisionResult("Extract follow-up", ["create"], {
+            domain: "engineering",
+            scope: "local",
+            decision_size: "large",
+          }),
+        ),
+      ],
+      validation: validationScript(["pass", "pass"]),
+      decisionProvider: new FakeDecisionProvider([
+        decisionTemplate(decisionVerdict("decision", "create", "Create the follow-up task.")),
+      ]),
+    });
+
+    const firstRun = await harness.supervisor.run(root.id);
+    const createdTaskId = harness.workSource.createdTasks[0]?.id;
+    if (createdTaskId === undefined) throw new Error("Expected fake follow-up task to be created");
+    harness.transport.pushEvent(turnEnded("fake-session-2", doneResult("follow-up complete")));
+    const secondRun = await harness.supervisor.run(root.id);
+
+    expect(firstRun.status).toBe("done");
+    expect(harness.workSource.createdTasks).toHaveLength(1);
+    expect(harness.workSource.createdTasks[0]).toMatchObject({
+      parentId: root.id,
+      input: {
+        title: expect.stringContaining("Follow up: Extract follow-up"),
+      },
+    });
+    await expect(harness.workSource.getTask(createdTaskId)).resolves.toMatchObject({
+      status: "done",
+      parentId: root.id,
+    });
+    expect(secondRun.status).toBe("done");
+    expect(harness.transport.spawnRequests[1]).toMatchObject({
+      metadata: {
+        taskId: createdTaskId,
+        nodeType: "leaf",
+      },
+    });
+  });
+
+  it("requires human sign-off before creating a large follow-up above the autonomy threshold", async () => {
+    const root = task("task-large-human-root", "Large human root");
+    const child = task("task-large-human-child", "Large human child", root.id);
+    const harness = await makeHarness({
+      tasks: [root, child],
+      events: [
+        turnEnded(
+          "fake-session-1",
+          needsDecisionResult("Major architecture decision", ["create"], {
+            domain: "engineering",
+            scope: "major",
+          }),
+        ),
+      ],
+      validation: validationScript([]),
+      decisionProvider: new FakeDecisionProvider([
+        decisionTemplate(decisionVerdict("decision", "create", "Create the architecture task.")),
+      ]),
+    });
+
+    const result = await harness.supervisor.run(root.id);
+    const rootSnapshot = await harness.store.load(root.id);
+
+    expect(result.status).toBe("needs-decision");
+    expect(harness.workSource.createdTasks).toHaveLength(0);
+    expect(rootSnapshot.nodes[0]?.status).toBe("awaiting-human");
+    expect(rootSnapshot.decisions.map((decision) => decision.rationale)).toEqual([
+      "queued fake decision",
+      expect.stringContaining("Decision action await-human selected"),
+    ]);
+  });
+
+  it("lets a Tier 2 read-only investigation improve a low-confidence verdict before patch-and-resume", async () => {
+    const root = task("task-tier2-root", "Tier2 root");
+    const child = task("task-tier2-child", "Tier2 child", root.id);
+    const workspaceDir = await makeWorkspace();
+    const store = new JsonlExecutionStore({ workspaceDir });
+    const transport = new FakeAgentTransport([
+      turnEnded(
+        "fake-session-1",
+        needsDecisionResult("Choose safe adapter", ["unsafe", "safe"], {
+          domain: "engineering",
+          scope: "moderate",
+        }),
+      ),
+      turnEnded("fake-session-2", decisionVerdictWithScores("decision", "safe", "Use safe.", 8, 3)),
+      turnEnded("fake-session-3", doneResult("safe adapter applied")),
+    ]);
+    const workSource = new FakeWorkSource([root, child]);
+    const validation = validationScript(["pass", "pass"]);
+    const decisionProvider = new TieredDecisionProvider({
+      executionStore: store,
+      modelClient: new FakeDecisionModelClient(
+        decisionVerdictWithScores("decision", "unsafe", "Use unsafe.", 4, 6),
+      ),
+      clock: fixedNow,
+    });
+    const supervisor = new Supervisor({
+      agentTransport: transport,
+      workSource,
+      executionStore: store,
+      validation,
+      decisionProvider,
+      cwd: workspaceDir,
+      now: fixedNow,
+    });
+
+    const result = await supervisor.run(root.id);
+    const rootSnapshot = await store.load(root.id);
+
+    expect(result.status).toBe("done");
+    expect(rootSnapshot.decisions.map((decision) => decision.tier)).toEqual([2, 2]);
+    expect(workSource.patches[0]?.patch.body).toContain("Use safe.");
+    expect(transport.spawnRequests[1]).toMatchObject({
+      metadata: {
+        tier: 2,
+        mode: "read-only",
+      },
+    });
+    expect(transport.spawnRequests[2]?.prompt).toContain("Use safe.");
   });
 
   it("keeps completion authority with parent validation when a child claims done", async () => {
@@ -375,11 +525,11 @@ function logEvent(sessionId: string, message: string): AgentEvent {
   };
 }
 
-function turnEnded(sessionId: string, result: string): AgentEvent {
+function turnEnded(sessionId: string, result: string | DecisionVerdict): AgentEvent {
   return {
     type: "turn_ended",
     sessionId: asAgentSessionId(sessionId),
-    result,
+    result: typeof result === "string" ? result : JSON.stringify(verdictAsJson(result)),
     stopReason: null,
   };
 }
@@ -405,14 +555,16 @@ function failedResult(error: string, retryable: boolean): string {
   });
 }
 
-function needsDecisionResult(prompt: string, options: readonly string[]): string {
+function needsDecisionResult(
+  prompt: string,
+  options: readonly string[],
+  context: JsonObject = { scope: "local" },
+): string {
   return JSON.stringify({
     type: "needs-decision",
     prompt,
     options,
-    context: {
-      scope: "local",
-    },
+    context,
   });
 }
 
@@ -440,12 +592,22 @@ function decisionVerdict(
   suggestedChoice: string,
   suggestedResponse: string,
 ): DecisionVerdict {
+  return decisionVerdictWithScores(type, suggestedChoice, suggestedResponse, 8, 2);
+}
+
+function decisionVerdictWithScores(
+  type: "decision",
+  suggestedChoice: string,
+  suggestedResponse: string,
+  confidence: DecisionVerdict["confidence"],
+  risk: DecisionVerdict["risk"],
+): DecisionVerdict {
   return {
     type,
     suggested_choice: suggestedChoice,
     suggested_response: suggestedResponse,
-    confidence: 8,
-    risk: 2,
+    confidence,
+    risk,
     block_trigger: false,
   };
 }
@@ -482,6 +644,25 @@ class ScriptedValidation implements Validation {
       report_ref: `report-${request.node.id}-${request.scope}-${this.requests.length}`,
     };
   }
+}
+
+class FakeDecisionModelClient {
+  constructor(private readonly verdict: DecisionVerdict) {}
+
+  async call<T>(request: StructuredModelRequest<T>): Promise<T> {
+    return request.output.parse(verdictAsJson(this.verdict));
+  }
+}
+
+function verdictAsJson(verdict: DecisionVerdict): JsonObject {
+  return {
+    type: verdict.type,
+    suggested_choice: verdict.suggested_choice,
+    suggested_response: verdict.suggested_response,
+    confidence: verdict.confidence,
+    risk: verdict.risk,
+    block_trigger: verdict.block_trigger,
+  };
 }
 
 async function makeWorkspace(): Promise<string> {

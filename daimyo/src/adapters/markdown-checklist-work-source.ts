@@ -5,6 +5,7 @@ import { asTaskId } from "../core/domain.js";
 import type { ExecutionEvidence, JsonObject, TaskId } from "../core/domain.js";
 import type {
   CreateTaskInput,
+  PatchTaskInput,
   WorkSource,
   WorkStatus,
   WorkStatusMapping,
@@ -135,6 +136,32 @@ export class MarkdownChecklistWorkSource implements WorkSource {
     const nextMetadata = withEvidenceAndStatus(entry.metadata, nativeStatus, evidence);
     const nextLines = [...parsed.lines];
     nextLines[entry.lineIndex] = `${entry.indent}- [${nativeStatus === "checked" ? "x" : " "}] ${entry.title}`;
+    replaceMetadataLine(nextLines, entry, nextMetadata);
+    await this.writeChecklist(nextLines.join("\n"));
+    return this.getTask(id);
+  }
+
+  async patchTask(
+    id: TaskId,
+    patch: PatchTaskInput,
+    evidence: ExecutionEvidence,
+  ): Promise<WorkTask> {
+    const parsed = await this.readChecklist();
+    const entry = findEntry(parsed, id);
+    const nextMetadata: MarkdownTaskMetadata = {
+      ...metadataWithoutStatus(entry.metadata),
+      evidence,
+      body: patch.body ?? entry.metadata?.body ?? entry.title,
+      acceptanceCriteria: patch.acceptanceCriteria ?? entry.metadata?.acceptanceCriteria ?? [],
+      ...(patch.metadata === undefined
+        ? entry.metadata?.taskMetadata === undefined
+          ? {}
+          : { taskMetadata: entry.metadata.taskMetadata }
+        : { taskMetadata: patch.metadata }),
+      ...(entry.metadata?.status === undefined ? {} : { status: entry.metadata.status }),
+      ...(entry.metadata?.parentId === undefined ? {} : { parentId: entry.metadata.parentId }),
+    };
+    const nextLines = [...parsed.lines];
     replaceMetadataLine(nextLines, entry, nextMetadata);
     await this.writeChecklist(nextLines.join("\n"));
     return this.getTask(id);

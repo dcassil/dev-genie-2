@@ -41,6 +41,12 @@ export interface CreateTaskInput {
   readonly metadata?: JsonObject;
 }
 
+export interface PatchTaskInput {
+  readonly body?: string;
+  readonly acceptanceCriteria?: readonly string[];
+  readonly metadata?: JsonObject;
+}
+
 /**
  * Authority over task definition and LCD task status.
  *
@@ -58,6 +64,13 @@ export interface WorkSource {
   markStatus(
     id: TaskId,
     status: WorkStatus,
+    evidence: ExecutionEvidence,
+  ): Promise<WorkTask>;
+
+  /** Patch task definition fields on the targeted authoritative task. */
+  patchTask(
+    id: TaskId,
+    patch: PatchTaskInput,
     evidence: ExecutionEvidence,
   ): Promise<WorkTask>;
 

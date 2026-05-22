@@ -13,6 +13,14 @@ import type {
 } from "../core/index.js";
 import type { DecisionProvider, DecisionProviderDependencies } from "../core/index.js";
 import type {
+  AgentEvent,
+  AgentTransport,
+} from "../core/ports/agent-transport.js";
+import {
+  asDecisionId,
+  asNodeId,
+} from "../core/index.js";
+import type {
   StructuredModelRequest,
   StructuredModelSchema,
 } from "../engine/structured-model-call.js";
@@ -52,7 +60,13 @@ export interface Tier2InvestigationRequest {
 }
 
 export interface Tier2InvestigationHook {
-  investigationRequired(request: Tier2InvestigationRequest): Promise<void>;
+  investigate(request: Tier2InvestigationRequest): Promise<DecisionVerdict>;
+}
+
+export interface AgentTransportTier2InvestigationHookOptions {
+  readonly agentTransport: AgentTransport;
+  readonly cwd: string;
+  readonly maxEvents?: number;
 }
 
 export interface TieredDecisionProviderOptions {
@@ -92,6 +106,85 @@ export class ConsoleHumanDecisionNotifier implements HumanDecisionNotifier {
   }
 }
 
+export class AgentTransportTier2InvestigationHook implements Tier2InvestigationHook {
+  private readonly agentTransport: AgentTransport;
+  private readonly cwd: string;
+  private readonly maxEvents: number;
+
+  constructor(options: AgentTransportTier2InvestigationHookOptions) {
+    this.agentTransport = options.agentTransport;
+    this.cwd = options.cwd;
+    this.maxEvents = options.maxEvents ?? 20;
+  }
+
+  async investigate(request: Tier2InvestigationRequest): Promise<DecisionVerdict> {
+    const session = await this.agentTransport.spawnSession({
+      nodeId: asNodeId(`${request.request.nodeId}:tier2`),
+      cwd: this.cwd,
+      prompt: tier2InvestigationPrompt(request),
+      metadata: {
+        tier: 2,
+        mode: "read-only",
+        cross_port_edge: "DecisionProvider->AgentTransport Tier-2 investigation",
+      },
+    });
+
+    try {
+      for (let index = 0; index < this.maxEvents; index += 1) {
+        const event = await this.agentTransport.readEvent(session.id);
+        if (event.type === "turn_ended") {
+          const parsed: JsonValue = JSON.parse(event.result);
+          return decisionVerdictSchema.parse(parsed);
+        }
+        await this.handleNonTerminalEvent(event);
+      }
+    } finally {
+      await this.agentTransport.disposeSession(session.id);
+    }
+
+    return humanVerdict("Tier 2 investigation did not produce a verdict within the event budget.");
+  }
+
+  private async handleNonTerminalEvent(event: AgentEvent): Promise<void> {
+    if (event.type === "turn_ended") return;
+    if (event.type === "log") return;
+    if (event.type === "needs_permission") {
+      const decision = readOnlyPermissionDecision(event.toolName, event.arguments);
+      if (decision.allowed) {
+        await this.agentTransport.sendCommand(event.sessionId, {
+          type: "approve",
+          correlationId: event.correlationId,
+          reason: decision.reason,
+        });
+      } else {
+        await this.agentTransport.sendCommand(event.sessionId, {
+          type: "deny",
+          correlationId: event.correlationId,
+          reason: decision.reason,
+        });
+      }
+      return;
+    }
+    if (event.type === "needs_input") {
+      await this.agentTransport.sendCommand(event.sessionId, {
+        type: "respond",
+        correlationId: event.correlationId,
+        response: "Continue the Tier 2 investigation using only read-only evidence.",
+      });
+      return;
+    }
+    if (event.type === "stalled") {
+      await this.agentTransport.sendCommand(event.sessionId, {
+        type: "interrupt",
+        correlationId: event.correlationId,
+        reason: "Tier 2 read-only investigation stalled.",
+      });
+      return;
+    }
+    throw new Error(`Tier 2 investigation worker exited before producing a verdict: ${event.reason}`);
+  }
+}
+
 export class TieredDecisionProvider implements DecisionProvider {
   private readonly executionStore: ExecutionStore;
   private readonly autonomyProfile: AutonomyProfile;
@@ -122,12 +215,12 @@ export class TieredDecisionProvider implements DecisionProvider {
 
   async decideRouting(
     request: RoutingDecisionRequest,
-    _dependencies?: DecisionProviderDependencies,
+    dependencies?: DecisionProviderDependencies,
   ): Promise<DecisionRecord> {
     const tier0 = this.evaluateRoutingTier0(request);
     if (tier0.kind === "resolved") return this.resolve(request, tier0);
 
-    const tier1 = await this.evaluateTier1(request, tier0.rationale);
+    const tier1 = await this.evaluateTier1(request, tier0.rationale, dependencies);
     return this.resolve(request, tier1);
   }
 
@@ -236,6 +329,7 @@ export class TieredDecisionProvider implements DecisionProvider {
   private async evaluateTier1(
     request: RoutingDecisionRequest,
     fallthroughRationale: string,
+    dependencies: DecisionProviderDependencies | undefined,
   ): Promise<ResolvedDecisionOutcome> {
     if (this.modelClient === undefined || this.tier1Prompt === null) {
       return {
@@ -255,29 +349,58 @@ export class TieredDecisionProvider implements DecisionProvider {
       output: decisionVerdictSchema,
     });
 
-    const threshold = evaluateAutonomyThreshold(request, verdict, this.autonomyProfile);
+    const investigatedVerdict = await this.maybeInvestigateTier2(
+      request,
+      verdict,
+      fallthroughRationale,
+      dependencies,
+    );
+    const threshold = evaluateAutonomyThreshold(request, investigatedVerdict, this.autonomyProfile);
     if (threshold.action === "escalate") {
-      if (this.shouldFlagTier2(verdict)) {
-        await this.tier2InvestigationHook?.investigationRequired({
+      if (investigatedVerdict !== verdict) {
+        await this.recordIntermediateDecision({
+          id: asDecisionId(`${request.id}:tier2`),
           request,
-          tier1Verdict: verdict,
-          thresholdReason: threshold.reason,
+          verdict: investigatedVerdict,
+          tier: 2,
+          rationale: `Tier 2 investigation completed but policy still escalated: ${threshold.reason}`,
+          createdAt: this.clock(),
         });
       }
       return {
         kind: "resolved",
         tier: 3,
-        verdict: toHumanVerdict(verdict),
+        verdict: toHumanVerdict(investigatedVerdict),
         rationale: `Tier 3 escalation after Tier 1: ${threshold.reason}`,
       };
     }
 
     return {
       kind: "resolved",
-      tier: 1,
-      verdict,
-      rationale: `Tier 1 bounded model decision after Tier 0 fallthrough: ${fallthroughRationale}`,
+      tier: investigatedVerdict === verdict ? 1 : 2,
+      verdict: investigatedVerdict,
+      rationale:
+        investigatedVerdict === verdict
+          ? `Tier 1 bounded model decision after Tier 0 fallthrough: ${fallthroughRationale}`
+          : `Tier 2 read-only investigation improved Tier 1 verdict after: ${fallthroughRationale}`,
     };
+  }
+
+  private async maybeInvestigateTier2(
+    request: RoutingDecisionRequest,
+    verdict: DecisionVerdict,
+    fallthroughRationale: string,
+    dependencies: DecisionProviderDependencies | undefined,
+  ): Promise<DecisionVerdict> {
+    if (!this.shouldFlagTier2(verdict)) return verdict;
+
+    const hook = this.tier2InvestigationHook ?? tier2HookFromDependencies(dependencies);
+    if (hook === undefined) return verdict;
+    return await hook.investigate({
+      request,
+      tier1Verdict: verdict,
+      thresholdReason: `${fallthroughRationale}; ${tier2TriggerReason(verdict)}`,
+    });
   }
 
   private async resolve(
@@ -304,6 +427,10 @@ export class TieredDecisionProvider implements DecisionProvider {
     }
 
     return record;
+  }
+
+  private async recordIntermediateDecision(record: DecisionRecord): Promise<void> {
+    await this.executionStore.recordDecision(record.request.taskId, record.request.nodeId, record);
   }
 
   private async parkAwaitingHuman(request: DecisionRequest): Promise<void> {
@@ -413,6 +540,89 @@ export const decisionVerdictSchema: StructuredModelSchema<DecisionVerdict> = {
     };
   },
 };
+
+function tier2HookFromDependencies(
+  dependencies: DecisionProviderDependencies | undefined,
+): Tier2InvestigationHook | undefined {
+  if (dependencies?.agentTransport === undefined || dependencies.cwd === undefined) return undefined;
+  return new AgentTransportTier2InvestigationHook({
+    agentTransport: dependencies.agentTransport,
+    cwd: dependencies.cwd,
+  });
+}
+
+function tier2TriggerReason(verdict: DecisionVerdict): string {
+  if (verdict.risk >= 7 && verdict.confidence <= 4) {
+    return "Tier 1 returned low confidence and high risk";
+  }
+  if (verdict.risk >= 7) return "Tier 1 returned high risk";
+  return "Tier 1 returned low confidence";
+}
+
+function tier2InvestigationPrompt(request: Tier2InvestigationRequest): string {
+  return [
+    "Daimyo Tier 2 read-only investigation.",
+    "You may inspect files and state, but you must not edit files or run mutating commands.",
+    "Return only a DecisionVerdict JSON object with keys:",
+    "{type,suggested_choice,suggested_response,confidence,risk,block_trigger}",
+    "",
+    `Decision prompt: ${request.request.prompt}`,
+    `Tier 1 verdict: ${JSON.stringify(request.tier1Verdict)}`,
+    `Escalation reason: ${request.thresholdReason}`,
+    `Context: ${JSON.stringify(request.request.context ?? {})}`,
+  ].join("\n");
+}
+
+function readOnlyPermissionDecision(
+  toolName: string,
+  toolArguments: JsonObject,
+): { readonly allowed: boolean; readonly reason: string } {
+  if (toolName === "Read" || toolName === "Grep" || toolName === "Glob" || toolName === "LS" || toolName === "TodoRead") {
+    return { allowed: true, reason: `Tier 2 read-only investigation allowed ${toolName}.` };
+  }
+  if (toolName === "Bash") {
+    const command = readNullableCommand(toolArguments);
+    if (command !== undefined && isReadOnlyShellCommand(command)) {
+      return { allowed: true, reason: "Tier 2 read-only investigation allowed read-only shell command." };
+    }
+    return { allowed: false, reason: "Tier 2 read-only investigation denied mutating bash." };
+  }
+  return { allowed: false, reason: `Tier 2 read-only investigation denied ${toolName}.` };
+}
+
+function readNullableCommand(toolArguments: JsonObject): string | undefined {
+  const value = toolArguments.command;
+  return typeof value === "string" ? value.trim() : undefined;
+}
+
+function isReadOnlyShellCommand(command: string): boolean {
+  if (command.length === 0) return false;
+  const readOnlyPrefixes = [
+    "pwd",
+    "ls",
+    "find",
+    "rg",
+    "grep",
+    "cat",
+    "git status",
+    "git diff",
+    "git show",
+    "git log",
+    "git grep",
+    "git ls-files",
+  ];
+  if (readOnlyPrefixes.some((prefix) => command === prefix || command.startsWith(`${prefix} `))) {
+    return !containsShellMutation(command);
+  }
+  if (command.startsWith("sed -n ")) return !containsShellMutation(command);
+  return false;
+}
+
+function containsShellMutation(command: string): boolean {
+  return /(^|[;&|]\s*)(rm|mv|cp|mkdir|touch|chmod|chown|npm|pnpm|yarn|git\s+(add|commit|push|checkout|reset|clean|merge|rebase)|sed\s+-i)\b/.test(command) ||
+    command.includes(">") ||
+    command.includes(">>");
+}
 
 function firstOption(request: RoutingDecisionRequest): string | undefined {
   return request.options?.[0];

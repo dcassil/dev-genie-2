@@ -9,11 +9,11 @@ import type {
 } from "../core/domain.js";
 import type { ExecutionStore } from "../core/execution-store.js";
 import type {
+  CapabilityTask,
   Validation,
   ValidationRequest,
   ValidationResult,
 } from "../core/ports/capabilities.js";
-import type { WorkTask } from "../core/ports/work-source.js";
 import {
   type DeclaredCommand,
   runDeclaredCommand,
@@ -200,7 +200,7 @@ function validationEvidence(
   };
 }
 
-function readValidationCommand(task: WorkTask): DeclaredCommand | undefined {
+function readValidationCommand(task: CapabilityTask): DeclaredCommand | undefined {
   const metadata = task.metadata;
   if (metadata === undefined) return undefined;
   const declared = metadata.validation_command ?? metadata.validationCommand;

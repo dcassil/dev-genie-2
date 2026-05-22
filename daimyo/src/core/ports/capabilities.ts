@@ -7,10 +7,27 @@ import type {
   ValidationScope,
   ValidationStatus,
 } from "../domain.js";
-import type { WorkTask } from "./work-source.js";
+
+export interface CapabilityTask {
+  readonly id: TaskId;
+  readonly title: string;
+  readonly status: string;
+  readonly revision: string;
+  readonly body: string;
+  readonly acceptanceCriteria: readonly string[];
+  readonly metadata?: JsonObject;
+  readonly parentId?: TaskId;
+}
+
+export interface PlannedTask {
+  readonly title: string;
+  readonly body: string;
+  readonly acceptanceCriteria?: readonly string[];
+  readonly metadata?: JsonObject;
+}
 
 export interface ValidationRequest {
-  readonly task: WorkTask;
+  readonly task: CapabilityTask;
   readonly node: NodeRef;
   readonly scope: ValidationScope;
   readonly evidence: ExecutionEvidence;
@@ -44,7 +61,7 @@ export interface RepoIntelligence {
 }
 
 export interface ContextRequest {
-  readonly task: WorkTask;
+  readonly task: CapabilityTask;
   readonly node: NodeRef;
   readonly purpose: "execution" | "validation" | "decision";
 }
@@ -66,7 +83,7 @@ export interface PlanningRequest {
 }
 
 export interface PlanningResult {
-  readonly tasks: readonly WorkTask[];
+  readonly tasks: readonly PlannedTask[];
   readonly decisions: readonly DecisionRequest[];
 }
 

@@ -28,6 +28,7 @@ import {
 import type { DecisionProvider } from "../core/ports/decision-provider.js";
 import type {
   CreateTaskInput,
+  PatchTaskInput,
   WorkSource,
   WorkStatus,
   WorkTask,
@@ -165,6 +166,21 @@ function rejected(
 }
 
 export class FakeWorkSource implements WorkSource {
+  readonly statusMarks: {
+    readonly id: TaskId;
+    readonly status: WorkStatus;
+    readonly evidence: ExecutionEvidence;
+  }[] = [];
+  readonly patches: {
+    readonly id: TaskId;
+    readonly patch: PatchTaskInput;
+    readonly evidence: ExecutionEvidence;
+  }[] = [];
+  readonly createdTasks: {
+    readonly input: CreateTaskInput;
+    readonly parentId?: TaskId;
+    readonly id: TaskId;
+  }[] = [];
   private readonly tasks = new Map<string, WorkTask>();
 
   constructor(tasks: readonly WorkTask[] = []) {
@@ -195,13 +211,32 @@ export class FakeWorkSource implements WorkSource {
   async markStatus(
     id: TaskId,
     status: WorkStatus,
-    _evidence: ExecutionEvidence,
+    evidence: ExecutionEvidence,
   ): Promise<WorkTask> {
+    this.statusMarks.push({ id, status, evidence });
     const task = await this.getTask(id);
     const updated: WorkTask = {
       ...task,
       status,
       revision: `${Number.parseInt(task.revision, 10) + 1}`,
+    };
+    this.tasks.set(id, updated);
+    return updated;
+  }
+
+  async patchTask(
+    id: TaskId,
+    patch: PatchTaskInput,
+    evidence: ExecutionEvidence,
+  ): Promise<WorkTask> {
+    this.patches.push({ id, patch, evidence });
+    const task = await this.getTask(id);
+    const updated: WorkTask = {
+      ...task,
+      body: patch.body ?? task.body,
+      acceptanceCriteria: patch.acceptanceCriteria ?? task.acceptanceCriteria,
+      revision: `${Number.parseInt(task.revision, 10) + 1}`,
+      ...(patch.metadata === undefined ? {} : { metadata: patch.metadata }),
     };
     this.tasks.set(id, updated);
     return updated;
@@ -220,6 +255,7 @@ export class FakeWorkSource implements WorkSource {
       ...(parentId === undefined ? {} : { parentId }),
     };
     this.tasks.set(id, task);
+    this.createdTasks.push({ input, ...(parentId === undefined ? {} : { parentId }), id });
     return id;
   }
 }
