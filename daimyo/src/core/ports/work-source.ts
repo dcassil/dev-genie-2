@@ -1,6 +1,24 @@
 import type { ExecutionEvidence, JsonObject, TaskId } from "../domain.js";
 
-export type WorkStatus = "todo" | "active" | "done" | "blocked";
+export const WORK_STATUSES = ["todo", "active", "done", "blocked"] as const;
+export type WorkStatus = (typeof WORK_STATUSES)[number];
+
+export interface WorkStatusMapping<NativeStatus extends string> {
+  fromNative(status: NativeStatus): WorkStatus;
+  toNative(status: WorkStatus): NativeStatus;
+}
+
+export function isWorkStatus(value: string): value is WorkStatus {
+  return WORK_STATUSES.some((status) => status === value);
+}
+
+export function assertWorkStatus(value: string): asserts value is WorkStatus {
+  if (!isWorkStatus(value)) {
+    throw new Error(
+      `Unsupported WorkSource status "${value}". Expected one of: ${WORK_STATUSES.join(", ")}`,
+    );
+  }
+}
 
 export interface WorkTaskSummary {
   readonly id: TaskId;
