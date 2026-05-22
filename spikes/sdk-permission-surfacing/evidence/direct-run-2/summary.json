@@ -1,0 +1,21 @@
+{
+  "scenario": "direct",
+  "runIndex": 2,
+  "startedAt": "2026-05-22T19:34:01.697Z",
+  "finishedAt": "2026-05-22T19:34:10.876Z",
+  "exit": "completed",
+  "sessionIds": [
+    "cb8f712e-e1ec-4c04-a7cb-45cc064720ab"
+  ],
+  "counts": {
+    "sdkMessages": 41,
+    "preToolUseParent": 1,
+    "preToolUseSubagent": 0,
+    "canUseToolParent": 1,
+    "canUseToolSubagent": 0
+  },
+  "callbackTools": [
+    "PreToolUse:parent:Bash",
+    "canUseTool:parent:Bash"
+  ]
+}

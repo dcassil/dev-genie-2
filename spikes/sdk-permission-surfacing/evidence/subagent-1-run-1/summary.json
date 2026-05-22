@@ -1,0 +1,22 @@
+{
+  "scenario": "subagent-1",
+  "runIndex": 1,
+  "startedAt": "2026-05-22T19:34:10.877Z",
+  "finishedAt": "2026-05-22T19:34:34.299Z",
+  "exit": "completed",
+  "sessionIds": [
+    "1ca1f08c-5a39-403c-a8fb-8eb57e848439"
+  ],
+  "counts": {
+    "sdkMessages": 60,
+    "preToolUseParent": 1,
+    "preToolUseSubagent": 1,
+    "canUseToolParent": 0,
+    "canUseToolSubagent": 1
+  },
+  "callbackTools": [
+    "PreToolUse:parent:Agent",
+    "PreToolUse:sub-agent:Bash",
+    "canUseTool:sub-agent:Bash"
+  ]
+}
