@@ -31,10 +31,6 @@ Extend the Supervisor loop ([[DGOS-T-0008]]) to run an inner node with **more th
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] An inner node can spawn and supervise **multiple concurrent child workers**, each with its own AgentTransport session and execution-store node state; the loop multiplexes their events deterministically.
 - [ ] **Ownership surfaces** are consumed at decomposition time: `owns_files`, `owns_interfaces`, `owns_data`, `owns_workflow_steps`, optional `depends_on` (ADR-3 field set).
 - [ ] **Runtime touch reports** from leaves are collected: the concrete files/interfaces/data a leaf touched or intends to touch.
@@ -70,8 +66,6 @@ Extend the Supervisor loop ([[DGOS-T-0008]]) to run an inner node with **more th
 **Recommended Agent: opus + high.** Concurrent multi-child supervision plus hard/soft conflict detection and quiesce/resume is the most coordination-heavy behavior in the initiative, with real nondeterminism risk and shared-contract-corruption stakes. Top tier.
 
 ## Status Updates
-
-*To be added during implementation.*
 
 2026-05-22 — Implemented in `daimyo/`: bounded multi-child wave supervision, ownership-surface parsing, runtime touch reports, hard/soft sibling-impact handling, hard-conflict quiesce/resume through existing decision actions, bubble-by-scope routing, parent-scope wave validation, checkpoint reconciliation preservation, minor version bump, dist rebuild, and fake interleaving tests. Verified `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` in `daimyo/`.
 

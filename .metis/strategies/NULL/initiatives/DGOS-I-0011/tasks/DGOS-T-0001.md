@@ -36,8 +36,6 @@ This is a **spike**, not production code. Its output is knowledge + a pinned ver
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
 - [ ] A specific Claude Agent SDK version is **pinned** (exact version string recorded) and the harness's `package.json` references it exactly.
 - [ ] A minimal reproducible harness exists that: starts a parent SDK session with a `canUseTool` callback **and** a `PreToolUse` hook registered; has the parent spawn a sub-agent (via the `Task` tool / SDK sub-agent mechanism); has that sub-agent attempt a tool call that requires permission (e.g. a write/edit/bash tool).
 - [ ] The harness **records, with evidence** (captured event stream / logs), whether the sub-agent's permission request reached (a) the parent `canUseTool` callback, (b) the parent `PreToolUse` hook, (c) neither, or (d) some partial/inconsistent behavior — including whether the `correlationId`/tool-name/arguments needed by the AgentTransport `needs_permission` payload are present and attributable to the sub-agent.

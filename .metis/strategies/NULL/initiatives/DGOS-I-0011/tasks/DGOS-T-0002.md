@@ -31,10 +31,6 @@ Create the `daimyo` package as a new top-level sibling plugin (alongside `katana
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] A `daimyo/` package exists at repo top level mirroring katana's structure: npm package (`package.json` + `.claude-plugin/plugin.json`), `src/`, `bin/`, build step producing committed `dist/`, and the root `.gitignore` un-ignore line for `daimyo/dist/`.
 - [ ] TypeScript + lint config matches the repo's existing standards (no new relaxed rules; reuse the shared tsconfig/eslint conventions used by sibling plugins).
 - [ ] Core domain types are defined and exported: at minimum `NodeId`/`TaskId`, `NodeType` (`leaf` | `inner`), node status, the child return union (`done` | `needs-decision` | `failed`), `DecisionRecord`, and the `DecisionVerdict` shape (`{ type: "decision" | "access" | "human", suggested_choice, suggested_response, confidence: 0-10, risk: 0-10, block_trigger: boolean }`) from DGOS-A-0005.

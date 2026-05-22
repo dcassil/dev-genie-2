@@ -31,10 +31,6 @@ Implement the **WorkSource port** — the authority over **task definition + sta
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] The port surface is implemented: `listTasks()` (returns tasks each with status + a revision/etag), `getTask(id)`, `markStatus(id, status, evidence)`, and `createTask(spec, parentId?)` returning a new id. `createTask` is **required**, not optional (ADR-3's inner node must be able to seed follow-up work).
 - [ ] The LCD status set is exactly `todo | active | done | blocked`; `needs-decision` is not representable in WorkSource status (a test asserts this is not accepted).
 - [ ] Each adapter defines a **bidirectional** mapping between native states and the LCD set — both the write direction (LCD → native) and the read direction (native → LCD). For the markdown adapter the mapping is the checklist toggle plus a documented rule for `active`/`blocked` (which a bare checklist can't natively express) so reads round-trip sensibly.

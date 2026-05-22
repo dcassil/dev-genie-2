@@ -31,10 +31,6 @@ Implement **checkpoint reconciliation**: at defined checkpoints (before selectin
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] Reconciliation runs at the defined checkpoints (before next-task selection; after a wave completes) and **not** as continuous file-watching (v1 uses checkpoint diff per the ADR).
 - [ ] **Diff-by-ID rules** implemented and tested: new ID → schedule node; missing ID → cancel node; changed acceptance/deps → mark node stale + re-run/re-validate; externally `done` → drop from queue.
 - [ ] Uses the WorkSource revision/etag from [[DGOS-T-0005]] to detect changes efficiently; relies on stable task IDs from the WorkSource adapters.

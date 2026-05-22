@@ -31,10 +31,6 @@ Package `daimyo` so it runs **genuinely standalone** (core + SDK transport + mar
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] **Standalone composition root** assembles the default adapter set (SDK transport, markdown + JSON WorkSource, Tier-0/1/3 DecisionProvider with bundled prompt, command-runner Validation, console notifier) and runs a real end-to-end run on a markdown-checklist plan with only a model API key configured (no dev-genie present).
 - [ ] The **bundled, versioned Tier-1 Role prompt** ships in the package; with it the bounded decision call works standalone; without it the deployment degrades to Tier 0 + Tier 3 only (asserted).
 - [ ] **Console notifier** implements the Tier-3 notification surface (the floor); the notifier is pluggable so email/push can be added later.

@@ -31,10 +31,6 @@ Build the Supervisor's **own durable execution-state store** — the half of the
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] A persistence layer writes/reads execution state to an on-disk `.supervisor/` store. The format (jsonl vs sqlite) is chosen and the rationale recorded (the ADR leaves this open under DGOS-I-0011); the choice is encapsulated behind a store interface so it can change later.
 - [ ] The stored record set covers, per node: node id, parent id, node type, execution status (including Supervisor-only states like `awaiting_human` and `superseded` that are NOT WorkSource statuses), retry count, the transport session id + resume token, associated `DecisionRecord` refs, and the run's execution cursor.
 - [ ] `needs-decision` / mid-decision state lives here as execution state and is **never** written to the WorkSource status set (preserving the state-ownership boundary from DGOS-A-0005).

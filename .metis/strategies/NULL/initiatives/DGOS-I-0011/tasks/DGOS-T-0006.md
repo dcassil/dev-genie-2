@@ -31,10 +31,6 @@ Implement the **Validation capability port** and its **trivial standalone built-
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] A `Validation` port is defined (from the interface stub in [[DGOS-T-0002]]): given a task + its scope/evidence, return a structured result `{ status: pass | fail, reasons, report_ref }`.
 - [ ] **Command-runner built-in:** when the task declares a validation command, run it via the shell-runner engine primitive ([[DGOS-T-0002]]), capture exit code + stdout/stderr, map exit 0 → pass and non-zero → fail, and persist a report the inner node can reference as authoritative evidence.
 - [ ] **Model-call acceptance fallback:** when no command is declared, call the structured-model-call client with the task's acceptance criteria + the produced work/evidence and return `{ pass, fail, reasons }`; the fallback is clearly marked as weaker evidence than a command result.

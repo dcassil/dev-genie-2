@@ -31,10 +31,6 @@ Implement the **DecisionProvider port** and its tiered resolution for the standa
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] The two decision surfaces are represented as distinct inputs and never collapsed: **permission-gating** requests carry a tool name + arguments (and arrive from `needs_permission` / `PreToolUse`); **decision-routing** requests are `needs-decision` content bubbles requiring judgment. A test asserts a decision-routing request never gets handled as a `PreToolUse`-style tool rule and vice-versa.
 - [ ] **Tier 0 (deterministic policy):** evaluates the [[DGOS-A-0004]] autonomy profile (engineering/product/design × `always_in_loop`/`big_questions_only`/`delegate`) plus static allow/deny rules, in-process, no model call. For the permission surface this is expressed as `canUseTool`-return / `PreToolUse`-style allow/deny; for decision-routing it settles only cases a static rule can (e.g. domain `delegate` + local change → proceed) and otherwise falls through to Tier 1.
 - [ ] **Tier 1 (bounded model call):** a single fresh-context call given the small fixed payload `{context, rules, request}` returns a `DecisionVerdict` `{ type: "decision" | "access" | "human", suggested_choice, suggested_response, confidence: 0-10, risk: 0-10, block_trigger: boolean }`. No tools, no filesystem.

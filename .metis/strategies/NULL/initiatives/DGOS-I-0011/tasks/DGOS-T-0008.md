@@ -31,10 +31,6 @@ Implement the **out-of-process Supervisor core loop**: the deterministic, non-ag
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] The Supervisor runs as plain deterministic code whose only memory is the execution store ([[DGOS-T-0003]]); it holds no conversation and cannot fill a context window. A test kills and restarts it mid-run and it resumes from disk.
 - [ ] **Leaf node** behavior: spawns a disposable agent via AgentTransport, assigns the task (read from WorkSource), lets it edit + locally validate (leaf-scope Validation), and consumes the structured stream to produce a child return of `done`, `needs-decision`, or `failed`. Leaves **never route decisions** — a `needs-decision` is always bubbled to the parent.
 - [ ] **Inner node** behavior: governs children, never edits code; on a child `done` claim it runs **parent-scope authoritative Validation** ([[DGOS-T-0006]]) before marking completion upward; `exit_criteria_met`/completion reflects parent validation, never a child claim.

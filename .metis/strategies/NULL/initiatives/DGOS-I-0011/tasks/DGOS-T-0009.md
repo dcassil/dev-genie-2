@@ -31,10 +31,6 @@ Implement the **decision actions** that ADR-3 requires after a verdict is produc
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] **Patch-and-resume:** given a verdict resolving a leaf's `needs-decision`, the Supervisor writes a task patch to the affected leaf (execution store + targeted WorkSource `markStatus`/patch) and resumes that leaf's work; a test shows the resumed leaf proceeds with the patched instruction.
 - [ ] **Create-follow-up:** when the decision is "large," `WorkSource.createTask(spec, parentId?)` seeds a new authoritative task that becomes visible to the next `listTasks`; a test shows the new task is scheduled by the loop on the next checkpoint.
 - [ ] **Action selection is policy-gated:** which action is taken is decided against the autonomy profile + verdict; a "large" decision past the autonomy threshold additionally requires **Tier 3 sign-off before `createTask`** (tested).

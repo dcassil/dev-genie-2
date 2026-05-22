@@ -31,10 +31,6 @@ Fully specify the **AgentTransport port contract** — the event/command vocabul
 
 ## Acceptance Criteria
 
-## Acceptance Criteria
-
-## Acceptance Criteria
-
 - [ ] The port defines the event set — `turn_ended`, `needs_permission`, `needs_input`, `log`, `exited`, `stalled` — and the command set — `respond`, `approve`, `deny`, `choose_option`, `interrupt`, `resume` — as typed contracts.
 - [ ] For **each event**, the contract specifies: its **payload** (e.g. `needs_permission` carries tool name, arguments, and a `correlationId`), with full field types.
 - [ ] The **correlation model** is specified and enforced: every `respond`/`approve`/`deny`/`choose_option` references the `correlationId` of the pending event it answers; the adapter rejects/flags answers with no matching pending correlation.
