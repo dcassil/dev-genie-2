@@ -11,6 +11,10 @@ import type {
   NodeType,
   Score0To10,
   TaskId,
+  ValidationEvidenceStrength,
+  ValidationReport,
+  ValidationScope,
+  ValidationStatus,
 } from "./domain.js";
 import {
   asDecisionId,
@@ -37,6 +41,11 @@ type StoredExecutionEvent =
       readonly type: "decision_recorded";
       readonly nodeId: NodeId;
       readonly record: DecisionRecord;
+    }
+  | {
+      readonly type: "validation_report_recorded";
+      readonly nodeId: NodeId;
+      readonly report: ValidationReport;
     }
   | {
       readonly type: "evidence_appended";
@@ -85,6 +94,18 @@ export class JsonlExecutionStore implements ExecutionStore {
     record: DecisionRecord,
   ): Promise<void> {
     await this.appendEvent(taskId, { type: "decision_recorded", nodeId, record });
+  }
+
+  async recordValidationReport(
+    taskId: TaskId,
+    nodeId: NodeId,
+    report: ValidationReport,
+  ): Promise<void> {
+    await this.appendEvent(taskId, {
+      type: "validation_report_recorded",
+      nodeId,
+      report,
+    });
   }
 
   async appendEvidence(
@@ -172,6 +193,7 @@ function projectEvents(
 ): ExecutionSnapshot {
   const nodes = new Map<NodeId, ExecutionNodeState>();
   const decisions = new Map<string, DecisionRecord>();
+  const validationReports = new Map<string, ValidationReport>();
   let cursor: ExecutionCursor | undefined;
 
   for (const event of events) {
@@ -181,6 +203,7 @@ function projectEvents(
         const node: ExecutionNodeState = {
           ...event.node,
           decisionRecordIds: existing?.decisionRecordIds ?? [],
+          validationReportRefs: existing?.validationReportRefs ?? [],
           evidence: existing?.evidence ?? [],
         };
         nodes.set(event.node.id, node);
@@ -193,6 +216,15 @@ function projectEvents(
           ? node.decisionRecordIds
           : [...node.decisionRecordIds, event.record.id];
         nodes.set(event.nodeId, { ...node, decisionRecordIds });
+        break;
+      }
+      case "validation_report_recorded": {
+        validationReports.set(event.report.report_ref, event.report);
+        const node = requireNode(nodes, event.nodeId, event.type);
+        const validationReportRefs = node.validationReportRefs.includes(event.report.report_ref)
+          ? node.validationReportRefs
+          : [...node.validationReportRefs, event.report.report_ref];
+        nodes.set(event.nodeId, { ...node, validationReportRefs });
         break;
       }
       case "evidence_appended": {
@@ -225,6 +257,7 @@ function projectEvents(
     taskId,
     nodes: Array.from(nodes.values()),
     decisions: Array.from(decisions.values()),
+    validationReports: Array.from(validationReports.values()),
     ...(cursor === undefined ? {} : { cursor }),
   };
   return snapshot;
@@ -258,6 +291,12 @@ function decodeStoredEvent(line: string): StoredExecutionEvent {
         type,
         nodeId: asNodeId(readString(event, "nodeId")),
         record: readDecisionRecord(readObject(event, "record")),
+      };
+    case "validation_report_recorded":
+      return {
+        type,
+        nodeId: asNodeId(readString(event, "nodeId")),
+        report: readValidationReport(readObject(event, "report")),
       };
     case "evidence_appended":
       return {
@@ -360,13 +399,30 @@ function readDecisionVerdict(value: JsonObject): DecisionRecord["verdict"] {
   };
 }
 
+function readValidationReport(value: JsonObject): ValidationReport {
+  return {
+    report_ref: readString(value, "report_ref"),
+    taskId: asTaskId(readString(value, "taskId")),
+    nodeId: asNodeId(readString(value, "nodeId")),
+    scope: readValidationScope(value, "scope"),
+    status: readValidationStatus(value, "status"),
+    reasons: readStringArray(value, "reasons"),
+    evidence_strength: readValidationEvidenceStrength(value, "evidence_strength"),
+    evidence: readEvidence(readObject(value, "evidence")),
+    details: readObject(value, "details"),
+    createdAt: readString(value, "createdAt"),
+  };
+}
+
 function readEvidence(value: JsonObject): ExecutionEvidence {
   const artifacts = readOptionalStringArray(value, "artifacts");
   const touchedFiles = readOptionalStringArray(value, "touchedFiles");
+  const reportRef = readOptionalString(value, "report_ref");
   return {
     summary: readString(value, "summary"),
     ...(artifacts === undefined ? {} : { artifacts }),
     ...(touchedFiles === undefined ? {} : { touchedFiles }),
+    ...(reportRef === undefined ? {} : { report_ref: reportRef }),
   };
 }
 
@@ -450,6 +506,21 @@ function readNodeType(source: JsonObject, key: string): NodeType {
   return readStringUnion(source, key, ["leaf", "inner"]);
 }
 
+function readValidationScope(source: JsonObject, key: string): ValidationScope {
+  return readStringUnion(source, key, ["leaf", "parent"]);
+}
+
+function readValidationStatus(source: JsonObject, key: string): ValidationStatus {
+  return readStringUnion(source, key, ["pass", "fail"]);
+}
+
+function readValidationEvidenceStrength(
+  source: JsonObject,
+  key: string,
+): ValidationEvidenceStrength {
+  return readStringUnion(source, key, ["command", "model_fallback"]);
+}
+
 function readNodeStatus(source: JsonObject, key: string): NodeStatus {
   return readStringUnion(source, key, [
     "pending",
@@ -503,6 +574,12 @@ function readOptionalStringArray(
     if (typeof item !== "string") throw new Error(`Expected ${key} to be a string array`);
     return item;
   });
+}
+
+function readStringArray(source: JsonObject, key: string): readonly string[] {
+  const value = readOptionalStringArray(source, key);
+  if (value !== undefined) return value;
+  throw new Error(`Expected ${key} to be a string array`);
 }
 
 interface ErrorWithCode extends Error {

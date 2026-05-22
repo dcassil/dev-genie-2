@@ -33,6 +33,24 @@ export interface ExecutionEvidence {
   readonly summary: string;
   readonly artifacts?: readonly string[];
   readonly touchedFiles?: readonly string[];
+  readonly report_ref?: string;
+}
+
+export type ValidationScope = "leaf" | "parent";
+export type ValidationStatus = "pass" | "fail";
+export type ValidationEvidenceStrength = "command" | "model_fallback";
+
+export interface ValidationReport {
+  readonly report_ref: string;
+  readonly taskId: TaskId;
+  readonly nodeId: NodeId;
+  readonly scope: ValidationScope;
+  readonly status: ValidationStatus;
+  readonly reasons: readonly string[];
+  readonly evidence_strength: ValidationEvidenceStrength;
+  readonly evidence: ExecutionEvidence;
+  readonly details: JsonObject;
+  readonly createdAt: string;
 }
 
 export interface DecisionRequest {

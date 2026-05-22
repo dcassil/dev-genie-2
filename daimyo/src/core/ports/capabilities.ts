@@ -4,21 +4,25 @@ import type {
   JsonObject,
   NodeRef,
   TaskId,
+  ValidationScope,
+  ValidationStatus,
 } from "../domain.js";
 import type { WorkTask } from "./work-source.js";
 
 export interface ValidationRequest {
   readonly task: WorkTask;
   readonly node: NodeRef;
+  readonly scope: ValidationScope;
   readonly evidence: ExecutionEvidence;
 }
 
 export interface ValidationResult {
-  readonly passed: boolean;
+  readonly status: ValidationStatus;
   readonly reasons: readonly string[];
+  readonly report_ref: string;
 }
 
-/** Capability port for parent-authoritative validation. */
+/** Capability port for leaf-local and parent-authoritative validation. */
 export interface Validation {
   validate(request: ValidationRequest): Promise<ValidationResult>;
 }

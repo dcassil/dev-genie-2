@@ -15447,7 +15447,7 @@ var StdioServerTransport = class {
 // src/mcp/server.ts
 async function startServer() {
   const server = new Server(
-    { name: "daimyo", version: "0.2.0" },
+    { name: "daimyo", version: "0.5.0" },
     { capabilities: { tools: {} } }
   );
   server.setRequestHandler(ListToolsRequestSchema, async () => ({

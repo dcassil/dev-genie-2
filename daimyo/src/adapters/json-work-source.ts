@@ -231,7 +231,11 @@ function optionalStringArray(value: unknown): value is readonly string[] | undef
 
 function isExecutionEvidence(value: unknown): value is ExecutionEvidence {
   if (!isRecord(value) || typeof value.summary !== "string") return false;
-  return optionalStringArray(value.artifacts) && optionalStringArray(value.touchedFiles);
+  return (
+    optionalStringArray(value.artifacts) &&
+    optionalStringArray(value.touchedFiles) &&
+    optionalString(value.report_ref)
+  );
 }
 
 function optionalJsonObject(value: unknown): value is JsonObject | undefined {
