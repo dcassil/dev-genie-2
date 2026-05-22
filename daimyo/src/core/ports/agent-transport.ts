@@ -141,6 +141,16 @@ export class AgentCommandRejectedError extends Error {
   }
 }
 
+export class AgentSessionResumeRejectedError extends Error {
+  readonly sessionId: AgentSessionId;
+
+  constructor(message: string, sessionId: AgentSessionId) {
+    super(message);
+    this.name = "AgentSessionResumeRejectedError";
+    this.sessionId = sessionId;
+  }
+}
+
 /**
  * Drives one disposable top-level agent session for one Daimyo node.
  *
@@ -190,6 +200,9 @@ export interface AgentTransport {
 
   /** Send a correlated command that answers the current pending event. */
   sendCommand(sessionId: AgentSessionId, command: AgentCommand): Promise<void>;
+
+  /** Dispose a worker session after its node reaches a terminal loop state. */
+  disposeSession(sessionId: AgentSessionId): Promise<void>;
 }
 
 export function asAgentSessionId(value: string): AgentSessionId {

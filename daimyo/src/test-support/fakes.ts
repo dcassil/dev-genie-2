@@ -21,6 +21,7 @@ import type {
 } from "../core/ports/agent-transport.js";
 import {
   AgentCommandRejectedError as CommandRejectedError,
+  AgentSessionResumeRejectedError,
   asAgentSessionId,
   asTransportCorrelationId,
 } from "../core/ports/agent-transport.js";
@@ -36,16 +37,29 @@ import { asTaskId } from "../core/domain.js";
 
 export class FakeAgentTransport implements AgentTransport {
   readonly sessions: AgentSession[] = [];
+  readonly spawnRequests: AgentSessionRequest[] = [];
   readonly commands: { readonly sessionId: AgentSessionId; readonly command: AgentCommand }[] =
     [];
+  readonly disposedSessionIds: AgentSessionId[] = [];
   private readonly events: AgentEvent[] = [];
   private readonly pending = new Map<string, AgentPendingCorrelation>();
+  private readonly rejectedResumeSessionIds = new Set<string>();
 
   constructor(events: readonly AgentEvent[] = []) {
     this.events.push(...events);
   }
 
   async spawnSession(request: AgentSessionRequest): Promise<AgentSession> {
+    this.spawnRequests.push(request);
+    if (
+      request.resumeFromSessionId !== undefined &&
+      this.rejectedResumeSessionIds.has(request.resumeFromSessionId)
+    ) {
+      throw new AgentSessionResumeRejectedError(
+        `Fake rejected resume token for ${request.resumeFromSessionId}`,
+        request.resumeFromSessionId,
+      );
+    }
     const session: AgentSession = {
       id:
         request.resumeFromSessionId ??
@@ -79,8 +93,17 @@ export class FakeAgentTransport implements AgentTransport {
     this.commands.push({ sessionId, command });
   }
 
+  async disposeSession(sessionId: AgentSessionId): Promise<void> {
+    this.pending.delete(sessionId);
+    this.disposedSessionIds.push(sessionId);
+  }
+
   pushEvent(event: AgentEvent): void {
     this.events.push(event);
+  }
+
+  rejectResumeFor(sessionId: AgentSessionId): void {
+    this.rejectedResumeSessionIds.add(sessionId);
   }
 
   pendingCorrelations(): readonly AgentPendingCorrelation[] {
@@ -220,7 +243,7 @@ export class FakeDecisionProvider implements DecisionProvider {
   private decide(request: DecisionRequest): DecisionRecord {
     this.requests.push(request);
     const record = this.records.shift();
-    if (record !== undefined) return record;
+    if (record !== undefined) return { ...record, request };
     return {
       id: asDecisionId(`fake-decision-${this.requests.length}`),
       request,

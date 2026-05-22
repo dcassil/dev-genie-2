@@ -182,6 +182,18 @@ export class ClaudeSdkAgentTransport implements AgentTransport {
     await this.resolveStalled(state, command);
   }
 
+  async disposeSession(sessionId: AgentSessionId): Promise<void> {
+    const state = this.sessions.get(sessionId);
+    if (state === undefined) return;
+    this.clearStalledTimer(state);
+    this.clearInterruptTimer(state);
+    state.pending = undefined;
+    state.terminal = true;
+    state.query?.close();
+    state.abortController.abort("Daimyo disposed worker session");
+    this.sessions.delete(sessionId);
+  }
+
   private buildOptions(
     request: AgentSessionRequest,
     sessionId: AgentSessionId,
