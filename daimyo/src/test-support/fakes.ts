@@ -7,14 +7,21 @@ import type {
 import { asDecisionId } from "../core/domain.js";
 import type {
   AgentCommand,
+  AgentCommandRejectedError,
   AgentEvent,
   AgentEventReadOptions,
+  AgentPendingCorrelation,
   AgentSession,
   AgentSessionId,
   AgentSessionRequest,
   AgentTransport,
+  TransportCorrelationId,
 } from "../core/ports/agent-transport.js";
-import { asAgentSessionId } from "../core/ports/agent-transport.js";
+import {
+  AgentCommandRejectedError as CommandRejectedError,
+  asAgentSessionId,
+  asTransportCorrelationId,
+} from "../core/ports/agent-transport.js";
 import type { DecisionProvider } from "../core/ports/decision-provider.js";
 import type {
   CreateTaskInput,
@@ -30,6 +37,7 @@ export class FakeAgentTransport implements AgentTransport {
   readonly commands: { readonly sessionId: AgentSessionId; readonly command: AgentCommand }[] =
     [];
   private readonly events: AgentEvent[] = [];
+  private readonly pending = new Map<string, AgentPendingCorrelation>();
 
   constructor(events: readonly AgentEvent[] = []) {
     this.events.push(...events);
@@ -37,34 +45,98 @@ export class FakeAgentTransport implements AgentTransport {
 
   async spawnSession(request: AgentSessionRequest): Promise<AgentSession> {
     const session: AgentSession = {
-      id: asAgentSessionId(`fake-session-${this.sessions.length + 1}`),
+      id:
+        request.resumeFromSessionId ??
+        asAgentSessionId(`fake-session-${this.sessions.length + 1}`),
       nodeId: request.nodeId,
     };
     this.sessions.push(session);
     return session;
   }
 
-  async nextEvent(
+  async readEvent(
     sessionId: AgentSessionId,
     _options?: AgentEventReadOptions,
   ): Promise<AgentEvent> {
-    const event = this.events.shift();
-    if (event !== undefined) return event;
-    return {
-      type: "stalled",
-      sessionId,
-      elapsedMs: 0,
-      reason: "fake transport event queue exhausted",
-    };
+    const event =
+      this.events.shift() ??
+      ({
+        type: "stalled",
+        sessionId,
+        correlationId: asTransportCorrelationId(`fake-stalled-${this.commands.length + 1}`),
+        elapsedMs: 0,
+        lastProgressAt: new Date(0).toISOString(),
+        reason: "fake transport event queue exhausted",
+      } satisfies AgentEvent);
+    this.recordPending(event);
+    return event;
   }
 
   async sendCommand(sessionId: AgentSessionId, command: AgentCommand): Promise<void> {
+    this.resolvePending(sessionId, command);
     this.commands.push({ sessionId, command });
   }
 
   pushEvent(event: AgentEvent): void {
     this.events.push(event);
   }
+
+  pendingCorrelations(): readonly AgentPendingCorrelation[] {
+    return Array.from(this.pending.values());
+  }
+
+  private recordPending(event: AgentEvent): void {
+    if (event.type === "needs_permission") {
+      this.pending.set(event.sessionId, {
+        correlationId: event.correlationId,
+        eventType: event.type,
+        acceptedCommands: ["approve", "deny"],
+      });
+      return;
+    }
+    if (event.type === "needs_input") {
+      this.pending.set(event.sessionId, {
+        correlationId: event.correlationId,
+        eventType: event.type,
+        acceptedCommands:
+          event.options === undefined ? ["respond"] : ["respond", "choose_option"],
+      });
+      return;
+    }
+    if (event.type === "stalled") {
+      this.pending.set(event.sessionId, {
+        correlationId: event.correlationId,
+        eventType: event.type,
+        acceptedCommands: ["interrupt", "resume"],
+      });
+      return;
+    }
+    if (event.type === "turn_ended" || event.type === "exited") {
+      this.pending.delete(event.sessionId);
+    }
+  }
+
+  private resolvePending(sessionId: AgentSessionId, command: AgentCommand): void {
+    const pending = this.pending.get(sessionId);
+    if (pending === undefined) {
+      throw rejected(command.correlationId, command.type, "No pending correlated event");
+    }
+    if (pending.correlationId !== command.correlationId) {
+      throw rejected(command.correlationId, command.type, `Pending correlation is ${pending.correlationId}`);
+    }
+    if (!pending.acceptedCommands.includes(command.type)) {
+      throw rejected(command.correlationId, command.type, `${command.type} cannot answer ${pending.eventType}`);
+    }
+    this.pending.delete(sessionId);
+  }
+}
+
+function rejected(
+  correlationId: TransportCorrelationId,
+  commandType: AgentCommand["type"],
+  message: string,
+): AgentCommandRejectedError {
+  return new CommandRejectedError(message, correlationId, commandType);
 }
 
 export class FakeWorkSource implements WorkSource {

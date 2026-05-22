@@ -1,6 +1,6 @@
 {
   "name": "daimyo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "bin": {
     "daimyo-mcp": "bin/daimyo-mcp.js"
@@ -12,6 +12,7 @@
     "lint": "eslint . --max-warnings=0"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.148",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {

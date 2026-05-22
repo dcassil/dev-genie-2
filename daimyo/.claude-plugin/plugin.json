@@ -1,6 +1,6 @@
 {
   "name": "daimyo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Out-of-process deterministic supervisor substrate for recursive govern-verify loops. Provides the Daimyo MCP server and core port contracts for agent transport, work sources, and decision routing.",
   "author": {
     "name": "Daniel Cassil",
@@ -21,7 +21,9 @@
   "mcpServers": {
     "daimyo": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bin/daimyo-mcp.js"],
+      "args": [
+        "${CLAUDE_PLUGIN_ROOT}/bin/daimyo-mcp.js"
+      ],
       "transport": "stdio"
     }
   }
