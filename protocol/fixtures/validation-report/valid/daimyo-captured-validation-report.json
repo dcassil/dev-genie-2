@@ -1,0 +1,93 @@
+{
+  "artifact_id": "artifact:sha256:5752ebaa9bd22e4a550ecdb45ce92b2aaf722ac58d7bcdee8cd54f36a763527d",
+  "artifact_type": "ValidationReport",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "engine",
+    "name": "daimyo-built-in-validation",
+    "version": "0.12.0",
+    "invocation_id": "dgos-t-0020-fixture-capture"
+  },
+  "created_at": "2026-05-23T21:00:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "task",
+      "id": "task-protocol-fixture-capture",
+      "relation": "validates"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "validation:task-protocol-fixture-capture:node-protocol-fixture-capture:parent:2026-05-23T21:00:00.000Z",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 1,
+    "level": "high"
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "report_ref": "validation:task-protocol-fixture-capture:node-protocol-fixture-capture:parent:2026-05-23T21:00:00.000Z",
+    "task_id": "task-protocol-fixture-capture",
+    "node_id": "node-protocol-fixture-capture",
+    "reasons": ["Captured daimyo validation report conforms to the protocol schema."],
+    "evidence_strength": "command",
+    "evidence": {
+      "summary": "Captured daimyo execution evidence for the protocol fixture corpus.",
+      "touch_report": {
+        "task_id": "task-protocol-fixture-capture",
+        "report_type": "touch_report",
+        "touched_files": ["protocol/schemas/execution-record.schema.json"],
+        "touched_interfaces": ["interface:protocol-fixture-harness"],
+        "touched_data": ["config:protocol.compatibility"],
+        "touched_workflow_steps": ["workflow:protocol-fixture-capture"]
+      },
+      "produced_artifact_refs": [
+        {
+          "ref_type": "artifact",
+          "id": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "relation": "produces"
+        }
+      ],
+      "report_ref": "execution:task-protocol-fixture-capture:node-protocol-fixture-capture:2026-05-23T21:00:00.000Z",
+      "intended_files": ["protocol/fixtures/execution-record/valid/daimyo-captured-execution-record.json"],
+      "intended_interfaces": ["interface:protocol-fixture-harness"],
+      "intended_data": ["config:protocol.compatibility"]
+    },
+    "details": {
+      "kind": "command",
+      "command": "npm",
+      "args": ["test"],
+      "cwd": "protocol",
+      "timeoutMs": null,
+      "exitCode": 0,
+      "stdout": "fixture capture",
+      "stderr": ""
+    },
+    "scope": "parent",
+    "status": "pass",
+    "completion_decision": {
+      "can_mark_complete": true,
+      "authority": "parent_authoritative",
+      "blocking_reason_codes": []
+    }
+  }
+}

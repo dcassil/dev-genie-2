@@ -18,9 +18,10 @@
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.mjs && tsc -p tsconfig.build.json",
     "codegen": "tsx scripts/codegen.ts",
+    "check:compat": "tsx scripts/check-compatibility.ts",
     "check:codegen": "tsx scripts/check-codegen.ts",
     "validate:schemas": "tsx scripts/validate-schemas.ts",
-    "test": "npm run validate:schemas && npm run check:codegen && vitest run",
+    "test": "npm run validate:schemas && npm run check:codegen && npm run check:compat && vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0"
   },

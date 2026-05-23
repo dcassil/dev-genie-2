@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/role-invocation.schema.json",
+  "title": "RoleInvocation",
+  "description": "Envelope-composed Role subprocess input artifact. This formalizes DGOS-A-0002's Role Invocation Convention with protocol snake_case fields under the shared artifact envelope.",
+  "$comment": "DGOS-A-0002 requires a one-shot subprocess input envelope carrying invocation identity, role identity, operation, decision scope, source/input artifacts with hashes, context bundles, policy refs, budget/model policy, timeout, allowed Engines/tools, expected outputs, and trace destination. Cross-primitive envelope fields are inherited through allOf and are not redefined.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "RoleInvocation"
+        },
+        "payload": {
+          "$ref": "#/$defs/roleInvocationPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "roleInvocationPayload": {
+      "title": "RoleInvocationPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocation_id",
+        "role_id",
+        "role_version",
+        "operation",
+        "decision_scope",
+        "input_artifacts",
+        "context_bundle_refs",
+        "policy_decision_refs",
+        "budget",
+        "model_tier_policy",
+        "timeout_ms",
+        "allowed_engines",
+        "allowed_tools",
+        "expected_output_artifacts",
+        "trace"
+      ],
+      "properties": {
+        "invocation_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable correlation id for this one-shot Role invocation and its matching RoleResult.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable Role identity being invoked.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._:-]*$"
+        },
+        "role_version": {
+          "type": "string",
+          "description": "REQUIRED string. Version of the role prompt, profile, and artifact contract.",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "description": "REQUIRED string. Machine-readable operation requested from the Role.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "decision_scope": {
+          "$ref": "#/$defs/roleDecisionScope"
+        },
+        "input_artifacts": {
+          "type": "array",
+          "description": "REQUIRED array. Source artifact references supplied to the Role, including content hashes where available.",
+          "minItems": 1,
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "context_bundle_refs": {
+          "type": "array",
+          "description": "REQUIRED array. ContextBundle artifact references bounding the Role's context window.",
+          "minItems": 1,
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "policy_decision_refs": {
+          "type": "array",
+          "description": "REQUIRED array. Policy, DecisionRecord, or other decision references that constrain this invocation. Empty means no prior policy decision was provided.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "budget": {
+          "$ref": "#/$defs/roleInvocationBudget"
+        },
+        "model_tier_policy": {
+          "$ref": "#/$defs/modelTierPolicy"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "description": "REQUIRED integer. Caller-enforced timeout in milliseconds.",
+          "minimum": 1
+        },
+        "allowed_engines": {
+          "type": "array",
+          "description": "REQUIRED array. Deterministic Engines the Role runner may call. Empty means no Engines are allowed.",
+          "items": {
+            "$ref": "#/$defs/allowedEngine"
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "description": "REQUIRED array. Tools the Role runner may call behind the subprocess boundary. Empty means no tools are allowed.",
+          "items": {
+            "$ref": "#/$defs/allowedTool"
+          }
+        },
+        "expected_output_artifacts": {
+          "type": "array",
+          "description": "REQUIRED array. Output artifact schemas the caller expects the Role to produce or reference.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/expectedOutputArtifact"
+          }
+        },
+        "trace": {
+          "$ref": "#/$defs/roleTraceRequest"
+        }
+      }
+    },
+    "roleDecisionScope": {
+      "title": "RoleDecisionScope",
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable scope that bounds what the Role is allowed to decide.",
+      "additionalProperties": false,
+      "required": ["scope_type", "scope_id", "objective"],
+      "properties": {
+        "scope_type": {
+          "type": "string",
+          "description": "REQUIRED string. Scope category such as task, initiative, artifact, patch, review, or decision.",
+          "enum": ["task", "initiative", "artifact", "patch", "review", "decision", "workflow"]
+        },
+        "scope_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable id of the scoped work, artifact, or decision.",
+          "minLength": 1
+        },
+        "objective": {
+          "type": "string",
+          "description": "REQUIRED string. Bounded outcome requested from the Role.",
+          "minLength": 1
+        },
+        "constraints": {
+          "type": "array",
+          "description": "OPTIONAL array. Machine-readable constraints or policy codes for this invocation.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          },
+          "default": []
+        },
+        "decision_refs": {
+          "type": "array",
+          "description": "OPTIONAL array. Prior decisions that shape this scope.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          },
+          "default": []
+        }
+      }
+    },
+    "roleInvocationBudget": {
+      "title": "RoleInvocationBudget",
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable spend and token budget for the Role runner.",
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "type": "number",
+          "description": "OPTIONAL number. Maximum allowed estimated or actual cost in USD.",
+          "minimum": 0
+        },
+        "max_input_tokens": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Maximum input tokens available to the Role.",
+          "minimum": 0
+        },
+        "max_output_tokens": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Maximum output tokens available to the Role.",
+          "minimum": 0
+        }
+      }
+    },
+    "modelTierPolicy": {
+      "title": "ModelTierPolicy",
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable policy for model/provider tier selection.",
+      "additionalProperties": false,
+      "required": ["allowed_tiers", "fallback_allowed"],
+      "properties": {
+        "allowed_tiers": {
+          "type": "array",
+          "description": "REQUIRED array. Model tiers the Role runner may use.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "enum": ["deterministic", "small", "standard", "frontier", "human"]
+          },
+          "uniqueItems": true
+        },
+        "preferred_tier": {
+          "type": "string",
+          "description": "OPTIONAL string. Preferred model tier when several allowed tiers are available.",
+          "enum": ["deterministic", "small", "standard", "frontier", "human"]
+        },
+        "fallback_allowed": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. Whether the runner may choose a non-preferred allowed tier."
+        }
+      }
+    },
+    "allowedEngine": {
+      "title": "AllowedEngine",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_id"],
+      "properties": {
+        "engine_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable Engine identity.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._:-]*$"
+        },
+        "engine_version": {
+          "type": "string",
+          "description": "OPTIONAL string. Required Engine version or version range.",
+          "minLength": 1
+        },
+        "operations": {
+          "type": "array",
+          "description": "OPTIONAL array. Engine operations allowed for this invocation.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          },
+          "default": []
+        }
+      }
+    },
+    "allowedTool": {
+      "title": "AllowedTool",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool_id", "permission"],
+      "properties": {
+        "tool_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable tool identity as understood by the Role runner.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "permission": {
+          "type": "string",
+          "description": "REQUIRED string. Permission level granted for this invocation.",
+          "enum": ["read_only", "write", "deny"]
+        },
+        "restrictions": {
+          "$ref": "#/$defs/jsonObject"
+        }
+      }
+    },
+    "expectedOutputArtifact": {
+      "title": "ExpectedOutputArtifact",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_type", "schema_version", "required"],
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "description": "REQUIRED string. Expected output artifact catalog type.",
+          "minLength": 1,
+          "pattern": "^[A-Z][A-Za-z0-9]*$"
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "REQUIRED string. Expected payload schema version.",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. Whether absence of this output blocks the invocation result."
+        },
+        "relation": {
+          "type": "string",
+          "description": "OPTIONAL string. Expected relationship to the invocation.",
+          "enum": ["produces", "patches", "validates", "supersedes"]
+        }
+      }
+    },
+    "roleTraceRequest": {
+      "title": "RoleTraceRequest",
+      "type": "object",
+      "description": "REQUIRED object. Durable trace destination for invocation logs and related records.",
+      "additionalProperties": false,
+      "required": ["destination"],
+      "properties": {
+        "destination": {
+          "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+        },
+        "trace_id": {
+          "type": "string",
+          "description": "OPTIONAL string. Stable trace id when allocated by the caller.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        }
+      }
+    },
+    "jsonObject": {
+      "title": "RoleInvocationJsonObject",
+      "type": "object",
+      "description": "Structured JSON object; consumers must not parse prose from it.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "jsonValue": {
+      "title": "RoleInvocationJsonValue",
+      "description": "Structured JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonObject"
+        }
+      ]
+    }
+  }
+}

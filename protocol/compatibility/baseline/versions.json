@@ -1,0 +1,45 @@
+{
+  "protocol_version": "1.0.0",
+  "schemas": {
+    "artifact-envelope": {
+      "schema_version": "1.0.0",
+      "version_scope": "protocol"
+    },
+    "decision-record": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "decision-request": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "decision-verdict": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "execution-record": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "ownership-surface": {
+      "schema_version": "1.0.0",
+      "version_scope": "protocol"
+    },
+    "role-invocation": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "role-result": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "touch-report": {
+      "schema_version": "1.0.0",
+      "version_scope": "protocol"
+    },
+    "validation-report": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    }
+  }
+}

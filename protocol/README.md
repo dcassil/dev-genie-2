@@ -82,7 +82,23 @@ Downstream tasks T-0015 through T-0018 should add typed payload schemas and refi
 
 `protocol_version` versions the shared envelope and cross-artifact compatibility expectations. Consumers may assume the meaning of envelope fields, artifact refs, content hashes, confidence, review gates, diagnostics, and producer metadata remains backward-compatible across the same major protocol version. Minor protocol versions may add optional envelope metadata without changing required field meanings. Patch protocol versions may clarify schema constraints or documentation without changing accepted data. A protocol major-version mismatch means the consumer cannot assume envelope compatibility and must reject, route to an adapter, or require review.
 
-Compatibility enforcement and back-compat fixture matrices belong to DGOS-T-0020. This package defines the fields and rules those tests will enforce.
+Compatibility enforcement lives in the DGOS-T-0020 gate:
+
+```sh
+npm run check:compat
+```
+
+The gate compares `compatibility/baseline/schemas/*.schema.json` and `compatibility/baseline/versions.json` against the current `schemas/` directory and `compatibility/versions.json`.
+
+The classifier is intentionally conservative:
+
+- unchanged schemas require no version bump
+- adding an optional property is backward-compatible and requires a same-major version bump
+- removing a property, adding a required property, tightening `required`, changing a type, changing a `$ref`, changing a `const`, changing an `enum`, tightening numeric/string/array constraints, changing composition, or changing an unsupported/ambiguous keyword is breaking and requires a major version bump
+- loosening a required field or relaxing a numeric/string/array constraint is backward-compatible and requires a same-major version bump
+- ambiguous changes are breaking
+
+Schemas with `version_scope: "schema"` in `compatibility/versions.json` must bump that schema's `schema_version`. Shared protocol-surface schemas with `version_scope: "protocol"` must bump `protocol_version`, because they change the envelope or cross-artifact compatibility contract. A protocol major-version mismatch means consumers pinned to an older protocol major must reject, route to an adapter, or require review.
 
 ## Hashing And Provenance
 
@@ -166,8 +182,9 @@ The schema deliberately extends the ADR text in two places:
 1. Add `schemas/<artifact-name>.schema.json` with `$schema` set to `https://json-schema.org/draft/2020-12/schema`.
 2. Compose it from `artifact-envelope.schema.json` and a typed payload schema using the `allOf` pattern above.
 3. Add fixtures under `fixtures/<artifact-name>/valid/` and `fixtures/<artifact-name>/invalid/`.
-4. Run `npm run codegen`.
-5. Run `npm run test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
+4. Add the schema to `compatibility/versions.json` and, when establishing a new compatible baseline, snapshot the schema under `compatibility/baseline/schemas/` with the matching baseline version entry.
+5. Run `npm run codegen`.
+6. Run `npm run test`, `npm run typecheck`, `npm run lint`, and `npm run build`.
 
 ## Codegen
 
@@ -183,7 +200,7 @@ Check for stale generated output with:
 npm run check:codegen
 ```
 
-`npm run test` also runs the schema validator and codegen drift check before the fixture tests.
+`npm run test` also runs the schema validator, codegen drift check, and compatibility/versioning check before the fixture tests.
 
 ## Fixture Harness
 
@@ -196,3 +213,19 @@ fixtures/example/invalid/*.json
 ```
 
 The Vitest harness compiles every schema with Ajv and asserts every valid fixture passes and every invalid fixture fails. Adding a new artifact type should only require dropping in the schema plus its valid and invalid fixtures.
+
+Every schema, including shared sub-schemas, must have both valid and invalid fixtures. For envelope-composed artifact types, valid fixtures should include representative `schema_version` and `protocol_version` values. When a runtime package emits the artifact, add at least one valid fixture captured from that runtime instead of relying only on hand-written examples.
+
+Current daimyo-captured fixtures:
+
+- `fixtures/decision-record/valid/daimyo-captured-decision-record.json` from `makeDecisionRecord`
+- `fixtures/validation-report/valid/daimyo-captured-validation-report.json` from `makeValidationReport`
+- `fixtures/execution-record/valid/daimyo-captured-execution-record.json` wraps a captured daimyo `makeExecutionEvidence` payload in the protocol `ExecutionRecord` envelope; daimyo currently persists execution evidence payloads rather than emitting standalone `ExecutionRecord` artifacts
+
+Daimyo does not currently emit `RoleInvocation`, `RoleResult`, `DecisionRequest` envelopes, or standalone shared sub-schema artifacts, so those fixtures remain protocol-authored examples.
+
+To add a fixture:
+
+1. Put accepted examples in `fixtures/<schema-name>/valid/*.json` and rejected examples in `fixtures/<schema-name>/invalid/*.json`.
+2. For a runtime-captured fixture, serialize the runtime value with stable timestamps and ids, keep the producer metadata, and name the file with the runtime prefix such as `daimyo-captured-*.json`.
+3. Run `npm test`; this validates schemas, checks generated TypeScript drift, checks compatibility/versioning, and runs the fixture corpus.

@@ -7,6 +7,11 @@ import type { AnySchemaObject } from "ajv";
 export const projectRoot = resolve(fileURLToPath(new URL("../..", import.meta.url)));
 export const schemaRoot = join(projectRoot, "schemas");
 export const fixtureRoot = join(projectRoot, "fixtures");
+export const compatibilityRoot = join(projectRoot, "compatibility");
+export const compatibilityBaselineRoot = join(compatibilityRoot, "baseline");
+export const compatibilityBaselineSchemaRoot = join(compatibilityBaselineRoot, "schemas");
+export const compatibilityBaselineVersionsPath = join(compatibilityBaselineRoot, "versions.json");
+export const compatibilityVersionsPath = join(compatibilityRoot, "versions.json");
 export const generatedDir = join(projectRoot, "src", "generated");
 export const generatedTypesPath = join(generatedDir, "artifacts.ts");
 

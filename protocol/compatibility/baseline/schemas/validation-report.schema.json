@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/validation-report.schema.json",
+  "title": "ValidationReport",
+  "description": "Envelope-composed authoritative validation result. The payload mirrors daimyo's ValidationReport and ValidationResult fields while making ADR-3 completion authority machine-judgable.",
+  "$comment": "Required payload fields are report_ref, task_id, node_id, scope, status, reasons, evidence_strength, evidence, details, and completion_decision. The shared envelope owns artifact identity, timestamps, refs, confidence, diagnostics, and ownership.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "ValidationReport"
+        },
+        "payload": {
+          "$ref": "#/$defs/validationReportPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "validationReportPayload": {
+      "title": "ValidationReportPayload",
+      "description": "Daimyo-compatible ValidationReport payload. The union encodes ADR-3 completion authority: leaf reports cannot mark complete; parent pass can; parent fail cannot.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/leafValidationReportPayload"
+        },
+        {
+          "$ref": "#/$defs/parentPassValidationReportPayload"
+        },
+        {
+          "$ref": "#/$defs/parentFailValidationReportPayload"
+        }
+      ]
+    },
+    "leafValidationReportPayload": {
+      "title": "LeafValidationReportPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_ref",
+        "task_id",
+        "node_id",
+        "scope",
+        "status",
+        "reasons",
+        "evidence_strength",
+        "evidence",
+        "details",
+        "completion_decision"
+      ],
+      "properties": {
+        "report_ref": {
+          "$ref": "#/$defs/reportRef"
+        },
+        "task_id": {
+          "$ref": "#/$defs/taskId"
+        },
+        "node_id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "scope": {
+          "const": "leaf"
+        },
+        "status": {
+          "$ref": "#/$defs/validationStatus"
+        },
+        "reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "evidence_strength": {
+          "$ref": "#/$defs/validationEvidenceStrength"
+        },
+        "evidence": {
+          "$ref": "execution-record.schema.json#/$defs/executionEvidence"
+        },
+        "details": {
+          "$ref": "#/$defs/validationDetails"
+        },
+        "completion_decision": {
+          "$ref": "#/$defs/leafCompletionDecision"
+        }
+      }
+    },
+    "parentPassValidationReportPayload": {
+      "title": "ParentPassValidationReportPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_ref",
+        "task_id",
+        "node_id",
+        "scope",
+        "status",
+        "reasons",
+        "evidence_strength",
+        "evidence",
+        "details",
+        "completion_decision"
+      ],
+      "properties": {
+        "report_ref": {
+          "$ref": "#/$defs/reportRef"
+        },
+        "task_id": {
+          "$ref": "#/$defs/taskId"
+        },
+        "node_id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "scope": {
+          "const": "parent"
+        },
+        "status": {
+          "const": "pass"
+        },
+        "reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "evidence_strength": {
+          "$ref": "#/$defs/validationEvidenceStrength"
+        },
+        "evidence": {
+          "$ref": "execution-record.schema.json#/$defs/executionEvidence"
+        },
+        "details": {
+          "$ref": "#/$defs/validationDetails"
+        },
+        "completion_decision": {
+          "$ref": "#/$defs/parentPassCompletionDecision"
+        }
+      }
+    },
+    "parentFailValidationReportPayload": {
+      "title": "ParentFailValidationReportPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_ref",
+        "task_id",
+        "node_id",
+        "scope",
+        "status",
+        "reasons",
+        "evidence_strength",
+        "evidence",
+        "details",
+        "completion_decision"
+      ],
+      "properties": {
+        "report_ref": {
+          "$ref": "#/$defs/reportRef"
+        },
+        "task_id": {
+          "$ref": "#/$defs/taskId"
+        },
+        "node_id": {
+          "$ref": "#/$defs/nodeId"
+        },
+        "scope": {
+          "const": "parent"
+        },
+        "status": {
+          "const": "fail"
+        },
+        "reasons": {
+          "$ref": "#/$defs/reasons"
+        },
+        "evidence_strength": {
+          "$ref": "#/$defs/validationEvidenceStrength"
+        },
+        "evidence": {
+          "$ref": "execution-record.schema.json#/$defs/executionEvidence"
+        },
+        "details": {
+          "$ref": "#/$defs/validationDetails"
+        },
+        "completion_decision": {
+          "$ref": "#/$defs/parentFailCompletionDecision"
+        }
+      }
+    },
+    "reportRef": {
+      "type": "string",
+      "description": "REQUIRED string. Daimyo-compatible stable reference to the persisted validation report.",
+      "minLength": 1
+    },
+    "taskId": {
+      "type": "string",
+      "description": "REQUIRED string. Protocol snake_case representation of daimyo's taskId.",
+      "minLength": 1
+    },
+    "nodeId": {
+      "type": "string",
+      "description": "REQUIRED string. Protocol snake_case representation of daimyo's nodeId.",
+      "minLength": 1
+    },
+    "reasons": {
+      "type": "array",
+      "description": "REQUIRED array. Daimyo-compatible validation reasons. Consumers may display these but must not parse them for completion decisions.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "validationScope": {
+      "title": "ValidationScope",
+      "type": "string",
+      "description": "ADR-3 one-engine-two-scopes validation scope.",
+      "enum": ["leaf", "parent"]
+    },
+    "validationStatus": {
+      "title": "ValidationStatus",
+      "type": "string",
+      "description": "Daimyo-compatible validation status.",
+      "enum": ["pass", "fail"]
+    },
+    "validationEvidenceStrength": {
+      "title": "ValidationEvidenceStrength",
+      "type": "string",
+      "description": "Daimyo-compatible evidence-strength indicator distinguishing declared command results from model fallback acceptance checks.",
+      "enum": ["command", "model_fallback"]
+    },
+    "completionDecision": {
+      "title": "CompletionDecision",
+      "type": "object",
+      "description": "REQUIRED object. Structured ADR-3 completion judgement; consumers must not infer completion from prose reasons.",
+      "additionalProperties": false,
+      "required": ["can_mark_complete", "authority", "blocking_reason_codes"],
+      "properties": {
+        "can_mark_complete": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. True only when this report is sufficient to mark the validated work complete."
+        },
+        "authority": {
+          "type": "string",
+          "description": "REQUIRED string. Whether this result is merely leaf-local evidence or parent-authoritative completion authority.",
+          "enum": ["leaf_claim", "parent_authoritative"]
+        },
+        "blocking_reason_codes": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable blockers when can_mark_complete is false. Empty when the parent report passes and can mark complete.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          }
+        }
+      }
+    },
+    "leafCompletionDecision": {
+      "title": "LeafCompletionDecision",
+      "type": "object",
+      "description": "Leaf-scope validation can support a completion claim but cannot mark work complete under ADR-3.",
+      "additionalProperties": false,
+      "required": ["can_mark_complete", "authority", "blocking_reason_codes"],
+      "properties": {
+        "can_mark_complete": {
+          "const": false
+        },
+        "authority": {
+          "const": "leaf_claim"
+        },
+        "blocking_reason_codes": {
+          "$ref": "#/$defs/blockingReasonCodes"
+        }
+      }
+    },
+    "parentPassCompletionDecision": {
+      "title": "ParentPassCompletionDecision",
+      "type": "object",
+      "description": "Parent-scope pass is the authoritative ADR-3 condition for marking completion.",
+      "additionalProperties": false,
+      "required": ["can_mark_complete", "authority", "blocking_reason_codes"],
+      "properties": {
+        "can_mark_complete": {
+          "const": true
+        },
+        "authority": {
+          "const": "parent_authoritative"
+        },
+        "blocking_reason_codes": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "parentFailCompletionDecision": {
+      "title": "ParentFailCompletionDecision",
+      "type": "object",
+      "description": "Parent-scope fail is authoritative and blocks completion.",
+      "additionalProperties": false,
+      "required": ["can_mark_complete", "authority", "blocking_reason_codes"],
+      "properties": {
+        "can_mark_complete": {
+          "const": false
+        },
+        "authority": {
+          "const": "parent_authoritative"
+        },
+        "blocking_reason_codes": {
+          "$ref": "#/$defs/blockingReasonCodes"
+        }
+      }
+    },
+    "blockingReasonCodes": {
+      "type": "array",
+      "description": "Machine-readable reason codes for blocked completion.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z][a-z0-9_:-]*$"
+      }
+    },
+    "validationDetails": {
+      "title": "ValidationDetails",
+      "type": "object",
+      "description": "REQUIRED object. Structured details from the validation engine, such as command exit data or model fallback booleans.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "jsonValue": {
+      "title": "ValidationReportJsonValue",
+      "description": "Structured JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/validationDetails"
+        }
+      ]
+    }
+  }
+}

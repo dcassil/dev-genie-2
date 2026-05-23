@@ -4,14 +4,14 @@ level: task
 title: "Compatibility/Versioning Enforcement & Fixture Corpus"
 short_code: "DGOS-T-0020"
 created_at: 2026-05-23T18:56:13.150320+00:00
-updated_at: 2026-05-23T18:56:13.150320+00:00
+updated_at: 2026-05-23T20:28:07.205210+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0001
 ## Objective
 
 Implement **machine-enforced compatibility/versioning checks** and assemble the **full fixture corpus** across all v1 artifact types. This is the initiative's "fixture-based tests for schema validation and compatibility checks" deliverable: prove that valid artifacts validate, invalid ones don't, and that a `schema_version`/`protocol_version` change is classified correctly (backward-compatible vs breaking) by an automated check rather than reviewer memory.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -64,4 +68,5 @@ Implement **machine-enforced compatibility/versioning checks** and assemble the 
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-23: Added `protocol` compatibility/versioning gate (`check:compat`) with conservative schema-change classification, baseline schema/version snapshots, producer/consumer compatibility tests, and integration into `npm test` alongside schema validation, codegen drift, and fixture validation. Added daimyo-captured valid fixtures for `DecisionRecord`, `ValidationReport`, and an `ExecutionRecord` envelope wrapping captured daimyo `ExecutionEvidence`; documented that daimyo does not currently emit RoleInvocation/RoleResult/DecisionRequest envelopes or standalone shared sub-schema artifacts. Verification clean: `npm run typecheck`, `npm run lint`, `npm test`, `npm run build`, and `npm run check:codegen`.
+- 2026-05-23 (orchestrator verification): confirmed `npm test` is the single gate (validate-schemas + check:codegen drift + check:compat + vitest) — 58 tests green. Compat classifier tests cover added-optional=compatible and removed/newly-required/retyped/ambiguous=breaking, the same-major-bump requirement, and producer/consumer pinning (protocol + schema major-bump incompatibility detected). Daimyo-captured valid fixtures present for the 3 types daimyo emits (decision-record, execution-record, validation-report); README notes the types daimyo does not yet emit. All 10 v1 schemas have valid/invalid fixture coverage. No schema-surface change → protocol stays 0.1.0. No escape hatches. **exit_criteria_met: true.** Completed.
