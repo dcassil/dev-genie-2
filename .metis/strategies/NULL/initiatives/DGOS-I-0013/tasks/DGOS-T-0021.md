@@ -4,14 +4,14 @@ level: task
 title: "ArchitectureImpact Artifact in protocol"
 short_code: "DGOS-T-0021"
 created_at: 2026-05-23T22:55:25.000214+00:00
-updated_at: 2026-05-23T22:55:25.000214+00:00
+updated_at: 2026-05-23T23:02:50.709149+00:00
 parent: DGOS-I-0013
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0013
 ## Objective
 
 Author **`ArchitectureImpact`** as a new artifact type in the `protocol` package: the typed output a single Architect Role invocation produces in the proof. It is the structured "what this Story implies architecturally" artifact that the proof's validation gate judges. Follow the exact pattern the v1 catalog established (JSON Schema source-of-truth + generated TS binding + valid/invalid fixtures, envelope `allOf` payload, run through the unified `npm test` gate).
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -63,3 +67,6 @@ Author **`ArchitectureImpact`** as a new artifact type in the `protocol` package
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-23: Added `ArchitectureImpact` to `protocol/` as an envelope-composed artifact schema with structured summary, affected/owned `OwnershipSurface` refs, proposed changes, risks, tradeoffs, decisions, and assumptions. Added valid/invalid fixtures, generated/exported TS bindings, updated README catalog docs with the DGOS-I-0013 proof consumer note, added compat baseline/manifest entries, and minor-bumped `protocol` package to 0.2.0 plus protocol manifest version to 1.1.0. Verification from `protocol/`: `npm run typecheck`, `npm run lint`, `npm test` (61 passed; compat 11 schemas, 0 changed), `npm run build`, and `npm run check:codegen` all clean.
+- 2026-05-23 (orchestrator verification): re-ran the unified gate + check:codegen — green (61 tests, 11 schemas). ArchitectureImpact is envelope-composed (`allOf`, refines artifact_type+payload), reuses the ownership-surface sub-schema for affected surfaces, structured payload (no prose blob). Valid fixture `protocol-proof-architect-output.json` + a missing-affected-surfaces invalid. Additive surface → protocol minor-bumped 0.1.0→0.2.0; compat classifier saw 0 changed (backward-compatible). No escape hatches. **exit_criteria_met: true.** Completed.

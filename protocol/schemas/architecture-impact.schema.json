@@ -1,0 +1,317 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/architecture-impact.schema.json",
+  "title": "ArchitectureImpact",
+  "description": "Envelope-composed architecture impact artifact emitted by an Architect Role for the Protocol Proof MVP. The payload is intentionally small and machine-readable so validation can judge architectural impact without parsing a prose report.",
+  "$comment": "Required payload fields are summary, affected_surfaces, owned_surfaces, proposed_changes, risks, tradeoffs, decisions, and assumptions. The shared envelope owns artifact identity, timestamps, refs, producer metadata, confidence, review gates, diagnostics, and the artifact's top-level ownership declaration.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "ArchitectureImpact"
+        },
+        "payload": {
+          "$ref": "#/$defs/architectureImpactPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "architectureImpactPayload": {
+      "title": "ArchitectureImpactPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "affected_surfaces",
+        "owned_surfaces",
+        "proposed_changes",
+        "risks",
+        "tradeoffs",
+        "decisions",
+        "assumptions"
+      ],
+      "properties": {
+        "summary": {
+          "$ref": "#/$defs/architectureImpactSummary"
+        },
+        "affected_surfaces": {
+          "description": "REQUIRED object. Surfaces the story is expected to affect, using the shared ownership-surface categories for machine comparison.",
+          "$ref": "ownership-surface.schema.json"
+        },
+        "owned_surfaces": {
+          "description": "REQUIRED object. Surfaces this architecture impact artifact claims as its direct architectural scope, using the reusable ownership-surface sub-schema.",
+          "$ref": "ownership-surface.schema.json"
+        },
+        "proposed_changes": {
+          "type": "array",
+          "description": "REQUIRED array. Proposed architectural changes or components. At least one change is required for a produced ArchitectureImpact.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/proposedArchitectureChange"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable risks introduced or exposed by the proposed architecture.",
+          "items": {
+            "$ref": "#/$defs/architectureRisk"
+          }
+        },
+        "tradeoffs": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable chosen-vs-rejected tradeoffs behind the proposed architecture.",
+          "items": {
+            "$ref": "#/$defs/architectureTradeoff"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "description": "REQUIRED array. Explicit architectural decisions or deferred decisions the proof validation gate can inspect.",
+          "items": {
+            "$ref": "#/$defs/architectureDecision"
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "description": "REQUIRED array. Assumptions the Architect Role relied on when context was incomplete or future validation is needed.",
+          "items": {
+            "$ref": "#/$defs/architectureAssumption"
+          }
+        }
+      }
+    },
+    "architectureImpactSummary": {
+      "title": "ArchitectureImpactSummary",
+      "type": "object",
+      "description": "REQUIRED object. Compact structured summary of the impact classification; detailed analysis belongs in sibling arrays.",
+      "additionalProperties": false,
+      "required": ["impact_level", "primary_change", "affected_primitive", "reason_codes"],
+      "properties": {
+        "impact_level": {
+          "type": "string",
+          "description": "REQUIRED string. Overall architectural impact level for routing and review gates.",
+          "enum": ["none", "low", "medium", "high"]
+        },
+        "primary_change": {
+          "type": "string",
+          "description": "REQUIRED string. Dominant change category.",
+          "enum": [
+            "preserve_existing_behavior",
+            "extend_existing_surface",
+            "add_new_surface",
+            "change_contract",
+            "deprecate_surface"
+          ]
+        },
+        "affected_primitive": {
+          "type": "string",
+          "description": "REQUIRED string. ADR-1 primitive most directly affected by this impact.",
+          "enum": ["engine", "role", "loop", "artifact", "adapter", "workflow", "none"]
+        },
+        "reason_codes": {
+          "$ref": "#/$defs/reasonCodes"
+        }
+      }
+    },
+    "proposedArchitectureChange": {
+      "title": "ProposedArchitectureChange",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["change_id", "change_type", "component", "target_surfaces", "rationale_codes"],
+      "properties": {
+        "change_id": {
+          "$ref": "#/$defs/architectureId"
+        },
+        "change_type": {
+          "type": "string",
+          "description": "REQUIRED string. Action proposed for the component or surface.",
+          "enum": ["add", "modify", "remove", "deprecate", "replace"]
+        },
+        "component": {
+          "$ref": "#/$defs/architectureComponent"
+        },
+        "target_surfaces": {
+          "description": "REQUIRED object. Concrete surfaces targeted by this change.",
+          "$ref": "ownership-surface.schema.json"
+        },
+        "rationale_codes": {
+          "$ref": "#/$defs/reasonCodes"
+        }
+      }
+    },
+    "architectureComponent": {
+      "title": "ArchitectureComponent",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "kind"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "REQUIRED string. Stable component, package, schema, primitive, workflow, or module name.",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "description": "REQUIRED string. Component category for downstream validation and routing.",
+          "enum": [
+            "package",
+            "module",
+            "schema",
+            "artifact",
+            "engine",
+            "role",
+            "loop",
+            "adapter",
+            "api",
+            "data_store",
+            "workflow",
+            "test",
+            "documentation",
+            "other"
+          ]
+        }
+      }
+    },
+    "architectureRisk": {
+      "title": "ArchitectureRisk",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["risk_id", "category", "severity", "affected_surfaces", "mitigation_codes"],
+      "properties": {
+        "risk_id": {
+          "$ref": "#/$defs/architectureId"
+        },
+        "category": {
+          "type": "string",
+          "description": "REQUIRED string. Risk category.",
+          "enum": ["compatibility", "validation", "ownership", "runtime", "data", "security", "delivery"]
+        },
+        "severity": {
+          "$ref": "#/$defs/severity"
+        },
+        "affected_surfaces": {
+          "description": "REQUIRED object. Surfaces exposed to this risk.",
+          "$ref": "ownership-surface.schema.json"
+        },
+        "mitigation_codes": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable mitigation or follow-up codes. Empty means no mitigation is known yet.",
+          "items": {
+            "$ref": "#/$defs/reasonCode"
+          }
+        }
+      }
+    },
+    "architectureTradeoff": {
+      "title": "ArchitectureTradeoff",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tradeoff_id", "chosen_option", "rejected_options", "reason_codes"],
+      "properties": {
+        "tradeoff_id": {
+          "$ref": "#/$defs/architectureId"
+        },
+        "chosen_option": {
+          "type": "string",
+          "description": "REQUIRED string. Stable label for the option selected by the architecture.",
+          "minLength": 1
+        },
+        "rejected_options": {
+          "type": "array",
+          "description": "REQUIRED array. Stable labels for meaningful alternatives that were not selected.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reason_codes": {
+          "$ref": "#/$defs/reasonCodes"
+        }
+      }
+    },
+    "architectureDecision": {
+      "title": "ArchitectureDecision",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "status", "decision", "applies_to_surfaces", "reason_codes"],
+      "properties": {
+        "decision_id": {
+          "$ref": "#/$defs/architectureId"
+        },
+        "status": {
+          "type": "string",
+          "description": "REQUIRED string. Decision state at emission time.",
+          "enum": ["proposed", "accepted", "deferred"]
+        },
+        "decision": {
+          "type": "string",
+          "description": "REQUIRED string. Stable decision label or short decision statement.",
+          "minLength": 1
+        },
+        "applies_to_surfaces": {
+          "description": "REQUIRED object. Surfaces governed by this decision.",
+          "$ref": "ownership-surface.schema.json"
+        },
+        "reason_codes": {
+          "$ref": "#/$defs/reasonCodes"
+        }
+      }
+    },
+    "architectureAssumption": {
+      "title": "ArchitectureAssumption",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assumption_id", "subject", "confidence", "validation_needed"],
+      "properties": {
+        "assumption_id": {
+          "$ref": "#/$defs/architectureId"
+        },
+        "subject": {
+          "type": "string",
+          "description": "REQUIRED string. Stable label for the assumed fact or constraint.",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "string",
+          "description": "REQUIRED string. Confidence bucket for this assumption.",
+          "enum": ["low", "medium", "high"]
+        },
+        "validation_needed": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. True when a later validation gate or human must confirm the assumption."
+        }
+      }
+    },
+    "architectureId": {
+      "type": "string",
+      "description": "Stable lower-case architecture-impact local id.",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_-]*$"
+    },
+    "severity": {
+      "type": "string",
+      "description": "Risk or impact severity bucket.",
+      "enum": ["low", "medium", "high"]
+    },
+    "reasonCodes": {
+      "type": "array",
+      "description": "Machine-readable reason codes; consumers must not parse prose to understand the decision.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/reasonCode"
+      }
+    },
+    "reasonCode": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_:-]*$"
+    }
+  }
+}

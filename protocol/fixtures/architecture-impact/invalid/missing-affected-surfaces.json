@@ -1,0 +1,78 @@
+{
+  "artifact_id": "artifact:sha256:abababababababababababababababababababababababababababababababab",
+  "artifact_type": "ArchitectureImpact",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.1.0",
+  "producer": {
+    "primitive": "role",
+    "name": "protocol-proof.architect-role",
+    "version": "1.0.0",
+    "invocation_id": "architect-role-call-invalid"
+  },
+  "created_at": "2026-05-23T22:59:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": ["protocol/schemas/architecture-impact.schema.json"],
+    "owns_interfaces": ["interface:architecture-impact"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:architect-role-output"]
+  },
+  "confidence": {
+    "score": 0.7,
+    "level": "medium",
+    "reason_codes": ["fixture:invalid"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["fixture:invalid"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "summary": {
+      "impact_level": "medium",
+      "primary_change": "add_new_surface",
+      "affected_primitive": "artifact",
+      "reason_codes": ["proof:needs_typed_architecture_output"]
+    },
+    "owned_surfaces": {
+      "owns_files": ["protocol/schemas/architecture-impact.schema.json"],
+      "owns_interfaces": ["interface:architecture-impact"],
+      "owns_data": [],
+      "owns_workflow_steps": ["workflow:architect-role-output"]
+    },
+    "proposed_changes": [
+      {
+        "change_id": "add_architecture_impact",
+        "change_type": "add",
+        "component": {
+          "name": "ArchitectureImpact",
+          "kind": "artifact"
+        },
+        "target_surfaces": {
+          "owns_files": ["protocol/schemas/architecture-impact.schema.json"],
+          "owns_interfaces": ["interface:architecture-impact"],
+          "owns_data": [],
+          "owns_workflow_steps": ["workflow:architect-role-output"]
+        },
+        "rationale_codes": ["proof:architect_role_needs_output_contract"]
+      }
+    ],
+    "risks": [],
+    "tradeoffs": [
+      {
+        "tradeoff_id": "surface_reuse",
+        "chosen_option": "reuse_ownership_surface_schema",
+        "rejected_options": ["invent_parallel_surface_shape"],
+        "reason_codes": ["contract:consistent_surface_matching"]
+      }
+    ],
+    "decisions": [],
+    "assumptions": []
+  }
+}

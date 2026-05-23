@@ -3,7 +3,31 @@
  * Regenerate with: npm run codegen
  */
 
-// Source: schemas/artifact-envelope.schema.json
+// Source: schemas/architecture-impact.schema.json
+/**
+ * Envelope-composed architecture impact artifact emitted by an Architect Role for the Protocol Proof MVP. The payload is intentionally small and machine-readable so validation can judge architectural impact without parsing a prose report.
+ */
+export type ArchitectureImpact = ArtifactEnvelope & {
+  artifact_type: "ArchitectureImpact";
+  payload: ArchitectureImpactPayload;
+  [k: string]: unknown;
+};
+/**
+ * Machine-readable reason codes; consumers must not parse prose to understand the decision.
+ *
+ * @minItems 1
+ */
+export type ReasonCodes = [ReasonCode, ...ReasonCode[]];
+export type ReasonCode = string;
+/**
+ * Stable lower-case architecture-impact local id.
+ */
+export type ArchitectureId = string;
+/**
+ * Risk or impact severity bucket.
+ */
+export type Severity = "low" | "medium" | "high";
+
 /**
  * Shared protocol envelope carried by every Dev-Genie runtime artifact. Concrete artifact schemas compose this envelope with an artifact-type-specific payload schema by refining artifact_type and payload through allOf.
  */
@@ -260,6 +284,270 @@ export interface MissingContext {
    * OPTIONAL string. Stable id for the missing target when known.
    */
   id?: string;
+}
+export interface ArchitectureImpactPayload {
+  summary: ArchitectureImpactSummary;
+  affected_surfaces: OwnershipSurface1;
+  owned_surfaces: OwnershipSurface2;
+  /**
+   * REQUIRED array. Proposed architectural changes or components. At least one change is required for a produced ArchitectureImpact.
+   *
+   * @minItems 1
+   */
+  proposed_changes: [ProposedArchitectureChange, ...ProposedArchitectureChange[]];
+  /**
+   * REQUIRED array. Machine-readable risks introduced or exposed by the proposed architecture.
+   */
+  risks: ArchitectureRisk[];
+  /**
+   * REQUIRED array. Machine-readable chosen-vs-rejected tradeoffs behind the proposed architecture.
+   */
+  tradeoffs: ArchitectureTradeoff[];
+  /**
+   * REQUIRED array. Explicit architectural decisions or deferred decisions the proof validation gate can inspect.
+   */
+  decisions: ArchitectureDecision[];
+  /**
+   * REQUIRED array. Assumptions the Architect Role relied on when context was incomplete or future validation is needed.
+   */
+  assumptions: ArchitectureAssumption[];
+}
+/**
+ * REQUIRED object. Compact structured summary of the impact classification; detailed analysis belongs in sibling arrays.
+ */
+export interface ArchitectureImpactSummary {
+  /**
+   * REQUIRED string. Overall architectural impact level for routing and review gates.
+   */
+  impact_level: "none" | "low" | "medium" | "high";
+  /**
+   * REQUIRED string. Dominant change category.
+   */
+  primary_change:
+    | "preserve_existing_behavior"
+    | "extend_existing_surface"
+    | "add_new_surface"
+    | "change_contract"
+    | "deprecate_surface";
+  /**
+   * REQUIRED string. ADR-1 primitive most directly affected by this impact.
+   */
+  affected_primitive: "engine" | "role" | "loop" | "artifact" | "adapter" | "workflow" | "none";
+  reason_codes: ReasonCodes;
+}
+/**
+ * REQUIRED object. Surfaces the story is expected to affect, using the shared ownership-surface categories for machine comparison.
+ */
+export interface OwnershipSurface1 {
+  /**
+   * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
+   */
+  owns_files: string[];
+  /**
+   * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
+   */
+  owns_interfaces: string[];
+  /**
+   * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
+   */
+  owns_data: string[];
+  /**
+   * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+   */
+  owns_workflow_steps: string[];
+  /**
+   * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
+   */
+  depends_on?: string[];
+}
+/**
+ * REQUIRED object. Surfaces this architecture impact artifact claims as its direct architectural scope, using the reusable ownership-surface sub-schema.
+ */
+export interface OwnershipSurface2 {
+  /**
+   * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
+   */
+  owns_files: string[];
+  /**
+   * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
+   */
+  owns_interfaces: string[];
+  /**
+   * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
+   */
+  owns_data: string[];
+  /**
+   * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+   */
+  owns_workflow_steps: string[];
+  /**
+   * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
+   */
+  depends_on?: string[];
+}
+export interface ProposedArchitectureChange {
+  change_id: ArchitectureId;
+  /**
+   * REQUIRED string. Action proposed for the component or surface.
+   */
+  change_type: "add" | "modify" | "remove" | "deprecate" | "replace";
+  component: ArchitectureComponent;
+  target_surfaces: OwnershipSurface3;
+  rationale_codes: ReasonCodes;
+}
+export interface ArchitectureComponent {
+  /**
+   * REQUIRED string. Stable component, package, schema, primitive, workflow, or module name.
+   */
+  name: string;
+  /**
+   * REQUIRED string. Component category for downstream validation and routing.
+   */
+  kind:
+    | "package"
+    | "module"
+    | "schema"
+    | "artifact"
+    | "engine"
+    | "role"
+    | "loop"
+    | "adapter"
+    | "api"
+    | "data_store"
+    | "workflow"
+    | "test"
+    | "documentation"
+    | "other";
+}
+/**
+ * REQUIRED object. Concrete surfaces targeted by this change.
+ */
+export interface OwnershipSurface3 {
+  /**
+   * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
+   */
+  owns_files: string[];
+  /**
+   * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
+   */
+  owns_interfaces: string[];
+  /**
+   * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
+   */
+  owns_data: string[];
+  /**
+   * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+   */
+  owns_workflow_steps: string[];
+  /**
+   * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
+   */
+  depends_on?: string[];
+}
+export interface ArchitectureRisk {
+  risk_id: ArchitectureId;
+  /**
+   * REQUIRED string. Risk category.
+   */
+  category: "compatibility" | "validation" | "ownership" | "runtime" | "data" | "security" | "delivery";
+  severity: Severity;
+  affected_surfaces: OwnershipSurface4;
+  /**
+   * REQUIRED array. Machine-readable mitigation or follow-up codes. Empty means no mitigation is known yet.
+   */
+  mitigation_codes: ReasonCode[];
+}
+/**
+ * REQUIRED object. Surfaces exposed to this risk.
+ */
+export interface OwnershipSurface4 {
+  /**
+   * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
+   */
+  owns_files: string[];
+  /**
+   * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
+   */
+  owns_interfaces: string[];
+  /**
+   * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
+   */
+  owns_data: string[];
+  /**
+   * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+   */
+  owns_workflow_steps: string[];
+  /**
+   * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
+   */
+  depends_on?: string[];
+}
+export interface ArchitectureTradeoff {
+  tradeoff_id: ArchitectureId;
+  /**
+   * REQUIRED string. Stable label for the option selected by the architecture.
+   */
+  chosen_option: string;
+  /**
+   * REQUIRED array. Stable labels for meaningful alternatives that were not selected.
+   *
+   * @minItems 1
+   */
+  rejected_options: [string, ...string[]];
+  reason_codes: ReasonCodes;
+}
+export interface ArchitectureDecision {
+  decision_id: ArchitectureId;
+  /**
+   * REQUIRED string. Decision state at emission time.
+   */
+  status: "proposed" | "accepted" | "deferred";
+  /**
+   * REQUIRED string. Stable decision label or short decision statement.
+   */
+  decision: string;
+  applies_to_surfaces: OwnershipSurface5;
+  reason_codes: ReasonCodes;
+}
+/**
+ * REQUIRED object. Surfaces governed by this decision.
+ */
+export interface OwnershipSurface5 {
+  /**
+   * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
+   */
+  owns_files: string[];
+  /**
+   * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
+   */
+  owns_interfaces: string[];
+  /**
+   * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
+   */
+  owns_data: string[];
+  /**
+   * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+   */
+  owns_workflow_steps: string[];
+  /**
+   * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
+   */
+  depends_on?: string[];
+}
+export interface ArchitectureAssumption {
+  assumption_id: ArchitectureId;
+  /**
+   * REQUIRED string. Stable label for the assumed fact or constraint.
+   */
+  subject: string;
+  /**
+   * REQUIRED string. Confidence bucket for this assumption.
+   */
+  confidence: "low" | "medium" | "high";
+  /**
+   * REQUIRED boolean. True when a later validation gate or human must confirm the assumption.
+   */
+  validation_needed: boolean;
 }
 // Source: schemas/decision-record.schema.json
 /**

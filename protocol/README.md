@@ -21,7 +21,7 @@ All cross-primitive envelope fields are required:
 | Field | Type | Required | Notes |
 | --- | --- | --- | --- |
 | `artifact_id` | string | yes | Content-addressed id: `artifact:sha256:<64 lowercase hex>`. Digest is over canonical JSON with `artifact_id` omitted. |
-| `artifact_type` | string | yes | Stable catalog type such as `ExecutionRecord`, `ValidationReport`, `DecisionRequest`, `DecisionRecord`, `RoleInvocation`, or `RoleResult`. Concrete schemas refine this with `const`. |
+| `artifact_type` | string | yes | Stable catalog type such as `ExecutionRecord`, `ValidationReport`, `DecisionRequest`, `DecisionRecord`, `RoleInvocation`, `RoleResult`, or `ArchitectureImpact`. Concrete schemas refine this with `const`. |
 | `schema_version` | semver string | yes | Version of the `artifact_type` payload schema only. |
 | `protocol_version` | semver string | yes | Version of the shared envelope and cross-artifact compatibility contract. |
 | `producer` | object | yes | Machine-readable producer identity: `primitive`, `name`, optional `version`, optional `invocation_id`. |
@@ -176,6 +176,20 @@ The schema deliberately extends the ADR text in two places:
 
 - DGOS-A-0002 lists runner `failed` among RoleResult statuses, while DGOS-A-0001 and daimyo's DecisionVerdict mapping use the four Role outcome states. Protocol v1 keeps `payload.status` to the four canonical Role outcomes; runner/process failure is represented by the inherited envelope `diagnostics.status: "failed"`, envelope errors, trace refs, and the subprocess exit code.
 - DGOS-A-0002 names several operational concerns but not their nested wire shapes. Protocol v1 records those as structured payload objects: `budget`, `model_tier_policy`, `allowed_engines`, `allowed_tools`, `expected_output_artifacts`, `trace`, `usage`, `retry_recommendation`, and `proposed_artifact_patches`.
+
+## Architecture Impact Artifacts
+
+`schemas/architecture-impact.schema.json` is a concrete envelope-composed artifact for the DGOS-I-0013 Protocol Proof MVP. The proof's Architect Role emits an `ArchitectureImpact`; the downstream validation gate consumes it to judge whether one Story's architectural implications are structured enough to dogfood.
+
+`ArchitectureImpact.payload` is intentionally small and machine-readable:
+
+- `summary`: structured impact classification with `impact_level`, `primary_change`, `affected_primitive`, and reason codes.
+- `affected_surfaces` and `owned_surfaces`: `$ref`s to the reusable `OwnershipSurface` schema, preserving the catalog's file/interface/data/workflow matching conventions.
+- `proposed_changes`: component-level adds/modifies/removals/deprecations/replacements with target surfaces and rationale codes.
+- `risks` and `tradeoffs`: categorized risks, mitigation codes, and chosen-vs-rejected option labels.
+- `decisions` and `assumptions`: explicit decision states and validation-needed assumptions.
+
+The shape deliberately avoids a prose report body. Producers may attach human-readable explanation elsewhere, but consumers should judge the artifact from the structured fields above plus the inherited envelope metadata.
 
 ## Adding An Artifact Type
 
