@@ -4,14 +4,14 @@ level: task
 title: "Protocol Package Scaffold, JSON-Schema→TS Codegen & Fixture Harness"
 short_code: "DGOS-T-0013"
 created_at: 2026-05-23T18:56:05.057569+00:00
-updated_at: 2026-05-23T18:56:05.057569+00:00
+updated_at: 2026-05-23T19:23:36.946688+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0001
 ## Objective
 
 Create a new top-level sibling package **`protocol`** that holds the artifact protocol's **JSON Schemas as the authoritative source of truth** and a **generated TypeScript binding**, plus the **fixture-based validation harness** the rest of the initiative builds on. Per the initiative's design-of-record (decided 2026-05-23): JSON Schema is the portable contract; the TS types are *generated/reconciled from it*, not authored independently; Rust is dropped for v1. This task ships no concrete artifact schemas — it ships the authoring/codegen/test machinery so tasks T-0014–T-0020 can add schemas uniformly.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -65,4 +69,6 @@ Create a new top-level sibling package **`protocol`** that holds the artifact pr
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-23: Created `protocol/` as a plain npm library package mirroring `daimyo` TS/ESLint/build conventions; added draft 2020-12 schema validation, JSON Schema to TypeScript codegen with drift check, Ajv/Vitest fixture harness, README, generated binding, build output for commit, and root `.gitignore` un-ignore for `protocol/dist`.
+- 2026-05-23: Verified from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build` pass. Temporarily mutated `src/generated/artifacts.ts`; `npm run check:codegen` failed as expected, then `npm run codegen` restored output and `npm run check:codegen` passed.
+- 2026-05-23 (orchestrator verification): re-ran typecheck/lint/test/build + `check:codegen` on a clean tree — all green (3 fixture tests). Package is a plain npm library (not a plugin), draft 2020-12, with `validate:schemas` / `codegen` / `check:codegen` (drift gate) scripts and an Ajv+Vitest valid/invalid fixture harness. Only schema present is the clearly-marked throwaway `sample-artifact`. Root `.gitignore` un-ignores `protocol/dist/`. No escape hatches; mirrors daimyo conventions. **exit_criteria_met: true.** Completed.

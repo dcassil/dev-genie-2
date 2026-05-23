@@ -13,6 +13,8 @@ coverage/
 !katana/dist/**
 !daimyo/dist/
 !daimyo/dist/**
+!protocol/dist/
+!protocol/dist/**
 
 # Local databases and logs
 *.db

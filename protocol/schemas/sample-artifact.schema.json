@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/sample-artifact.schema.json",
+  "$comment": "Throwaway scaffold sample only. Delete this schema when the first real protocol artifact schema lands.",
+  "title": "SampleArtifact",
+  "description": "Temporary sample artifact used to prove protocol schema validation, TypeScript generation, and fixture tests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["sample_id", "label"],
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    }
+  }
+}
