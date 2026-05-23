@@ -1,62 +1,99 @@
 ---
-id: workflow-test-vision-to-reviewed
+id: protocol-proof-mvp
 level: initiative
-title: "Workflow Test: Vision to Reviewed Task Set"
+title: "Protocol Proof MVP"
 short_code: "DGOS-I-0013"
-runtime_primitive: meta
-created_at: 2026-05-19T17:18:39.129335+00:00
-updated_at: 2026-05-19T17:18:39.129335+00:00
+created_at: 2026-05-21T17:47:46.081919+00:00
+updated_at: 2026-05-23T22:55:23.805926+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#initiative"
-  - "#phase/discovery"
+  - "#phase/decompose"
 
 
 exit_criteria_met: false
 estimated_complexity: M
 strategy_id: NULL
-initiative_id: workflow-test-vision-to-reviewed
+initiative_id: protocol-proof-mvp
 ---
 
-# Workflow Test: Vision to Reviewed Task Set Initiative
+# Protocol Proof MVP Initiative
 
 ## Context
 
-This scenario validates the main planning path from product vision to reviewed task set. It is a meta test initiative that exercises the Strategy and Repo Intelligence Engines, planning and specialist Roles, policy evaluation, and artifact protocol compliance without invoking the Developer Execution Loop.
+The vision still calls for a smallest-possible proof before the broader existing-repo flow is attempted. That constraint remains valid after the retro: prove one Role, one artifact, and one validation gate before scaling outward.
+
+This initiative preserves that focus and acts as the architectural proof point.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Start with a product vision and optional repo profile.
-- Produce ProductDoc, Epic, Story, ArchitectureImpact, FE/BE plans or skip records, QualityPlan, and TaskSet.
-- Verify user review checkpoints are produced according to policy.
-- Verify task set is not created or activated until the configured review policy allows it.
+- Prove the Role invocation and artifact protocol thesis with the smallest realistic flow.
+- Use one hand-authored Story as input and one validated architecture artifact as output.
+- Exercise the MVP subset of `RoleInvocation` and `RoleResult`.
+- Dogfood the result on a real Dev-Genie planning change.
 
 **Non-Goals:**
-- Execute implementation tasks.
-- Test multi-agent spawning.
+- Prove the full recursive execution loop.
+- Implement every Role or every artifact schema.
+- Treat the proof as a substitute for the larger major-feature flow.
+
+## Architecture
+
+### Overview
+
+The proof flow is: one Story -> one Architect Role invocation -> one `ArchitectureImpact` artifact -> one validation gate -> one dogfood application to a real planning change.
+
+### Sequence Diagrams
+
+Hand-authored Story prepared -> Architect Role invoked with MVP envelope -> `ArchitectureImpact` emitted -> validation passes or fails -> result is applied to a real Dev-Genie planning change.
 
 ## Detailed Design
 
-Scenario inputs include a product vision for a moderately complex feature, a repo fixture, and a review policy matrix. Expected flow:
+The proof should stay intentionally narrow. The point is not feature breadth; it is proving that typed invocation, typed result, and validation-gated artifact flow work in practice.
 
-Vision -> Strategy Engine -> RepoProfile -> Planner -> Architect -> Designer if UI -> Principal FE/BE -> Quality Governor -> Project Manager -> reviewed TaskSet.
+Success should require clear evidence that:
 
-Expected human review prompts cover vision interpretation, strategy selection, architecture decisions when high-risk, design approval when configured, and task-set approval when configured.
+- the Role can consume bounded context
+- the artifact contract is sufficient
+- validation can judge the result without prose-only interpretation
+- the output is useful enough to dogfood on a real planning change
 
-## Test Cases
+### Approved design direction (2026-05-23)
 
-- Fully autonomous planning for low-risk feature produces a complete task set with no human checkpoint except final summary.
-- Review-required planning pauses before task-set creation.
-- Missing repo context creates a blocked PlanningPass with missing_context populated.
-- No-backend feature produces a BE skip record rather than an empty plan.
+The proof is built on the two completed foundations (daimyo substrate, protocol schemas). Decisions:
+
+- **`ArchitectureImpact` is a real protocol artifact** — authored in the `protocol` package as a new v1-catalog artifact type (JSON Schema source-of-truth + generated TS binding + fixtures, envelope `allOf` payload). The proof dogfoods the protocol rather than forking a proof-local shape; `protocol` gets a minor version bump.
+- **Thin proof harness reusing daimyo + protocol, with a DIRECT Role runner.** A small dedicated package **`protocol-proof`** (sibling, depends on `daimyo` + `protocol`) reuses daimyo's structured-model-call engine + Validation built-in + the protocol types. The flow is a *direct Role runner* — `RoleInvocation → versioned Architect prompt → RoleResult whose output artifact is an ArchitectureImpact → validation gate` — and **does NOT use the recursive supervisor** (explicit non-goal). This Role-runner seam is the minimal version of what DGOS-I-0010 later generalizes.
+- **Dogfood on the smallest self-referential slice** — run the proof to produce an ArchitectureImpact for a tiny real dev-genie planning step (e.g. the proof's own immediate next step), not coupled to another initiative's scope. Keeps the proof minimal per its non-goals.
+
+Success evidence required (unchanged): the Role consumes bounded context; the typed invocation/result + ArchitectureImpact contract is sufficient; validation judges the result without prose-only interpretation; the output is useful enough to dogfood.
+
+## Alternatives Considered
+
+- Skip the proof and build the major-feature flow directly: rejected because too many moving parts would fail at once.
+- Build a synthetic demo unrelated to real Dev-Genie work: rejected because dogfooding is part of the value of the proof.
+- Expand the proof to multiple Roles immediately: rejected because the smallest stable slice is the goal.
 
 ## Implementation Plan
 
-- [ ] Add scenario fixture for low-risk feature planning.
-- [ ] Add scenario fixture for review-required planning.
-- [ ] Assert artifact completeness and review checkpoint behavior.
-- [ ] Assert skip records validate.
+- [ ] Define the minimal Story input and `ArchitectureImpact` output contract.
+- [ ] Implement the MVP subset of `RoleInvocation` and `RoleResult` needed for the proof.
+- [ ] Add a validation gate for the proof artifact.
+- [ ] Run the proof against a hand-authored Story.
+- [ ] Dogfood the result on a real Dev-Genie planning change.
+
+## Decomposition (decided 2026-05-23)
+
+3 tasks. `ArchitectureImpact` → protocol; thin `protocol-proof` package + direct Role runner (no recursive supervisor); dogfood on smallest self-referential slice.
+
+| Task | Title | Depends on | Agent |
+|------|-------|-----------|-------|
+| [[DGOS-T-0021]] | ArchitectureImpact artifact in `protocol` | — | opus + medium |
+| [[DGOS-T-0022]] | Architect Role: versioned prompt + direct Role runner | T-0021 | opus + high |
+| [[DGOS-T-0023]] | E2E proof harness + validation gate + dogfood run | T-0021, T-0022 | opus + medium |
+
+**Critical path:** T-0021 → T-0022 → T-0023 (sequential). T-0022 is the keystone (the direct Role-runner seam I-0010 later generalizes).
