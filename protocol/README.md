@@ -28,12 +28,32 @@ All cross-primitive envelope fields are required:
 | `created_at` | RFC 3339 date-time string | yes | Timestamp when the artifact was finalized. |
 | `source_refs` | array of artifact references | yes | Inputs read or depended on. Empty array is valid when there are no inputs. |
 | `output_refs` | array of artifact references | yes | Artifacts or external outputs produced, superseded, or materially affected. Empty array is valid when there are no outputs yet. |
-| `ownership` | `OwnershipSurface` object | yes | `$ref` to `schemas/ownership-surface.schema.json`. This is a minimal forward stub; DGOS-T-0015 owns the final subschema. |
+| `ownership` | `OwnershipSurface` object | yes | `$ref` to the reusable `schemas/ownership-surface.schema.json` subschema. |
 | `confidence` | object | yes | Machine-readable `score` from `0.0` to `1.0`, bucketed `level`, and optional reason codes. |
 | `review_required` | object | yes | Machine-readable review gate: boolean `required`, reason codes, and optional policy refs. |
 | `diagnostics` | object | yes | Machine-readable `status`, warning/error codes, and missing-context codes. Consumers must not parse prose from diagnostics. |
 
 The envelope also requires `payload`, an object reserved for the concrete artifact body. `payload` is not a cross-primitive metadata field, but it is required so every concrete artifact follows one uniform shape.
+
+## Ownership And Touch Surfaces
+
+`schemas/ownership-surface.schema.json` and `schemas/touch-report.schema.json` are reusable sub-schemas, not standalone top-level envelope artifacts. Concrete artifacts should `$ref` them from payload fields when they need declared ownership or runtime touched-surface evidence.
+
+Ownership surfaces declare what an artifact owns:
+
+- `owns_files`: repo-relative file paths or glob patterns, such as `src/features/admin/settings/data/**`
+- `owns_interfaces`: HTTP route signatures such as `PUT /api/admin/settings`, or symbolic `interface:<name>` identifiers
+- `owns_data`: prefixed data identifiers such as `table:admin_settings` or `config:admin.settings.*`
+- `owns_workflow_steps`: workflow identifiers such as `admin-settings:save` or canonical cross-artifact `workflow:<step>` identifiers
+- `depends_on`: explicitly prefixed dependency surface identifiers such as `interface:auth-admin-session`, `workflow:admin-shell-navigation`, `table:admin_settings`, `config:admin.settings.*`, or `file:src/shared/auth/session.ts`
+
+Touch reports record what a leaf actually touched:
+
+- `task_id`: stable id for the leaf task that produced the report
+- `report_type`: the discriminator, currently `touch_report`
+- `touched_files`, `touched_interfaces`, `touched_data`, `touched_workflow_steps`: concrete surfaces using the same identifier conventions as ownership surfaces
+
+The prefix convention is part of the conflict-matching contract. Producers should preserve exact strings for comparison and should use prefixes whenever a plain name would be ambiguous across surface categories. Consumers should compare within the relevant category first, then use explicitly prefixed dependency identifiers for cross-category impact checks.
 
 ## Composition Pattern
 
@@ -84,7 +104,10 @@ The envelope aligns with daimyo's existing direction around typed decision recor
 - daimyo currently uses `createdAt`; protocol uses `created_at`.
 - daimyo has `id`, `report_ref`, and string artifact refs; protocol uses `artifact_id`, `source_refs`, and structured `output_refs`.
 - daimyo uses a `Score0To10` confidence/risk scale in decision verdicts; protocol envelope confidence is normalized `0.0` to `1.0` with reason codes.
-- daimyo evidence currently stores touched/intended surfaces directly on execution evidence; protocol routes declared ownership through the `ownership` subschema and downstream touch-report subschemas.
+- daimyo's supervisor-local ownership surface includes `taskId` and camelCase fields (`ownsFiles`, `ownsInterfaces`, `ownsData`, `ownsWorkflowSteps`, `dependsOn`); protocol ownership uses snake_case fields under the reusable `ownership-surface` schema and relies on the enclosing artifact or work source for task identity.
+- daimyo evidence currently stores touched surfaces directly on execution evidence with camelCase optional fields (`touchedFiles`, `touchedInterfaces`, `touchedData`) and no `report_type`; protocol uses the reusable `touch-report` subschema with required `task_id`, `report_type`, and snake_case touched fields.
+- daimyo currently models intended surfaces (`intendedFiles`, `intendedInterfaces`, `intendedData`) for conservative conflict checks; protocol's touch report is concrete touched evidence only in T-0015, so future execution-record work should decide whether intended surfaces remain separate evidence.
+- daimyo does not currently expose touched workflow-step evidence in `ExecutionEvidence`; protocol touch reports include required `touched_workflow_steps`.
 
 ## Adding An Artifact Type
 

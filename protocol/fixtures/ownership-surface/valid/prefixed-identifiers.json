@@ -1,0 +1,7 @@
+{
+  "owns_files": ["src/features/admin/settings/data/**"],
+  "owns_interfaces": ["GET /api/admin/settings", "PUT /api/admin/settings", "interface:admin-settings-command"],
+  "owns_data": ["table:admin_settings", "config:admin.settings.*"],
+  "owns_workflow_steps": ["admin-settings:load", "admin-settings:save", "workflow:admin-settings-review"],
+  "depends_on": ["interface:auth-admin-session", "workflow:admin-shell-navigation", "file:src/shared/auth/session.ts"]
+}

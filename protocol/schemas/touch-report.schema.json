@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/touch-report.schema.json",
+  "title": "TouchReport",
+  "description": "Reusable leaf touch-report metadata. Leaves emit concrete touched surfaces so parent loops can compare runtime evidence against sibling ownership surfaces and dependencies.",
+  "$comment": "This is a reusable sub-schema, not a top-level envelope artifact. ExecutionRecord and related payloads can $ref this schema for touched-surface evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "report_type",
+    "touched_files",
+    "touched_interfaces",
+    "touched_data",
+    "touched_workflow_steps"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "REQUIRED string. Stable task id for the leaf that produced this report.",
+      "minLength": 1
+    },
+    "report_type": {
+      "type": "string",
+      "description": "REQUIRED string. Discriminator for touch-report payloads.",
+      "const": "touch_report"
+    },
+    "touched_files": {
+      "type": "array",
+      "description": "REQUIRED array. Concrete repo-relative files or glob-scoped file surfaces touched by the leaf.",
+      "items": {
+        "type": "string",
+        "description": "Repo-relative file path or glob pattern. Absolute paths, parent-directory traversal, and whitespace are not valid surface identifiers.",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*\\.\\.(?:/|$))\\S+$"
+      }
+    },
+    "touched_interfaces": {
+      "type": "array",
+      "description": "REQUIRED array. Concrete interface, route, command, or API-contract surfaces touched by the leaf. Use HTTP route signatures such as PUT /api/example or symbolic interface:<name> identifiers.",
+      "items": {
+        "type": "string",
+        "description": "HTTP route signature or symbolic interface surface identifier.",
+        "pattern": "^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /\\S+|interface:[A-Za-z0-9][A-Za-z0-9._:-]*)$"
+      }
+    },
+    "touched_data": {
+      "type": "array",
+      "description": "REQUIRED array. Concrete data-store, config, or logical data-resource surfaces touched by the leaf. Use prefixed identifiers such as table:<name> or config:<key>.",
+      "items": {
+        "type": "string",
+        "description": "Prefixed data resource identifier. The prefix names the resource kind used for conflict matching.",
+        "pattern": "^(table|config|collection|bucket|queue|topic|secret):[A-Za-z0-9][A-Za-z0-9._*:-]*$"
+      }
+    },
+    "touched_workflow_steps": {
+      "type": "array",
+      "description": "REQUIRED array. Concrete workflow steps touched by the leaf. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.",
+      "items": {
+        "type": "string",
+        "description": "Workflow step identifier. workflow:<step> is canonical for dependency references; domain-scoped steps such as admin-settings:save are accepted for touched workflow steps.",
+        "pattern": "^(?:workflow:[A-Za-z0-9][A-Za-z0-9._:-]*|[A-Za-z0-9][A-Za-z0-9._-]*:[A-Za-z0-9][A-Za-z0-9._-]*)$"
+      }
+    }
+  }
+}

@@ -4,14 +4,14 @@ level: task
 title: "Shared Sub-Schemas: Ownership-Surface & Touch-Report"
 short_code: "DGOS-T-0015"
 created_at: 2026-05-23T18:56:07.150192+00:00
-updated_at: 2026-05-23T18:56:07.150192+00:00
+updated_at: 2026-05-23T19:39:30.357514+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -31,13 +31,17 @@ Define the **ownership-surface** sub-schema (`owns_files`, `owns_interfaces`, `o
 
 ## Acceptance Criteria
 
-- [ ] An **ownership-surface** JSON Schema defines `owns_files`, `owns_interfaces`, `owns_data`, `owns_workflow_steps` (arrays of string surface identifiers) and optional `depends_on`, matching the shapes in the initiative's example and ADR-3.
-- [ ] A **touch-report** JSON Schema defines `touched_files`, `touched_interfaces`, `touched_data`, `touched_workflow_steps` (and a `task_id`/`report_type` as appropriate), matching the initiative's example.
-- [ ] Both are authored as reusable `$ref`-able sub-schemas (not top-level artifacts); the envelope's `ownership` field (from [[DGOS-T-0014]]) references the ownership-surface sub-schema.
-- [ ] Surface-identifier conventions are documented (e.g. `interface:`, `table:`, `config:`, `workflow:` prefixes seen in the examples) so producers/consumers agree on identifier semantics for conflict matching.
-- [ ] TS bindings generated via the T-0013 pipeline; drift check passes.
-- [ ] `valid/`/`invalid/` fixtures cover both sub-schemas (including the prefixed-identifier conventions), run by the harness.
-- [ ] The shapes are checked against `daimyo`'s existing ownership/touch-report TS types so [[DGOS-T-0019]]'s reconciliation is minimal; any divergence is recorded for T-0019 (schema is authoritative).
+## Acceptance Criteria
+
+## Acceptance Criteria
+
+- [x] An **ownership-surface** JSON Schema defines `owns_files`, `owns_interfaces`, `owns_data`, `owns_workflow_steps` (arrays of string surface identifiers) and optional `depends_on`, matching the shapes in the initiative's example and ADR-3.
+- [x] A **touch-report** JSON Schema defines `touched_files`, `touched_interfaces`, `touched_data`, `touched_workflow_steps` (and a `task_id`/`report_type` as appropriate), matching the initiative's example.
+- [x] Both are authored as reusable `$ref`-able sub-schemas (not top-level artifacts); the envelope's `ownership` field (from [[DGOS-T-0014]]) references the ownership-surface sub-schema.
+- [x] Surface-identifier conventions are documented (e.g. `interface:`, `table:`, `config:`, `workflow:` prefixes seen in the examples) so producers/consumers agree on identifier semantics for conflict matching.
+- [x] TS bindings generated via the T-0013 pipeline; drift check passes.
+- [x] `valid/`/`invalid/` fixtures cover both sub-schemas (including the prefixed-identifier conventions), run by the harness.
+- [x] The shapes are checked against `daimyo`'s existing ownership/touch-report TS types so [[DGOS-T-0019]]'s reconciliation is minimal; any divergence is recorded for T-0019 (schema is authoritative).
 
 ## Implementation Notes
 
@@ -63,4 +67,8 @@ Define the **ownership-surface** sub-schema (`owns_files`, `owns_interfaces`, `o
 
 ## Status Updates
 
-*To be added during implementation.*
+2026-05-23 — Implemented in `protocol/`: expanded `schemas/ownership-surface.schema.json`, added reusable `schemas/touch-report.schema.json`, documented surface identifier conventions in `protocol/README.md`, added valid/invalid fixture coverage for both sub-schemas, regenerated TS bindings, and exported `TouchReport`. Verified from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`, and `npm run check:codegen` all pass.
+
+Daimyo divergences recorded for [[DGOS-T-0019]] in `protocol/README.md`: daimyo uses supervisor-local camelCase ownership with `taskId`; protocol ownership is snake_case and gets task identity from the enclosing artifact/work source. Daimyo execution evidence stores optional camelCase touched fields directly and has no `report_type`; protocol uses required `task_id`, `report_type`, and snake_case touched fields in the reusable touch-report. Daimyo has intended-surface fields that this touch-report does not model, and daimyo currently lacks touched workflow-step evidence while protocol requires `touched_workflow_steps`.
+
+2026-05-23 (orchestrator verification): re-ran typecheck/lint/test/build + check:codegen — all green (13 fixture tests; ownership-surface valid/invalid incl. prefixed + unprefixed/ambiguous, touch-report valid/invalid). 3 schemas present (envelope, ownership-surface, touch-report); envelope `ownership` still `$ref`s the now-authoritative ownership sub-schema. Surface-identifier prefix conventions (`interface:`/`table:`/`config:`/`workflow:`/`file:`) documented + fixtured. **The snake_case-vs-camelCase + required-vs-optional + structural divergences from daimyo are the key inputs to DGOS-T-0019** (recorded above and in protocol/README). No escape hatches. **exit_criteria_met: true.** Completed.

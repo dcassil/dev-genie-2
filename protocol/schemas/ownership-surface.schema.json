@@ -2,50 +2,56 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dev-genie.local/protocol/schemas/ownership-surface.schema.json",
   "title": "OwnershipSurface",
-  "description": "Minimal forward stub for declared artifact ownership metadata. DGOS-T-0015 owns and will expand this subschema without changing the envelope $ref path.",
-  "$comment": "Forward-compatibility stub for DGOS-T-0015. Keep the $id stable: artifact-envelope.schema.json references this file directly.",
+  "description": "Reusable declared ownership-surface metadata. Parents compare this declared surface with leaf touch reports to classify sibling and dependency impact.",
+  "$comment": "Keep the $id stable: artifact-envelope.schema.json references this file directly. Surface identifiers are constrained enough to preserve conflict-matching conventions while still allowing repo-local route and workflow names from ADR-3 examples.",
   "type": "object",
   "additionalProperties": false,
   "required": ["owns_files", "owns_interfaces", "owns_data", "owns_workflow_steps"],
   "properties": {
     "owns_files": {
       "type": "array",
-      "description": "REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over.",
+      "description": "REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.",
       "items": {
         "type": "string",
-        "minLength": 1
+        "description": "Repo-relative file path or glob pattern. Absolute paths, parent-directory traversal, and whitespace are not valid surface identifiers.",
+        "minLength": 1,
+        "pattern": "^(?!/)(?!.*\\.\\.(?:/|$))\\S+$"
       }
     },
     "owns_interfaces": {
       "type": "array",
-      "description": "REQUIRED array. Interface names, routes, commands, or API contracts this artifact declares ownership over.",
+      "description": "REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.",
       "items": {
         "type": "string",
-        "minLength": 1
+        "description": "HTTP route signature or symbolic interface surface identifier.",
+        "pattern": "^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /\\S+|interface:[A-Za-z0-9][A-Za-z0-9._:-]*)$"
       }
     },
     "owns_data": {
       "type": "array",
-      "description": "REQUIRED array. Data stores, config keys, or logical data resources this artifact declares ownership over.",
+      "description": "REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.",
       "items": {
         "type": "string",
-        "minLength": 1
+        "description": "Prefixed data resource identifier. The prefix names the resource kind used for conflict matching.",
+        "pattern": "^(table|config|collection|bucket|queue|topic|secret):[A-Za-z0-9][A-Za-z0-9._*:-]*$"
       }
     },
     "owns_workflow_steps": {
       "type": "array",
-      "description": "REQUIRED array. Workflow steps this artifact declares ownership over.",
+      "description": "REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.",
       "items": {
         "type": "string",
-        "minLength": 1
+        "description": "Workflow step identifier. workflow:<step> is canonical for dependency references; domain-scoped steps such as admin-settings:save are accepted for owned or touched workflow steps.",
+        "pattern": "^(?:workflow:[A-Za-z0-9][A-Za-z0-9._:-]*|[A-Za-z0-9][A-Za-z0-9._-]*:[A-Za-z0-9][A-Za-z0-9._-]*)$"
       }
     },
     "depends_on": {
       "type": "array",
-      "description": "OPTIONAL array. Ownership surfaces this artifact depends on but does not own.",
+      "description": "OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.",
       "items": {
         "type": "string",
-        "minLength": 1
+        "description": "Explicitly prefixed dependency surface identifier.",
+        "pattern": "^(?:file:(?!/)(?!.*\\.\\.(?:/|$))\\S+|interface:[A-Za-z0-9][A-Za-z0-9._:-]*|(table|config|collection|bucket|queue|topic|secret):[A-Za-z0-9][A-Za-z0-9._*:-]*|workflow:[A-Za-z0-9][A-Za-z0-9._:-]*)$"
       },
       "default": []
     }

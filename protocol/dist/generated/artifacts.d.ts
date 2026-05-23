@@ -124,27 +124,27 @@ export interface ContentHash {
     canonicalization?: "canonical-json-v1" | "raw-bytes";
 }
 /**
- * REQUIRED object. Declared ownership surface for this artifact. DGOS-T-0015 owns and will expand the referenced subschema.
+ * REQUIRED object. Declared ownership surface for this artifact. This field $refs the reusable ownership-surface sub-schema.
  */
 export interface OwnershipSurface {
     /**
-     * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over.
+     * REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over. File surfaces are intentionally unprefixed unless referenced from depends_on as file:<path>.
      */
     owns_files: string[];
     /**
-     * REQUIRED array. Interface names, routes, commands, or API contracts this artifact declares ownership over.
+     * REQUIRED array. Interface, route, command, or API-contract surfaces this artifact declares ownership over. Use HTTP route signatures such as GET /api/example or symbolic interface:<name> identifiers.
      */
     owns_interfaces: string[];
     /**
-     * REQUIRED array. Data stores, config keys, or logical data resources this artifact declares ownership over.
+     * REQUIRED array. Data-store, config, or logical data-resource surfaces this artifact declares ownership over. Use prefixed identifiers such as table:<name> or config:<key>.
      */
     owns_data: string[];
     /**
-     * REQUIRED array. Workflow steps this artifact declares ownership over.
+     * REQUIRED array. Workflow steps this artifact declares ownership over. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
      */
     owns_workflow_steps: string[];
     /**
-     * OPTIONAL array. Ownership surfaces this artifact depends on but does not own.
+     * OPTIONAL array. Surface identifiers this artifact depends on but does not own. Dependencies must be explicitly prefixed, for example interface:auth-session, workflow:admin-shell-navigation, table:admin_settings, config:admin.settings.*, or file:src/shared/auth.ts.
      */
     depends_on?: string[];
 }
@@ -254,4 +254,33 @@ export interface MissingContext {
      * OPTIONAL string. Stable id for the missing target when known.
      */
     id?: string;
+}
+/**
+ * Reusable leaf touch-report metadata. Leaves emit concrete touched surfaces so parent loops can compare runtime evidence against sibling ownership surfaces and dependencies.
+ */
+export interface TouchReport {
+    /**
+     * REQUIRED string. Stable task id for the leaf that produced this report.
+     */
+    task_id: string;
+    /**
+     * REQUIRED string. Discriminator for touch-report payloads.
+     */
+    report_type: "touch_report";
+    /**
+     * REQUIRED array. Concrete repo-relative files or glob-scoped file surfaces touched by the leaf.
+     */
+    touched_files: string[];
+    /**
+     * REQUIRED array. Concrete interface, route, command, or API-contract surfaces touched by the leaf. Use HTTP route signatures such as PUT /api/example or symbolic interface:<name> identifiers.
+     */
+    touched_interfaces: string[];
+    /**
+     * REQUIRED array. Concrete data-store, config, or logical data-resource surfaces touched by the leaf. Use prefixed identifiers such as table:<name> or config:<key>.
+     */
+    touched_data: string[];
+    /**
+     * REQUIRED array. Concrete workflow steps touched by the leaf. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+     */
+    touched_workflow_steps: string[];
 }

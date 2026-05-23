@@ -1,0 +1,7 @@
+{
+  "owns_files": ["src/features/admin/settings/data/save.ts"],
+  "owns_interfaces": ["PUT /api/admin/settings"],
+  "owns_data": ["table:admin_settings"],
+  "owns_workflow_steps": ["admin-settings:save"],
+  "depends_on": ["auth-admin-session"]
+}

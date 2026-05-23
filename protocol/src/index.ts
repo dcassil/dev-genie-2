@@ -9,4 +9,5 @@ export type {
   OwnershipSurface,
   Producer,
   ReviewRequired,
+  TouchReport,
 } from "./generated/artifacts.js";

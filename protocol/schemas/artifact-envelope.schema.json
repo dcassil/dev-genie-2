@@ -66,7 +66,7 @@
       }
     },
     "ownership": {
-      "description": "REQUIRED object. Declared ownership surface for this artifact. DGOS-T-0015 owns and will expand the referenced subschema.",
+      "description": "REQUIRED object. Declared ownership surface for this artifact. This field $refs the reusable ownership-surface sub-schema.",
       "$ref": "ownership-surface.schema.json"
     },
     "confidence": {

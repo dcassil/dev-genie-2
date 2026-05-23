@@ -1,0 +1,7 @@
+{
+  "task_id": "task-admin-settings-save",
+  "touched_files": ["src/features/admin/settings/data/save.ts"],
+  "touched_interfaces": ["PUT /api/admin/settings"],
+  "touched_data": ["table:admin_settings"],
+  "touched_workflow_steps": ["admin-settings:save"]
+}
