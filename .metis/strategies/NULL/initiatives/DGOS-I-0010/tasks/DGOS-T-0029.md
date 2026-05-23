@@ -4,14 +4,14 @@ level: task
 title: "Scaffold the roles package and port the Architect Role onto a shared RoleRunner"
 short_code: "DGOS-T-0029"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-23T23:57:51.867775+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Create a new sibling package `roles/` (peer of `protocol`, `daimyo`, `protocol-proof`) and establish the shared, single-Role `RoleRunner` by porting and generalizing `protocol-proof/src/runner/architect-role-runner.ts`. The runner must keep the typed `RoleInvocation` → `RoleResult` contract (ADR-2), keep all the proven behaviors (skip rules, `model_tier_policy` enforcement, structured-model call, artifact normalization, protocol-schema validation, first-class `produced`/`skipped`/`blocked`/`needs_human`/`failed` results), but factor out the Architect-specific pieces behind a `RoleDefinition` shape so later tasks can register additional Roles without changing the runner. This task ships the Architect as the first registered Role and proves parity with protocol-proof's Architect behavior.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -69,4 +73,7 @@ Create a new sibling package `roles/` (peer of `protocol`, `daimyo`, `protocol-p
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-23: Implemented `roles/` as a library-only sibling package, not a marketplace-distributable plugin at this stage. It has `.claude-plugin/plugin.json` metadata for package consistency, but no root `.claude-plugin/marketplace.json` entry because it exposes no Claude command or MCP server. Added root `.gitignore` un-ignore lines for `roles/dist/` because the package ships a build artifact.
+- 2026-05-23: Ported the Architect prompt as `dev-genie.architect-role@1.0.0`, generalized the proof runner into `RoleRunner` + `RoleDefinition`, kept the structured-model dependency as an injected `StructuredModelCaller` port, and generalized Ajv protocol validation behind `validatorFor(artifactType)`.
+- 2026-05-23: Verification from `roles/`: `npm run typecheck`, `npm run lint`, `npm run test` (7 parity/schema-loader tests), and `npm run build` all passed clean.
+- 2026-05-23 (orchestrator verification): re-ran roles typecheck/lint/test/build — green (7 tests: Architect parity produced/skipped/needs_human/blocked + schema-loader resolution). Shared `RoleRunner`+`RoleDefinition` generalizes protocol-proof's Architect runner; runner core depends only on the injected `StructuredModelCaller` port + protocol types (no daimyo supervisor/decision imports); `validatorFor(artifactType)` generalizes the Ajv loader; protocol-proof left untouched. `roles/` library-only; root `.gitignore` un-ignores `roles/dist/`. No escape hatches. **exit_criteria_met: true.** Completed.

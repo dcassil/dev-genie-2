@@ -1,0 +1,16 @@
+import type { ValidateFunction } from "ajv";
+import type { ArchitectureImpact, JsonObject, JsonValue, RoleResult, ValidationReport } from "protocol";
+import type { StructuredModelSchema } from "../runner/structured-model.js";
+export declare const architectureImpactJsonSchema: JsonObject;
+export declare const roleResultJsonSchema: JsonObject;
+export declare const validationReportJsonSchema: JsonObject;
+export declare const architectureImpactStructuredSchema: StructuredModelSchema<ArchitectureImpact>;
+export declare function parseArchitectureImpact(value: JsonValue): ArchitectureImpact;
+export declare function isArchitectureImpact(value: JsonValue | ArchitectureImpact): value is ArchitectureImpact;
+export declare function isRoleResult(value: JsonValue | RoleResult): value is RoleResult;
+export declare function isValidationReport(value: JsonValue | ValidationReport): value is ValidationReport;
+export declare function roleResultValidationErrors(): readonly string[];
+export declare function architectureImpactValidationErrors(): readonly string[];
+export declare function validationReportValidationErrors(): readonly string[];
+export declare function validatorFor(artifactType: string): ValidateFunction;
+export declare function schemaFor(artifactType: string): JsonObject;

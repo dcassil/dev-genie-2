@@ -1,0 +1,19 @@
+{
+  "name": "roles",
+  "version": "0.1.0",
+  "description": "Library-only Dev-Genie Roles layer: shared RoleRunner contract, versioned role definitions, and protocol-schema validation for one-shot model-backed Roles.",
+  "author": {
+    "name": "Daniel Cassil",
+    "email": "me@danielcassil.com"
+  },
+  "homepage": "https://github.com/dcassil/dev-genie-2",
+  "repository": "https://github.com/dcassil/dev-genie-2",
+  "license": "MIT",
+  "keywords": [
+    "roles",
+    "role-runner",
+    "protocol",
+    "architecture",
+    "dev-genie"
+  ]
+}
