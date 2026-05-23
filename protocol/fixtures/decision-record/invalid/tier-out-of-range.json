@@ -1,0 +1,53 @@
+{
+  "artifact_id": "artifact:sha256:9999999999999999999999999999999999999999999999999999999999999999",
+  "artifact_type": "DecisionRecord",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor"
+  },
+  "created_at": "2026-05-23T19:22:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.5,
+    "level": "medium"
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-invalid-tier",
+    "request": {
+      "decision_id": "decision-invalid-tier",
+      "node_id": "node-leaf-5",
+      "task_id": "task-46",
+      "surface": "routing",
+      "prompt": "Which tier should resolve this?"
+    },
+    "verdict": {
+      "type": "decision",
+      "suggested_choice": "continue",
+      "suggested_response": "Continue.",
+      "confidence": 7,
+      "risk": 2,
+      "block_trigger": false
+    },
+    "tier": 4,
+    "rationale": "Tier 4 is not valid."
+  }
+}

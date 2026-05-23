@@ -4,14 +4,14 @@ level: task
 title: "DecisionRequest, DecisionRecord & DecisionVerdict Schemas + TS Bindings (Reconcile daimyo)"
 short_code: "DGOS-T-0017"
 created_at: 2026-05-23T18:56:10.111505+00:00
-updated_at: 2026-05-23T18:56:10.111505+00:00
+updated_at: 2026-05-23T19:47:03.228489+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0001
 ## Objective
 
 Author the **`DecisionRequest`**, **`DecisionRecord`**, and **`DecisionVerdict`** schemas (typed payloads under the shared envelope, plus `DecisionVerdict` as the on-the-wire decision payload), with generated TS bindings — **authored to reconcile with `daimyo`'s already-shipped types** in `daimyo/src/core/domain.ts`. daimyo (DGOS-I-0011) defined: `DecisionRequest` split into permission vs routing variants (the `surface: "permission" | "routing"` distinction), `DecisionVerdict { type: "decision"|"access"|"human", suggested_choice, suggested_response, confidence: 0-10, risk: 0-10, block_trigger }`, and `DecisionRecord` (request + verdict + tier + rationale). The schema must capture these faithfully so the protocol is the source of truth and daimyo can be generated from / conformed to it in [[DGOS-T-0019]].
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -65,4 +69,10 @@ Author the **`DecisionRequest`**, **`DecisionRecord`**, and **`DecisionVerdict`*
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-23: Implemented protocol decision schemas and fixtures without modifying `daimyo`. Reconciliation deltas recorded in `protocol/README.md` for DGOS-T-0019:
+  - `DecisionRequest.id` -> payload `decision_id`; `nodeId` -> `node_id`; `taskId` -> `task_id`; permission `toolName` -> `tool_name`.
+  - `DecisionRequest` remains a discriminated union on `surface`; permission carries `tool_name` + `arguments`, routing carries the needs-decision prompt/context/options bubble.
+  - `DecisionVerdict` preserves daimyo's minimal `type`, `suggested_choice`, `suggested_response`, `confidence`, `risk`, and `block_trigger` payload, with `Score0To10` modeled as `0..10`.
+  - `DecisionRecord.id` -> payload `decision_id`; `createdAt` -> envelope `created_at`; `request`, `verdict`, `tier`, and `rationale` remain payload fields.
+  - Verification from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`, and `npm run check:codegen` all passed.
+- 2026-05-23 (orchestrator verification): re-ran typecheck/lint/test/build + check:codegen — all green (27 fixture tests). Fixtures confirmed for both decision surfaces (permission + routing), each `DecisionVerdict.type` (decision/access/human), tier-out-of-range + confidence-out-of-range invalids, and a `routing-with-permission-tool` invalid that enforces the surface split at the schema level. `DecisionVerdict` payload matches daimyo's exact minimal shape; tier constrained to 0–3. Reconciliation deltas (camelCase→snake_case, `id`→`decision_id`, `createdAt`→envelope `created_at`) recorded for DGOS-T-0019. No escape hatches. **exit_criteria_met: true.** Completed.

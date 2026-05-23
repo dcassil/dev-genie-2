@@ -1,0 +1,8 @@
+{
+  "type": "decision",
+  "suggested_choice": "continue",
+  "suggested_response": "Continue with the proposed implementation.",
+  "confidence": 11,
+  "risk": 1,
+  "block_trigger": false
+}

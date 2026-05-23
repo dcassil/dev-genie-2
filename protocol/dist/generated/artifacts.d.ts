@@ -256,6 +256,132 @@ export interface MissingContext {
     id?: string;
 }
 /**
+ * Envelope-composed ADR-3 sideways-channel durable record for a resolved decision request.
+ */
+export type DecisionRecord = ArtifactEnvelope & {
+    artifact_type: "DecisionRecord";
+    payload: DecisionRecordPayload;
+    [k: string]: unknown;
+};
+/**
+ * REQUIRED object. Originating DecisionRequest payload.
+ */
+export type DecisionRequestPayload = PermissionDecisionRequest | RoutingDecisionRequest;
+/**
+ * Daimyo-compatible JSON value.
+ */
+export type JsonValue = string | number | boolean | null | JsonValue[] | JsonObject;
+/**
+ * Daimyo-compatible bounded integer score.
+ *
+ * This interface was referenced by `DecisionVerdict`'s JSON-Schema
+ * via the `definition` "score0To10".
+ */
+export type Score0To10 = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+/**
+ * REQUIRED integer. Daimyo DecisionTier that resolved the request.
+ */
+export type DecisionTier = 0 | 1 | 2 | 3;
+export interface DecisionRecordPayload {
+    /**
+     * Protocol snake_case representation of daimyo's DecisionRecord id field.
+     */
+    decision_id: string;
+    request: DecisionRequestPayload;
+    verdict: DecisionVerdict;
+    tier: DecisionTier;
+    /**
+     * REQUIRED string. Durable rationale for the verdict and selected tier.
+     */
+    rationale: string;
+}
+export interface PermissionDecisionRequest {
+    /**
+     * Protocol snake_case representation of daimyo's DecisionId-bearing id field.
+     */
+    decision_id: string;
+    /**
+     * Protocol snake_case representation of daimyo's NodeId.
+     */
+    node_id: string;
+    /**
+     * Protocol snake_case representation of daimyo's TaskId.
+     */
+    task_id: string;
+    surface: "permission";
+    /**
+     * REQUIRED string. Decision prompt or permission question.
+     */
+    prompt: string;
+    context?: JsonObject;
+    /**
+     * REQUIRED string. Tool name for the permission-gating surface.
+     */
+    tool_name: string;
+    arguments: JsonObject;
+}
+/**
+ * Daimyo-compatible JSON object value.
+ */
+export interface JsonObject {
+    [k: string]: JsonValue;
+}
+export interface RoutingDecisionRequest {
+    /**
+     * Protocol snake_case representation of daimyo's DecisionId-bearing id field.
+     */
+    decision_id: string;
+    /**
+     * Protocol snake_case representation of daimyo's NodeId.
+     */
+    node_id: string;
+    /**
+     * Protocol snake_case representation of daimyo's TaskId.
+     */
+    task_id: string;
+    surface: "routing";
+    /**
+     * REQUIRED string. Needs-decision content bubble routed sideways by a parent loop.
+     */
+    prompt: string;
+    context?: JsonObject;
+    /**
+     * OPTIONAL array. Candidate choices available to the decision-routing surface.
+     */
+    options?: string[];
+}
+/**
+ * REQUIRED object. Minimal DecisionVerdict payload returned by decision routing.
+ */
+export interface DecisionVerdict {
+    /**
+     * REQUIRED string. Verdict category from daimyo's shipped shape.
+     */
+    type: "decision" | "access" | "human";
+    /**
+     * REQUIRED string or null. Machine-readable option, action, or access choice suggested by the decision provider.
+     */
+    suggested_choice: string | null;
+    /**
+     * REQUIRED string or null. Human-readable response or instruction associated with the suggested choice.
+     */
+    suggested_response: string | null;
+    confidence: Score0To10;
+    risk: Score0To10;
+    /**
+     * REQUIRED boolean. True when the verdict should block execution or escalate instead of proceeding.
+     */
+    block_trigger: boolean;
+}
+/**
+ * Envelope-composed artifact for a typed escalation from executing work. The payload is a discriminated union that preserves daimyo's mechanically distinct permission and routing surfaces.
+ */
+export type DecisionRequest = ArtifactEnvelope & {
+    artifact_type: "DecisionRequest";
+    payload: DecisionRequestPayload;
+    [k: string]: unknown;
+};
+/**
  * Reusable leaf touch-report metadata. Leaves emit concrete touched surfaces so parent loops can compare runtime evidence against sibling ownership surfaces and dependencies.
  */
 export interface TouchReport {

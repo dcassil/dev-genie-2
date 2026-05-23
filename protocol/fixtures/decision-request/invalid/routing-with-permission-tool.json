@@ -1,0 +1,44 @@
+{
+  "artifact_id": "artifact:sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "artifact_type": "DecisionRequest",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor"
+  },
+  "created_at": "2026-05-23T19:18:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.5,
+    "level": "medium"
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["decision:routing_required"]
+  },
+  "diagnostics": {
+    "status": "blocked",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-invalid-routing",
+    "node_id": "node-leaf-4",
+    "task_id": "task-45",
+    "surface": "routing",
+    "prompt": "This routing request must not carry permission-tool fields.",
+    "tool_name": "exec_command",
+    "arguments": {
+      "cmd": "npm run test"
+    }
+  }
+}

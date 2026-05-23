@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/decision-record.schema.json",
+  "title": "DecisionRecord",
+  "description": "Envelope-composed ADR-3 sideways-channel durable record for a resolved decision request.",
+  "$comment": "The payload preserves daimyo's request + verdict + tier + rationale shape. The durable timestamp is the shared envelope created_at field, using protocol snake_case.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "DecisionRecord"
+        },
+        "payload": {
+          "$ref": "#/$defs/decisionRecordPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "decisionRecordPayload": {
+      "title": "DecisionRecordPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "request", "verdict", "tier", "rationale"],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's DecisionRecord id field.",
+          "minLength": 1
+        },
+        "request": {
+          "description": "REQUIRED object. Originating DecisionRequest payload.",
+          "$ref": "decision-request.schema.json#/$defs/decisionRequestPayload"
+        },
+        "verdict": {
+          "description": "REQUIRED object. Minimal DecisionVerdict payload returned by decision routing.",
+          "$ref": "decision-verdict.schema.json"
+        },
+        "tier": {
+          "description": "REQUIRED integer. Daimyo DecisionTier that resolved the request.",
+          "$ref": "#/$defs/decisionTier"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "REQUIRED string. Durable rationale for the verdict and selected tier.",
+          "minLength": 1
+        }
+      }
+    },
+    "decisionTier": {
+      "title": "DecisionTier",
+      "type": "integer",
+      "description": "Daimyo-compatible tier that resolved a decision.",
+      "enum": [0, 1, 2, 3]
+    }
+  }
+}

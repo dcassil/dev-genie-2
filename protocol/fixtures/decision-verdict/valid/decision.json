@@ -1,0 +1,8 @@
+{
+  "type": "decision",
+  "suggested_choice": "use-existing-parser",
+  "suggested_response": "Use the existing parser and add the missing fixture coverage.",
+  "confidence": 8,
+  "risk": 3,
+  "block_trigger": false
+}

@@ -1,0 +1,8 @@
+{
+  "type": "human",
+  "suggested_choice": null,
+  "suggested_response": "Escalate this shared-contract decision to a human maintainer.",
+  "confidence": 6,
+  "risk": 9,
+  "block_trigger": true
+}

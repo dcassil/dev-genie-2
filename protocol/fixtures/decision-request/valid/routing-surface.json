@@ -1,0 +1,53 @@
+{
+  "artifact_id": "artifact:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "artifact_type": "DecisionRequest",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor",
+    "version": "0.1.0",
+    "invocation_id": "fixture-routing-001"
+  },
+  "created_at": "2026-05-23T19:16:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "task",
+      "id": "task-43",
+      "relation": "read"
+    }
+  ],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.62,
+    "level": "medium",
+    "reason_codes": ["fixture:routing_surface"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["decision:routing_required"]
+  },
+  "diagnostics": {
+    "status": "blocked",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-shared-contract",
+    "node_id": "node-leaf-2",
+    "task_id": "task-43",
+    "surface": "routing",
+    "prompt": "The leaf needs a decision on whether this contract change should bubble to the parent owner.",
+    "context": {
+      "affected_interface": "interface:protocol-decision-record"
+    },
+    "options": ["patch-child-task", "create-follow-up", "escalate-human"]
+  }
+}

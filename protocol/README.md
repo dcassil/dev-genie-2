@@ -108,6 +108,22 @@ The envelope aligns with daimyo's existing direction around typed decision recor
 - daimyo evidence currently stores touched surfaces directly on execution evidence with camelCase optional fields (`touchedFiles`, `touchedInterfaces`, `touchedData`) and no `report_type`; protocol uses the reusable `touch-report` subschema with required `task_id`, `report_type`, and snake_case touched fields.
 - daimyo currently models intended surfaces (`intendedFiles`, `intendedInterfaces`, `intendedData`) for conservative conflict checks; protocol's touch report is concrete touched evidence only in T-0015, so future execution-record work should decide whether intended surfaces remain separate evidence.
 - daimyo does not currently expose touched workflow-step evidence in `ExecutionEvidence`; protocol touch reports include required `touched_workflow_steps`.
+- daimyo `DecisionRequest.id`, `nodeId`, `taskId`, and permission `toolName` become protocol payload fields `decision_id`, `node_id`, `task_id`, and `tool_name`. The protocol keeps `arguments`, `prompt`, `context`, `surface`, and routing `options` semantically aligned with daimyo.
+- daimyo `DecisionRequest` remains a two-variant union. Protocol formalizes the same split with `payload.surface: "permission"` carrying `tool_name` + `arguments`, and `payload.surface: "routing"` carrying the needs-decision prompt/context/options bubble. DGOS-T-0019 should not collapse these variants.
+- daimyo `DecisionVerdict` is represented as a standalone minimal schema with `type`, `suggested_choice`, `suggested_response`, `confidence`, `risk`, and `block_trigger`. The protocol preserves daimyo's `Score0To10` as an integer enum from `0` through `10`.
+- daimyo `DecisionRecord.id` becomes protocol payload `decision_id`; daimyo `DecisionRecord.createdAt` is represented by the shared envelope `created_at` timestamp. `request`, `verdict`, `tier`, and `rationale` are preserved under `payload`, with `tier` constrained to `0 | 1 | 2 | 3`.
+
+## Decision Artifacts
+
+`schemas/decision-request.schema.json` and `schemas/decision-record.schema.json` are concrete envelope-composed artifact schemas. Their top-level object follows the shared artifact envelope; their `payload` is the daimyo-reconciled decision shape.
+
+`schemas/decision-verdict.schema.json` is intentionally not a full envelope artifact. It is the minimal decision payload used inside `DecisionRecord` and by future role-result mapping code.
+
+`DecisionVerdict` relates to the ADR-1 Role result contract that DGOS-T-0018 will formalize as follows:
+
+- A `RoleResult` may express produced/skipped/blocked/human-review outcomes, confidence, missing context, source/output artifacts, and review requirements.
+- A `DecisionVerdict` is the narrowed decision-channel projection of that role output: verdict type, suggested choice/response, confidence and risk on daimyo's `0..10` scale, and the block trigger.
+- The mapping between `RoleResult` and `DecisionVerdict` belongs in runtime code such as daimyo's `DecisionProvider`. Schemas only make the relationship expressible by keeping `DecisionVerdict` small, typed, and embeddable in `DecisionRecord`.
 
 ## Adding An Artifact Type
 

@@ -1,0 +1,58 @@
+{
+  "artifact_id": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "artifact_type": "DecisionRequest",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor",
+    "version": "0.1.0",
+    "invocation_id": "fixture-permission-001"
+  },
+  "created_at": "2026-05-23T19:15:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "task",
+      "id": "task-42",
+      "relation": "read"
+    }
+  ],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.7,
+    "level": "medium",
+    "reason_codes": ["fixture:permission_surface"]
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-allow-command",
+    "node_id": "node-leaf-1",
+    "task_id": "task-42",
+    "surface": "permission",
+    "prompt": "May the leaf run npm test for the protocol package?",
+    "context": {
+      "cwd": "protocol",
+      "reason": "verify decision fixtures"
+    },
+    "tool_name": "exec_command",
+    "arguments": {
+      "cmd": "npm run test",
+      "workdir": "protocol"
+    }
+  }
+}

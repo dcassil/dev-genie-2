@@ -1,0 +1,68 @@
+{
+  "artifact_id": "artifact:sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "artifact_type": "DecisionRecord",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "human",
+    "name": "maintainer",
+    "invocation_id": "fixture-record-002"
+  },
+  "created_at": "2026-05-23T19:21:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "artifact_type": "DecisionRequest",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "relation": "derived_from"
+    }
+  ],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": ["interface:protocol-decision-record"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:decision-routing"]
+  },
+  "confidence": {
+    "score": 0.65,
+    "level": "medium",
+    "reason_codes": ["fixture:human_resolution"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["decision:human_resolved"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-shared-contract",
+    "request": {
+      "decision_id": "decision-shared-contract",
+      "node_id": "node-leaf-2",
+      "task_id": "task-43",
+      "surface": "routing",
+      "prompt": "The leaf needs a decision on whether this contract change should bubble to the parent owner.",
+      "context": {
+        "affected_interface": "interface:protocol-decision-record"
+      },
+      "options": ["patch-child-task", "create-follow-up", "escalate-human"]
+    },
+    "verdict": {
+      "type": "human",
+      "suggested_choice": "create-follow-up",
+      "suggested_response": "Record the contract delta for T-0019 and keep this task scoped to schema changes.",
+      "confidence": 6,
+      "risk": 8,
+      "block_trigger": true
+    },
+    "tier": 3,
+    "rationale": "The change affects downstream daimyo reconciliation and requires an explicit recorded delta."
+  }
+}

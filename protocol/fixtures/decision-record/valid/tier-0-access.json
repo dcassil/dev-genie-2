@@ -1,0 +1,73 @@
+{
+  "artifact_id": "artifact:sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "artifact_type": "DecisionRecord",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor",
+    "version": "0.1.0",
+    "invocation_id": "fixture-record-001"
+  },
+  "created_at": "2026-05-23T19:20:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact_type": "DecisionRequest",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "relation": "derived_from"
+    }
+  ],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.9,
+    "level": "high",
+    "reason_codes": ["fixture:access_allowed"]
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "decision_id": "decision-allow-command",
+    "request": {
+      "decision_id": "decision-allow-command",
+      "node_id": "node-leaf-1",
+      "task_id": "task-42",
+      "surface": "permission",
+      "prompt": "May the leaf run npm test for the protocol package?",
+      "context": {
+        "cwd": "protocol"
+      },
+      "tool_name": "exec_command",
+      "arguments": {
+        "cmd": "npm run test",
+        "workdir": "protocol"
+      }
+    },
+    "verdict": {
+      "type": "access",
+      "suggested_choice": "allow",
+      "suggested_response": "Allow the read-only verification command.",
+      "confidence": 9,
+      "risk": 1,
+      "block_trigger": false
+    },
+    "tier": 0,
+    "rationale": "Tier 0 policy allows the verification command in the owned package."
+  }
+}

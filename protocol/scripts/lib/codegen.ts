@@ -37,6 +37,21 @@ function interfaceBlockEnd(lines: string[], startIndex: number): number {
   throw new Error(`Generated interface starting on line ${startIndex + 1} is missing a closing brace`);
 }
 
+function typeAliasBlockEnd(lines: string[], startIndex: number): number {
+  for (let lineIndex = startIndex; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex];
+    if (line === undefined) {
+      throw new Error(`Generated type alias starting on line ${startIndex + 1} ended unexpectedly`);
+    }
+
+    if (line.trimEnd().endsWith(";")) {
+      return lineIndex;
+    }
+  }
+
+  throw new Error(`Generated type alias starting on line ${startIndex + 1} is missing a semicolon`);
+}
+
 function removeTrailingJsdoc(lines: string[]): void {
   if (lines.at(-1) !== " */") {
     return;
@@ -53,10 +68,10 @@ function removeTrailingJsdoc(lines: string[]): void {
   }
 }
 
-function dedupeExportedInterfaces(content: string): string {
+function dedupeExportedDeclarations(content: string): string {
   const lines = content.split("\n");
   const dedupedLines: string[] = [];
-  const emittedInterfaces = new Map<string, string>();
+  const emittedDeclarations = new Map<string, string>();
 
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const line = lines[lineIndex];
@@ -64,27 +79,32 @@ function dedupeExportedInterfaces(content: string): string {
       throw new Error(`Generated content ended unexpectedly on line ${lineIndex + 1}`);
     }
 
-    const interfaceMatch = /^export interface ([A-Za-z_$][\w$]*)\b/u.exec(line);
-    if (interfaceMatch === null) {
+    const declarationMatch = /^export (interface|type) ([A-Za-z_$][\w$]*)\b/u.exec(line);
+    if (declarationMatch === null) {
       dedupedLines.push(line);
       continue;
     }
 
-    const interfaceName = interfaceMatch[1];
-    if (interfaceName === undefined) {
-      throw new Error(`Could not read generated interface name on line ${lineIndex + 1}`);
+    const declarationKind = declarationMatch[1];
+    const declarationName = declarationMatch[2];
+    if (declarationKind === undefined || declarationName === undefined) {
+      throw new Error(`Could not read generated declaration on line ${lineIndex + 1}`);
     }
-    const endIndex = interfaceBlockEnd(lines, lineIndex);
-    const interfaceBlock = lines.slice(lineIndex, endIndex + 1).join("\n");
-    const emittedBlock = emittedInterfaces.get(interfaceName);
+    const endIndex =
+      declarationKind === "interface"
+        ? interfaceBlockEnd(lines, lineIndex)
+        : typeAliasBlockEnd(lines, lineIndex);
+    const declarationKey = `${declarationKind} ${declarationName}`;
+    const declarationBlock = lines.slice(lineIndex, endIndex + 1).join("\n");
+    const emittedBlock = emittedDeclarations.get(declarationKey);
 
     if (emittedBlock === undefined) {
-      emittedInterfaces.set(interfaceName, interfaceBlock);
+      emittedDeclarations.set(declarationKey, declarationBlock);
       dedupedLines.push(...lines.slice(lineIndex, endIndex + 1));
-    } else if (emittedBlock === interfaceBlock) {
+    } else if (emittedBlock === declarationBlock) {
       removeTrailingJsdoc(dedupedLines);
     } else {
-      throw new Error(`Generated duplicate interface with different shape: ${interfaceName}`);
+      throw new Error(`Generated duplicate ${declarationKind} with different shape: ${declarationName}`);
     }
 
     lineIndex = endIndex;
@@ -119,5 +139,5 @@ export async function generateTypeBindings(): Promise<void> {
   ].join("\n");
 
   mkdirSync(generatedDir, { recursive: true });
-  writeTextFile(generatedTypesPath, dedupeExportedInterfaces(content));
+  writeTextFile(generatedTypesPath, dedupeExportedDeclarations(content));
 }

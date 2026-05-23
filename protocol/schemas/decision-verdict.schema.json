@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/decision-verdict.schema.json",
+  "title": "DecisionVerdict",
+  "description": "Minimal on-the-wire decision verdict payload produced by decision routing. This intentionally models daimyo's shipped DecisionVerdict shape and is not the full ADR-1 Role result.",
+  "$comment": "DecisionVerdict is reusable payload data, not an envelope artifact. RoleResult mapping is documented in protocol/README; mapping logic belongs in runtime code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "suggested_choice",
+    "suggested_response",
+    "confidence",
+    "risk",
+    "block_trigger"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "REQUIRED string. Verdict category from daimyo's shipped shape.",
+      "enum": ["decision", "access", "human"]
+    },
+    "suggested_choice": {
+      "description": "REQUIRED string or null. Machine-readable option, action, or access choice suggested by the decision provider.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "suggested_response": {
+      "description": "REQUIRED string or null. Human-readable response or instruction associated with the suggested choice.",
+      "type": ["string", "null"],
+      "minLength": 1
+    },
+    "confidence": {
+      "$ref": "#/$defs/score0To10"
+    },
+    "risk": {
+      "$ref": "#/$defs/score0To10"
+    },
+    "block_trigger": {
+      "type": "boolean",
+      "description": "REQUIRED boolean. True when the verdict should block execution or escalate instead of proceeding."
+    }
+  },
+  "$defs": {
+    "score0To10": {
+      "title": "Score0To10",
+      "description": "Daimyo-compatible bounded integer score.",
+      "type": "integer",
+      "enum": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    }
+  }
+}

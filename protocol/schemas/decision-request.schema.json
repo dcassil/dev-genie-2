@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/decision-request.schema.json",
+  "title": "DecisionRequest",
+  "description": "Envelope-composed artifact for a typed escalation from executing work. The payload is a discriminated union that preserves daimyo's mechanically distinct permission and routing surfaces.",
+  "$comment": "Protocol wire fields use snake_case. DGOS-T-0019 should reconcile daimyo's camelCase names to these schema-authoritative names without collapsing the two surfaces.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "DecisionRequest"
+        },
+        "payload": {
+          "$ref": "#/$defs/decisionRequestPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "decisionRequestPayload": {
+      "title": "DecisionRequestPayload",
+      "description": "Daimyo-compatible DecisionRequest payload. Permission requests carry tool invocation data; routing requests carry a needs-decision content bubble.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/permissionDecisionRequest"
+        },
+        {
+          "$ref": "#/$defs/routingDecisionRequest"
+        }
+      ]
+    },
+    "permissionDecisionRequest": {
+      "title": "PermissionDecisionRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision_id",
+        "node_id",
+        "task_id",
+        "surface",
+        "prompt",
+        "tool_name",
+        "arguments"
+      ],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's DecisionId-bearing id field.",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's NodeId.",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's TaskId.",
+          "minLength": 1
+        },
+        "surface": {
+          "const": "permission"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "REQUIRED string. Decision prompt or permission question.",
+          "minLength": 1
+        },
+        "context": {
+          "$ref": "#/$defs/jsonObject"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "REQUIRED string. Tool name for the permission-gating surface.",
+          "minLength": 1
+        },
+        "arguments": {
+          "$ref": "#/$defs/jsonObject"
+        }
+      }
+    },
+    "routingDecisionRequest": {
+      "title": "RoutingDecisionRequest",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision_id", "node_id", "task_id", "surface", "prompt"],
+      "properties": {
+        "decision_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's DecisionId-bearing id field.",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's NodeId.",
+          "minLength": 1
+        },
+        "task_id": {
+          "type": "string",
+          "description": "Protocol snake_case representation of daimyo's TaskId.",
+          "minLength": 1
+        },
+        "surface": {
+          "const": "routing"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "REQUIRED string. Needs-decision content bubble routed sideways by a parent loop.",
+          "minLength": 1
+        },
+        "context": {
+          "$ref": "#/$defs/jsonObject"
+        },
+        "options": {
+          "type": "array",
+          "description": "OPTIONAL array. Candidate choices available to the decision-routing surface.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "jsonObject": {
+      "title": "JsonObject",
+      "type": "object",
+      "description": "Daimyo-compatible JSON object value.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "jsonValue": {
+      "title": "JsonValue",
+      "description": "Daimyo-compatible JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonObject"
+        }
+      ]
+    }
+  }
+}

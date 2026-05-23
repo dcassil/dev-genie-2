@@ -1,0 +1,8 @@
+{
+  "type": "access",
+  "suggested_choice": "allow",
+  "suggested_response": "Allow the requested read-only command.",
+  "confidence": 9,
+  "risk": 2,
+  "block_trigger": false
+}
