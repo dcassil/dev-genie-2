@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/ownership-surface.schema.json",
+  "title": "OwnershipSurface",
+  "description": "Minimal forward stub for declared artifact ownership metadata. DGOS-T-0015 owns and will expand this subschema without changing the envelope $ref path.",
+  "$comment": "Forward-compatibility stub for DGOS-T-0015. Keep the $id stable: artifact-envelope.schema.json references this file directly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["owns_files", "owns_interfaces", "owns_data", "owns_workflow_steps"],
+  "properties": {
+    "owns_files": {
+      "type": "array",
+      "description": "REQUIRED array. Repo-relative file paths or glob patterns this artifact declares ownership over.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "owns_interfaces": {
+      "type": "array",
+      "description": "REQUIRED array. Interface names, routes, commands, or API contracts this artifact declares ownership over.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "owns_data": {
+      "type": "array",
+      "description": "REQUIRED array. Data stores, config keys, or logical data resources this artifact declares ownership over.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "owns_workflow_steps": {
+      "type": "array",
+      "description": "REQUIRED array. Workflow steps this artifact declares ownership over.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "depends_on": {
+      "type": "array",
+      "description": "OPTIONAL array. Ownership surfaces this artifact depends on but does not own.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "default": []
+    }
+  }
+}

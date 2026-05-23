@@ -1,0 +1,7 @@
+{
+  "owns_files": ["src/example.ts"],
+  "owns_interfaces": ["GET /api/example"],
+  "owns_data": ["table:example"],
+  "owns_workflow_steps": ["example:load"],
+  "depends_on": ["interface:auth-session"]
+}

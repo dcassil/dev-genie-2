@@ -4,14 +4,14 @@ level: task
 title: "Shared Artifact Envelope & Versioning/Compatibility Rules"
 short_code: "DGOS-T-0014"
 created_at: 2026-05-23T18:56:06.320030+00:00
-updated_at: 2026-05-23T18:56:06.320030+00:00
+updated_at: 2026-05-23T19:32:03.562125+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0001
 ## Objective
 
 Author the **shared artifact envelope** JSON Schema (the cross-primitive fields every artifact carries) and the **versioning + compatibility rules** (`schema_version` for per-type evolution, `protocol_version` for cross-artifact compatibility), plus content-hash/provenance conventions. This is the contract substrate that the concrete artifact types (T-0015–T-0018) extend with typed payload bodies, exactly as the initiative's approved design direction specifies.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,3 +71,20 @@ Author the **shared artifact envelope** JSON Schema (the cross-primitive fields 
 ## Status Updates
 
 *To be added during implementation.*
+
+### 2026-05-23 Implementation Start
+
+- Read `/tmp/protocol-codex/PREAMBLE.md`, this task, the parent initiative, root `CLAUDE.md`, current `protocol/` scaffold, and daimyo's `src/core/domain.ts`.
+- Confirmed `sample-artifact` is only scaffold material and should be replaced by the real shared envelope schema/fixtures.
+- Chosen implementation direction: shared `ArtifactEnvelope` schema with a required `payload` property and downstream composition via `allOf` over the envelope plus a payload-refining schema.
+
+### 2026-05-23 Implementation Complete
+
+- Replaced the throwaway sample schema/fixtures with `artifact-envelope.schema.json`, a minimal forward `ownership-surface.schema.json` stub, and valid/invalid fixtures for both schemas.
+- Documented envelope fields, `allOf` payload composition, versioning rules, content-hash/provenance conventions, and daimyo reconciliation divergences in `protocol/README.md`.
+- Regenerated TypeScript bindings and adjusted codegen to deduplicate identical externally referenced interface declarations while still failing on conflicting duplicate shapes.
+- Verification from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`, and `npm run check:codegen` all passed.
+
+### 2026-05-23 (orchestrator verification)
+
+- Re-ran typecheck/lint/test/build + `check:codegen` — all green (6 fixture tests). Confirmed `sample-artifact` removed; envelope carries all required cross-primitive fields + required `payload`; composition mechanism is `allOf` (documented in README for T-0015–T-0018). `ownership` `$ref`s the stub `ownership-surface.schema.json` (DGOS-T-0015 owns/expands it). `confidence`/`review_required`/`diagnostics` structured; versioning + hash/provenance conventions in README. Assumption noted: hash/id *shape* validated here, digest recomputation is T-0020. No escape hatches. **exit_criteria_met: true.** Completed.

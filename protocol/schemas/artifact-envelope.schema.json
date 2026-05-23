@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/artifact-envelope.schema.json",
+  "title": "ArtifactEnvelope",
+  "description": "Shared protocol envelope carried by every Dev-Genie runtime artifact. Concrete artifact schemas compose this envelope with an artifact-type-specific payload schema by refining artifact_type and payload through allOf.",
+  "$comment": "All listed cross-primitive fields are required. The payload field is also required so every concrete artifact has one typed body slot. Downstream schemas must not add peer top-level fields beside the envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifact_id",
+    "artifact_type",
+    "schema_version",
+    "protocol_version",
+    "producer",
+    "created_at",
+    "source_refs",
+    "output_refs",
+    "ownership",
+    "confidence",
+    "review_required",
+    "diagnostics",
+    "payload"
+  ],
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "description": "REQUIRED string. Content-addressed artifact identity in the form artifact:sha256:<64 lowercase hex characters>. The digest is computed from canonical JSON for the artifact with artifact_id omitted.",
+      "pattern": "^artifact:sha256:[a-f0-9]{64}$"
+    },
+    "artifact_type": {
+      "type": "string",
+      "description": "REQUIRED string. Stable artifact catalog name such as ExecutionRecord, ValidationReport, DecisionRequest, DecisionRecord, RoleInvocation, or RoleResult. Concrete schemas refine this with const.",
+      "minLength": 1,
+      "pattern": "^[A-Z][A-Za-z0-9]*$"
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "REQUIRED string. Semantic version of the artifact_type-specific payload schema. This versions payload shape only, not the shared envelope contract.",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "protocol_version": {
+      "type": "string",
+      "description": "REQUIRED string. Semantic version of this shared envelope and cross-artifact compatibility contract.",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$"
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "REQUIRED string. RFC 3339 timestamp for when the producer finalized this artifact.",
+      "format": "date-time"
+    },
+    "source_refs": {
+      "type": "array",
+      "description": "REQUIRED array. Inputs read or depended on to produce this artifact. Each entry names an artifact, file, task, policy, command, config, URL, or external source and may include a content hash for replay/diff validation.",
+      "items": {
+        "$ref": "#/$defs/artifactReference"
+      }
+    },
+    "output_refs": {
+      "type": "array",
+      "description": "REQUIRED array. Artifacts or external outputs produced, superseded, or materially affected by this artifact. Each entry may include a content hash so consumers can validate handoff integrity and detect drift.",
+      "items": {
+        "$ref": "#/$defs/artifactReference"
+      }
+    },
+    "ownership": {
+      "description": "REQUIRED object. Declared ownership surface for this artifact. DGOS-T-0015 owns and will expand the referenced subschema.",
+      "$ref": "ownership-surface.schema.json"
+    },
+    "confidence": {
+      "$ref": "#/$defs/confidence"
+    },
+    "review_required": {
+      "$ref": "#/$defs/reviewRequired"
+    },
+    "diagnostics": {
+      "$ref": "#/$defs/diagnostics"
+    },
+    "payload": {
+      "type": "object",
+      "description": "REQUIRED object. Concrete artifact body. Downstream artifact schemas refine this property with their typed payload schema through allOf composition.",
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "producer": {
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable producer identity for the Engine, Role, Loop, adapter, or human-originated process that emitted the artifact.",
+      "additionalProperties": false,
+      "required": ["primitive", "name"],
+      "properties": {
+        "primitive": {
+          "type": "string",
+          "description": "REQUIRED string. Runtime primitive class that produced the artifact.",
+          "enum": ["engine", "role", "loop", "adapter", "human"]
+        },
+        "name": {
+          "type": "string",
+          "description": "REQUIRED string. Stable producer name.",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "description": "OPTIONAL string. Producer implementation, prompt, or adapter version.",
+          "minLength": 1
+        },
+        "invocation_id": {
+          "type": "string",
+          "description": "OPTIONAL string. Correlation id for the producer invocation that emitted this artifact.",
+          "minLength": 1
+        }
+      }
+    },
+    "artifactReference": {
+      "type": "object",
+      "description": "Reference to an artifact or external source/output with optional hash metadata.",
+      "additionalProperties": false,
+      "required": ["ref_type", "id"],
+      "properties": {
+        "ref_type": {
+          "type": "string",
+          "description": "REQUIRED string. Target class for the referenced input or output.",
+          "enum": ["artifact", "file", "task", "policy", "command", "config", "url", "external"]
+        },
+        "id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable id for the target. Artifact refs use artifact_id; file refs use repo-relative paths; URL refs use the canonical URL.",
+          "minLength": 1
+        },
+        "artifact_type": {
+          "type": "string",
+          "description": "OPTIONAL string. Artifact catalog type when ref_type is artifact.",
+          "minLength": 1
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "OPTIONAL string. Referenced artifact payload schema version when ref_type is artifact.",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "protocol_version": {
+          "type": "string",
+          "description": "OPTIONAL string. Referenced artifact envelope protocol version when ref_type is artifact.",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "uri": {
+          "type": "string",
+          "description": "OPTIONAL string. URI or URI-reference for locating the target when the id is not sufficient.",
+          "format": "uri-reference"
+        },
+        "content_hash": {
+          "$ref": "#/$defs/contentHash"
+        },
+        "relation": {
+          "type": "string",
+          "description": "OPTIONAL string. Machine-readable relation between this artifact and the referenced target.",
+          "enum": ["read", "derived_from", "validates", "produces", "supersedes", "patches", "blocks"]
+        }
+      }
+    },
+    "contentHash": {
+      "type": "object",
+      "description": "Machine-readable content hash for replay, diffing, supersession, and handoff integrity checks.",
+      "additionalProperties": false,
+      "required": ["algorithm", "value"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "description": "REQUIRED string. Hash algorithm.",
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string",
+          "description": "REQUIRED string. Lowercase hexadecimal SHA-256 digest.",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "canonicalization": {
+          "type": "string",
+          "description": "OPTIONAL string. Canonicalization method used before hashing.",
+          "enum": ["canonical-json-v1", "raw-bytes"]
+        }
+      }
+    },
+    "confidence": {
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable confidence signal. Use score for numeric comparison and level/codes for policy routing.",
+      "additionalProperties": false,
+      "required": ["score", "level"],
+      "properties": {
+        "score": {
+          "type": "number",
+          "description": "REQUIRED number. Normalized confidence from 0.0 to 1.0.",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "level": {
+          "type": "string",
+          "description": "REQUIRED string. Bucketed confidence for simple consumers.",
+          "enum": ["low", "medium", "high"]
+        },
+        "reason_codes": {
+          "type": "array",
+          "description": "OPTIONAL array. Machine-readable reason codes supporting the confidence value.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          },
+          "default": []
+        }
+      }
+    },
+    "reviewRequired": {
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable human or policy review requirement.",
+      "additionalProperties": false,
+      "required": ["required", "reason_codes"],
+      "properties": {
+        "required": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. True when a human or higher-level policy gate must review before the artifact is treated as complete."
+        },
+        "reason_codes": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable reasons requiring review. Empty when required is false.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          }
+        },
+        "policy_refs": {
+          "type": "array",
+          "description": "OPTIONAL array. Policy, config, or decision references that triggered review.",
+          "items": {
+            "$ref": "#/$defs/artifactReference"
+          },
+          "default": []
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "object",
+      "description": "REQUIRED object. Machine-readable completion, skip, block, failure, warning, and missing-context signals.",
+      "additionalProperties": false,
+      "required": ["status", "warnings", "errors", "missing_context"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "description": "REQUIRED string. Producer outcome for this artifact.",
+          "enum": ["produced", "partial", "skipped", "blocked", "failed"]
+        },
+        "warnings": {
+          "type": "array",
+          "description": "REQUIRED array. Non-blocking diagnostic codes.",
+          "items": {
+            "$ref": "#/$defs/diagnosticEntry"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "description": "REQUIRED array. Blocking or failed diagnostic codes.",
+          "items": {
+            "$ref": "#/$defs/diagnosticEntry"
+          }
+        },
+        "missing_context": {
+          "type": "array",
+          "description": "REQUIRED array. Context the producer needed but did not have.",
+          "items": {
+            "$ref": "#/$defs/missingContext"
+          }
+        }
+      }
+    },
+    "diagnosticEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "REQUIRED string. Stable diagnostic code.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "severity": {
+          "type": "string",
+          "description": "REQUIRED string. Diagnostic severity.",
+          "enum": ["info", "warning", "error", "blocker"]
+        },
+        "path": {
+          "type": "string",
+          "description": "OPTIONAL string. JSON Pointer or repo path associated with this diagnostic.",
+          "minLength": 1
+        },
+        "ref": {
+          "$ref": "#/$defs/artifactReference"
+        },
+        "details": {
+          "description": "OPTIONAL JSON value. Structured metadata for the diagnostic; consumers must not parse prose from this field."
+        }
+      }
+    },
+    "missingContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "ref_type"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "REQUIRED string. Stable missing-context code.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "ref_type": {
+          "type": "string",
+          "description": "REQUIRED string. Class of missing context.",
+          "enum": ["artifact", "file", "task", "policy", "command", "config", "url", "external"]
+        },
+        "id": {
+          "type": "string",
+          "description": "OPTIONAL string. Stable id for the missing target when known.",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

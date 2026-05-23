@@ -1,1 +1,12 @@
-export type { SampleArtifact } from "./generated/artifacts.js";
+export type {
+  ArtifactEnvelope,
+  ArtifactReference,
+  Confidence,
+  ContentHash,
+  DiagnosticEntry,
+  Diagnostics,
+  MissingContext,
+  OwnershipSurface,
+  Producer,
+  ReviewRequired,
+} from "./generated/artifacts.js";

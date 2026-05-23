@@ -1,0 +1,5 @@
+{
+  "owns_files": ["src/example.ts"],
+  "owns_interfaces": ["GET /api/example"],
+  "owns_data": ["table:example"]
+}
