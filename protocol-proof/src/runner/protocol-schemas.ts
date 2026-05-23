@@ -7,7 +7,7 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 import type { FormatsPlugin } from "ajv-formats";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { StructuredModelCallError } from "daimyo";
-import type { ArchitectureImpact, JsonObject, JsonValue, RoleResult } from "protocol";
+import type { ArchitectureImpact, JsonObject, JsonValue, RoleResult, ValidationReport } from "protocol";
 
 import type { StructuredModelSchema } from "./structured-model.js";
 
@@ -29,9 +29,11 @@ for (const loadedSchema of loadedSchemas) {
 
 const architectureImpactValidator = validatorFor("architecture-impact.schema.json");
 const roleResultValidator = validatorFor("role-result.schema.json");
+const validationReportValidator = validatorFor("validation-report.schema.json");
 
 export const architectureImpactJsonSchema = schemaFor("architecture-impact.schema.json");
 export const roleResultJsonSchema = schemaFor("role-result.schema.json");
+export const validationReportJsonSchema = schemaFor("validation-report.schema.json");
 
 export const architectureImpactStructuredSchema: StructuredModelSchema<ArchitectureImpact> = {
   name: "protocol-proof.architecture-impact.v1",
@@ -58,12 +60,20 @@ export function isRoleResult(value: JsonValue | RoleResult): value is RoleResult
   return roleResultValidator(value);
 }
 
+export function isValidationReport(value: JsonValue | ValidationReport): value is ValidationReport {
+  return validationReportValidator(value);
+}
+
 export function roleResultValidationErrors(): readonly string[] {
   return formatValidationErrors(roleResultValidator);
 }
 
 export function architectureImpactValidationErrors(): readonly string[] {
   return formatValidationErrors(architectureImpactValidator);
+}
+
+export function validationReportValidationErrors(): readonly string[] {
+  return formatValidationErrors(validationReportValidator);
 }
 
 function validatorFor(fileName: string): ValidateFunction {

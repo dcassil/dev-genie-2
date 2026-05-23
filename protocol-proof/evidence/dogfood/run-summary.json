@@ -1,0 +1,4 @@
+{
+  "status": "failed",
+  "finding": "Missing ANTHROPIC_AUTH_TOKEN or ANTHROPIC_BASE_URL; live gateway call was not attempted."
+}

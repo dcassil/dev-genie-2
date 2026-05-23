@@ -4,14 +4,14 @@ level: task
 title: "End-to-End Proof Harness, Validation Gate & Dogfood Run"
 short_code: "DGOS-T-0023"
 created_at: 2026-05-23T22:55:27.072758+00:00
-updated_at: 2026-05-23T22:55:27.072758+00:00
+updated_at: 2026-05-23T23:13:29.965105+00:00
 parent: DGOS-I-0013
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/active"
 
 
 exit_criteria_met: false
@@ -28,6 +28,8 @@ initiative_id: DGOS-I-0013
 ## Objective
 
 Complete the proof end to end in the `protocol-proof` package: a **hand-authored input Story** → the [[DGOS-T-0022]] direct Role runner → a **validation gate** (reusing daimyo's Validation built-in) that judges the produced `ArchitectureImpact` **without prose-only interpretation** → a **real dogfood run** on the smallest self-referential planning slice → a recorded verdict on the four success-evidence points the initiative requires. This is what turns the pieces into an actual proof that typed invocation, typed result, and validation-gated artifact flow work in practice.
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -66,3 +68,6 @@ Complete the proof end to end in the `protocol-proof` package: a **hand-authored
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-23: Implemented protocol-proof Story fixture, harness, daimyo BuiltInValidation-backed gate, deterministic tests, opt-in live dogfood script, and proof writeup. Live dogfood was attempted with `PROTOCOL_PROOF_LIVE_SDK_TESTS=1 npm run dogfood:live`, but `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` were empty in the shell environment, so no live model artifact/report was produced. Deterministic gate coverage passes; live proof remains an honest finding rather than a faked success.
+- 2026-05-23 (orchestrator verification): re-ran typecheck/lint/test/build — green (7 tests: good→pass, bad-intent→fail, schema-invalid→fail). `proof-validation-gate.ts` emits a protocol `ValidationReport` (schema-valid + acceptance check) — structured, not prose. **PARTIAL: the live-dogfood acceptance criterion is NOT met** — the structured-model-call client (a direct Anthropic API client) had no credential (`ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL` empty in the exec shell). Root cause: the DGOS-T-0001 spike authenticated via the Claude **Agent SDK** (which resolves Claude Code's own session), but the structured-model-call path needs a direct `ANTHROPIC_API_KEY`/gateway token, which isn't present in spawned shells. **Task left `active` pending a decision on the live run (see initiative).** Verdict: thesis deterministically proven (typed invocation→typed result→structured validation gate); live end-to-end dogfood blocked on credentials, not design.

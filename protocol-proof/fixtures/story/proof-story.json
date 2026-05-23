@@ -1,0 +1,40 @@
+{
+  "id": "story:protocol-proof-e2e-gate",
+  "title": "Close the protocol proof with a validation-gated dogfood run",
+  "body": "Build the smallest end-to-end protocol-proof harness that consumes this Story, invokes the Architect Role with bounded context, emits one ArchitectureImpact, validates it through daimyo's Validation built-in, and records evidence for the proof's own next step.",
+  "acceptance_criteria": [
+    "The harness wires Story -> RoleInvocation -> ArchitectRoleRunner -> RoleResult plus ArchitectureImpact -> ValidationReport.",
+    "The ValidationReport status is machine-readable pass/fail and is not a prose-only verdict.",
+    "The ArchitectureImpact identifies the proof harness, validation gate, dogfood evidence, and proof writeup surfaces.",
+    "The live dogfood run is opt-in and captured as committed evidence."
+  ],
+  "bounded_context": {
+    "initiative": "DGOS-I-0013 Protocol Proof MVP",
+    "task": "DGOS-T-0023 End-to-End Proof Harness, Validation Gate & Dogfood Run",
+    "non_goals": [
+      "recursive supervisor",
+      "multi-role orchestration",
+      "broad planning workflow"
+    ],
+    "approved_flow": "Story -> RoleInvocation -> ArchitectRoleRunner -> RoleResult + ArchitectureImpact -> daimyo BuiltInValidation -> ValidationReport"
+  },
+  "validation_intent": {
+    "required_surfaces": [
+      "protocol-proof/src/harness/proof-harness.ts",
+      "protocol-proof/src/validation/proof-validation-gate.ts",
+      "protocol-proof/evidence/dogfood/architecture-impact.json",
+      "protocol-proof/evidence/dogfood/validation-report.json",
+      "protocol-proof/PROOF.md",
+      "workflow:protocol-proof-e2e-harness",
+      "workflow:protocol-proof-validation-gate"
+    ],
+    "required_reason_codes": [
+      "proof:e2e_harness",
+      "proof:validation_gate",
+      "proof:dogfood_evidence"
+    ],
+    "required_primitives": ["workflow", "artifact", "engine", "role"],
+    "min_proposed_changes": 1,
+    "requires_decision": true
+  }
+}
