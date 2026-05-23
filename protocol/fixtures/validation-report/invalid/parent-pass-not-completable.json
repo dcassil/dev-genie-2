@@ -1,0 +1,63 @@
+{
+  "artifact_id": "artifact:sha256:2121212121212121212121212121212121212121212121212121212121212121",
+  "artifact_type": "ValidationReport",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "engine",
+    "name": "daimyo-built-in-validation"
+  },
+  "created_at": "2026-05-23T20:20:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.9,
+    "level": "high"
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "report_ref": "validation:task-42:node-parent-1:parent:2026-05-23T20:20:00.000Z",
+    "task_id": "task-42",
+    "node_id": "node-parent-1",
+    "scope": "parent",
+    "status": "pass",
+    "reasons": ["Validation command exited with code 0."],
+    "evidence_strength": "command",
+    "evidence": {
+      "summary": "Evidence is structurally valid.",
+      "touch_report": {
+        "task_id": "task-42",
+        "report_type": "touch_report",
+        "touched_files": [],
+        "touched_interfaces": [],
+        "touched_data": [],
+        "touched_workflow_steps": []
+      },
+      "produced_artifact_refs": []
+    },
+    "details": {
+      "kind": "command",
+      "exitCode": 0
+    },
+    "completion_decision": {
+      "can_mark_complete": false,
+      "authority": "parent_authoritative",
+      "blocking_reason_codes": ["incorrect_fixture"]
+    }
+  }
+}

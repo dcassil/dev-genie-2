@@ -1,0 +1,90 @@
+{
+  "artifact_id": "artifact:sha256:2020202020202020202020202020202020202020202020202020202020202020",
+  "artifact_type": "ValidationReport",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "engine",
+    "name": "daimyo-built-in-validation",
+    "version": "0.1.0",
+    "invocation_id": "fixture-validation-parent-fail"
+  },
+  "created_at": "2026-05-23T20:15:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:1616161616161616161616161616161616161616161616161616161616161616",
+      "artifact_type": "ExecutionRecord",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "relation": "validates"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "external",
+      "id": "validation:task-42:node-parent-1:parent:2026-05-23T20:15:00.000Z",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": ["src/features/admin/settings/**"],
+    "owns_interfaces": ["PUT /api/admin/settings"],
+    "owns_data": ["table:admin_settings"],
+    "owns_workflow_steps": ["admin-settings:save"]
+  },
+  "confidence": {
+    "score": 0.52,
+    "level": "medium",
+    "reason_codes": ["validation:model_fallback", "scope:parent"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["validation:model_fallback"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [
+      {
+        "code": "validation:model_fallback",
+        "severity": "warning"
+      }
+    ],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "report_ref": "validation:task-42:node-parent-1:parent:2026-05-23T20:15:00.000Z",
+    "task_id": "task-42",
+    "node_id": "node-parent-1",
+    "scope": "parent",
+    "status": "fail",
+    "reasons": [
+      "Model acceptance fallback used; evidence is weaker than a command result.",
+      "Acceptance criteria did not mention the changed persistence behavior."
+    ],
+    "evidence_strength": "model_fallback",
+    "evidence": {
+      "summary": "Parent validation could not confirm all acceptance criteria from structured evidence.",
+      "touch_report": {
+        "task_id": "task-42",
+        "report_type": "touch_report",
+        "touched_files": ["src/features/admin/settings/data/save.ts"],
+        "touched_interfaces": ["PUT /api/admin/settings"],
+        "touched_data": ["table:admin_settings"],
+        "touched_workflow_steps": ["admin-settings:save"]
+      },
+      "produced_artifact_refs": []
+    },
+    "details": {
+      "kind": "model_fallback",
+      "pass": false,
+      "fail": true
+    },
+    "completion_decision": {
+      "can_mark_complete": false,
+      "authority": "parent_authoritative",
+      "blocking_reason_codes": ["validation_failed"]
+    }
+  }
+}

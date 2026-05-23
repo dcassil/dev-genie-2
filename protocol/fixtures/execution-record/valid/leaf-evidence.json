@@ -1,0 +1,72 @@
+{
+  "artifact_id": "artifact:sha256:1616161616161616161616161616161616161616161616161616161616161616",
+  "artifact_type": "ExecutionRecord",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor",
+    "version": "0.1.0",
+    "invocation_id": "fixture-execution-001"
+  },
+  "created_at": "2026-05-23T20:00:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "task",
+      "id": "task-42",
+      "relation": "read"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "file",
+      "id": "src/features/admin/settings/data/save.ts",
+      "relation": "patches"
+    }
+  ],
+  "ownership": {
+    "owns_files": ["src/features/admin/settings/data/**"],
+    "owns_interfaces": ["PUT /api/admin/settings"],
+    "owns_data": ["table:admin_settings"],
+    "owns_workflow_steps": ["admin-settings:save"]
+  },
+  "confidence": {
+    "score": 0.86,
+    "level": "high",
+    "reason_codes": ["tests:local_passed"]
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "task_id": "task-42",
+    "node_id": "node-leaf-1",
+    "summary": "Updated admin settings persistence and ran the leaf validation command.",
+    "touch_report": {
+      "task_id": "task-42",
+      "report_type": "touch_report",
+      "touched_files": ["src/features/admin/settings/data/save.ts"],
+      "touched_interfaces": ["PUT /api/admin/settings"],
+      "touched_data": ["table:admin_settings"],
+      "touched_workflow_steps": ["admin-settings:save"]
+    },
+    "produced_artifact_refs": [
+      {
+        "ref_type": "file",
+        "id": "src/features/admin/settings/data/save.ts",
+        "relation": "produces"
+      }
+    ],
+    "report_ref": "execution:task-42:node-leaf-1:2026-05-23T20:00:00.000Z",
+    "intended_files": ["src/features/admin/settings/data/save.ts"],
+    "intended_interfaces": ["PUT /api/admin/settings"],
+    "intended_data": ["table:admin_settings"]
+  }
+}

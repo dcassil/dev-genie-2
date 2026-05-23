@@ -112,6 +112,15 @@ The envelope aligns with daimyo's existing direction around typed decision recor
 - daimyo `DecisionRequest` remains a two-variant union. Protocol formalizes the same split with `payload.surface: "permission"` carrying `tool_name` + `arguments`, and `payload.surface: "routing"` carrying the needs-decision prompt/context/options bubble. DGOS-T-0019 should not collapse these variants.
 - daimyo `DecisionVerdict` is represented as a standalone minimal schema with `type`, `suggested_choice`, `suggested_response`, `confidence`, `risk`, and `block_trigger`. The protocol preserves daimyo's `Score0To10` as an integer enum from `0` through `10`.
 - daimyo `DecisionRecord.id` becomes protocol payload `decision_id`; daimyo `DecisionRecord.createdAt` is represented by the shared envelope `created_at` timestamp. `request`, `verdict`, `tier`, and `rationale` are preserved under `payload`, with `tier` constrained to `0 | 1 | 2 | 3`.
+- daimyo `ExecutionEvidence.summary` is preserved as `payload.summary` for `ExecutionRecord`.
+- daimyo `ExecutionEvidence.artifacts?: string[]` becomes protocol `payload.produced_artifact_refs: ArtifactReference[]`, so producers must emit structured refs rather than store-local strings.
+- daimyo `ExecutionEvidence.touchedFiles`, `touchedInterfaces`, and `touchedData` become required protocol `payload.touch_report` fields under the reusable `TouchReport` schema. Protocol additionally requires `touched_workflow_steps`, which daimyo does not currently expose.
+- daimyo `ExecutionEvidence.intendedFiles`, `intendedInterfaces`, and `intendedData` are preserved as optional protocol `intended_files`, `intended_interfaces`, and `intended_data` fields on `ExecutionRecord` payloads and embedded validation evidence.
+- daimyo `ExecutionEvidence.report_ref` is preserved as optional `report_ref`.
+- daimyo `ValidationReport.taskId`, `nodeId`, and `createdAt` become protocol `payload.task_id`, `payload.node_id`, and envelope `created_at`.
+- daimyo `ValidationReport.report_ref`, `scope`, `status`, `reasons`, `evidence_strength`, `evidence`, and `details` are preserved under `ValidationReport.payload`; the protocol keeps daimyo's evidence-strength enum values `command` and `model_fallback`.
+- daimyo's `ValidationResult` port returns only `{ status, reasons, report_ref }`; the protocol durable `ValidationReport` additionally requires `scope`, `evidence_strength`, `evidence`, `details`, and `completion_decision`.
+- protocol `ValidationReport.payload.completion_decision` has no current daimyo field. It is required so ADR-3 completion is machine-judgable: only a parent-scope pass has `can_mark_complete: true`.
 
 ## Decision Artifacts
 
@@ -124,6 +133,20 @@ The envelope aligns with daimyo's existing direction around typed decision recor
 - A `RoleResult` may express produced/skipped/blocked/human-review outcomes, confidence, missing context, source/output artifacts, and review requirements.
 - A `DecisionVerdict` is the narrowed decision-channel projection of that role output: verdict type, suggested choice/response, confidence and risk on daimyo's `0..10` scale, and the block trigger.
 - The mapping between `RoleResult` and `DecisionVerdict` belongs in runtime code such as daimyo's `DecisionProvider`. Schemas only make the relationship expressible by keeping `DecisionVerdict` small, typed, and embeddable in `DecisionRecord`.
+
+## Execution And Validation Artifacts
+
+`schemas/execution-record.schema.json` and `schemas/validation-report.schema.json` are concrete envelope-composed artifact schemas. Both refine only `artifact_type` and `payload`; envelope fields such as `artifact_id`, `created_at`, `source_refs`, `output_refs`, `ownership`, `confidence`, `review_required`, and `diagnostics` remain inherited from `ArtifactEnvelope`.
+
+`ExecutionRecord.payload` is durable leaf execution evidence. Required fields are `task_id`, `node_id`, `summary`, `touch_report`, and `produced_artifact_refs`. Optional fields are `report_ref`, `intended_files`, `intended_interfaces`, and `intended_data`. `touch_report` is a `$ref` to the reusable T-0015 `TouchReport` sub-schema, keeping touched-surface evidence consistent with parent-side sibling conflict checks.
+
+`ValidationReport.payload` is the durable validation report. Required fields are `report_ref`, `task_id`, `node_id`, `scope`, `status`, `reasons`, `evidence_strength`, `evidence`, `details`, and `completion_decision`. `scope` is `leaf` or `parent`; `status` is `pass` or `fail`; `evidence_strength` is `command` or `model_fallback`, matching daimyo's built-in Validation engine.
+
+Completion is structured, not prose-derived. The payload is a union:
+
+- leaf scope: `completion_decision.can_mark_complete` is always `false` with `authority: "leaf_claim"`
+- parent pass: `completion_decision.can_mark_complete` is `true` with `authority: "parent_authoritative"` and no blocking reason codes
+- parent fail: `completion_decision.can_mark_complete` is `false` with `authority: "parent_authoritative"`
 
 ## Role Artifacts
 

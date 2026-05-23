@@ -1,0 +1,87 @@
+{
+  "artifact_id": "artifact:sha256:1919191919191919191919191919191919191919191919191919191919191919",
+  "artifact_type": "ValidationReport",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "engine",
+    "name": "daimyo-built-in-validation",
+    "version": "0.1.0",
+    "invocation_id": "fixture-validation-parent-pass"
+  },
+  "created_at": "2026-05-23T20:10:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:1616161616161616161616161616161616161616161616161616161616161616",
+      "artifact_type": "ExecutionRecord",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "relation": "validates"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "external",
+      "id": "validation:task-42:node-parent-1:parent:2026-05-23T20:10:00.000Z",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": ["src/features/admin/settings/**"],
+    "owns_interfaces": ["PUT /api/admin/settings"],
+    "owns_data": ["table:admin_settings"],
+    "owns_workflow_steps": ["admin-settings:save"]
+  },
+  "confidence": {
+    "score": 0.98,
+    "level": "high",
+    "reason_codes": ["validation:command_exit_zero", "scope:parent"]
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "report_ref": "validation:task-42:node-parent-1:parent:2026-05-23T20:10:00.000Z",
+    "task_id": "task-42",
+    "node_id": "node-parent-1",
+    "scope": "parent",
+    "status": "pass",
+    "reasons": ["Validation command exited with code 0."],
+    "evidence_strength": "command",
+    "evidence": {
+      "summary": "Parent validation covered the owned admin settings surface.",
+      "touch_report": {
+        "task_id": "task-42",
+        "report_type": "touch_report",
+        "touched_files": ["src/features/admin/settings/data/save.ts"],
+        "touched_interfaces": ["PUT /api/admin/settings"],
+        "touched_data": ["table:admin_settings"],
+        "touched_workflow_steps": ["admin-settings:save"]
+      },
+      "produced_artifact_refs": []
+    },
+    "details": {
+      "kind": "command",
+      "command": "npm",
+      "args": ["run", "test"],
+      "cwd": "protocol",
+      "timeoutMs": null,
+      "exitCode": 0,
+      "stdout": "ok",
+      "stderr": ""
+    },
+    "completion_decision": {
+      "can_mark_complete": true,
+      "authority": "parent_authoritative",
+      "blocking_reason_codes": []
+    }
+  }
+}

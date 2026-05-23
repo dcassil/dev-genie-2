@@ -1,0 +1,44 @@
+{
+  "artifact_id": "artifact:sha256:1717171717171717171717171717171717171717171717171717171717171717",
+  "artifact_type": "ExecutionRecord",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor"
+  },
+  "created_at": "2026-05-23T20:01:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "task",
+      "id": "task-42"
+    }
+  ],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.4,
+    "level": "medium"
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "task_id": "task-42",
+    "node_id": "node-leaf-1",
+    "summary": "This evidence is missing required touched-surface evidence.",
+    "produced_artifact_refs": []
+  }
+}

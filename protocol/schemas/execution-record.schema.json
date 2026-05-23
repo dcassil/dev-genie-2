@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/execution-record.schema.json",
+  "title": "ExecutionRecord",
+  "description": "Envelope-composed durable execution evidence emitted by a leaf node after bounded work. The payload mirrors daimyo's ExecutionEvidence semantics using protocol snake_case and structured artifact/touch-report refs.",
+  "$comment": "Required payload fields are task_id, node_id, summary, touch_report, and produced_artifact_refs. Optional payload fields mirror daimyo's report_ref and intended surface evidence. The shared envelope owns artifact_id, created_at, output_refs, confidence, diagnostics, and ownership.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "ExecutionRecord"
+        },
+        "payload": {
+          "$ref": "#/$defs/executionRecordPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "executionRecordPayload": {
+      "title": "ExecutionRecordPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "node_id",
+        "summary",
+        "touch_report",
+        "produced_artifact_refs"
+      ],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "description": "REQUIRED string. Protocol snake_case representation of the Daimyo TaskId whose leaf produced this evidence.",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "description": "REQUIRED string. Protocol snake_case representation of the Daimyo NodeId whose leaf produced this evidence.",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "description": "REQUIRED string. Human-readable but durable execution summary from daimyo's ExecutionEvidence.summary field. Consumers must use structured sibling fields for decisions.",
+          "minLength": 1
+        },
+        "touch_report": {
+          "description": "REQUIRED object. Concrete touched surfaces reported by the leaf, using the reusable DGOS-T-0015 TouchReport sub-schema.",
+          "$ref": "touch-report.schema.json"
+        },
+        "produced_artifact_refs": {
+          "type": "array",
+          "description": "REQUIRED array. Structured protocol replacement for daimyo's string artifacts field. Empty means the leaf produced no separate durable artifact refs beyond this record.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "report_ref": {
+          "type": "string",
+          "description": "OPTIONAL string. Daimyo-compatible external or store-local report reference associated with this evidence.",
+          "minLength": 1
+        },
+        "intended_files": {
+          "type": "array",
+          "description": "OPTIONAL array. Protocol snake_case representation of daimyo's intendedFiles field for conservative conflict checks before actual writes.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\.\\.(?:/|$))\\S+$"
+          },
+          "default": []
+        },
+        "intended_interfaces": {
+          "type": "array",
+          "description": "OPTIONAL array. Protocol snake_case representation of daimyo's intendedInterfaces field.",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /\\S+|interface:[A-Za-z0-9][A-Za-z0-9._:-]*)$"
+          },
+          "default": []
+        },
+        "intended_data": {
+          "type": "array",
+          "description": "OPTIONAL array. Protocol snake_case representation of daimyo's intendedData field.",
+          "items": {
+            "type": "string",
+            "pattern": "^(table|config|collection|bucket|queue|topic|secret):[A-Za-z0-9][A-Za-z0-9._*:-]*$"
+          },
+          "default": []
+        }
+      }
+    },
+    "executionEvidence": {
+      "title": "ExecutionEvidence",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary", "touch_report", "produced_artifact_refs"],
+      "properties": {
+        "summary": {
+          "type": "string",
+          "description": "REQUIRED string. Daimyo-compatible execution evidence summary.",
+          "minLength": 1
+        },
+        "touch_report": {
+          "description": "REQUIRED object. Concrete touched surfaces reported by the leaf.",
+          "$ref": "touch-report.schema.json"
+        },
+        "produced_artifact_refs": {
+          "type": "array",
+          "description": "REQUIRED array. Structured artifact refs corresponding to daimyo's ExecutionEvidence.artifacts values.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "report_ref": {
+          "type": "string",
+          "description": "OPTIONAL string. External or store-local report reference associated with this evidence.",
+          "minLength": 1
+        },
+        "intended_files": {
+          "type": "array",
+          "description": "OPTIONAL array. Intended file surfaces from daimyo's ExecutionEvidence.intendedFiles.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\.\\.(?:/|$))\\S+$"
+          },
+          "default": []
+        },
+        "intended_interfaces": {
+          "type": "array",
+          "description": "OPTIONAL array. Intended interface surfaces from daimyo's ExecutionEvidence.intendedInterfaces.",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /\\S+|interface:[A-Za-z0-9][A-Za-z0-9._:-]*)$"
+          },
+          "default": []
+        },
+        "intended_data": {
+          "type": "array",
+          "description": "OPTIONAL array. Intended data surfaces from daimyo's ExecutionEvidence.intendedData.",
+          "items": {
+            "type": "string",
+            "pattern": "^(table|config|collection|bucket|queue|topic|secret):[A-Za-z0-9][A-Za-z0-9._*:-]*$"
+          },
+          "default": []
+        }
+      }
+    }
+  }
+}

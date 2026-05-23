@@ -382,6 +382,78 @@ export type DecisionRequest = ArtifactEnvelope & {
     [k: string]: unknown;
 };
 /**
+ * Envelope-composed durable execution evidence emitted by a leaf node after bounded work. The payload mirrors daimyo's ExecutionEvidence semantics using protocol snake_case and structured artifact/touch-report refs.
+ */
+export type ExecutionRecord = ArtifactEnvelope & {
+    artifact_type: "ExecutionRecord";
+    payload: ExecutionRecordPayload;
+    [k: string]: unknown;
+};
+export interface ExecutionRecordPayload {
+    /**
+     * REQUIRED string. Protocol snake_case representation of the Daimyo TaskId whose leaf produced this evidence.
+     */
+    task_id: string;
+    /**
+     * REQUIRED string. Protocol snake_case representation of the Daimyo NodeId whose leaf produced this evidence.
+     */
+    node_id: string;
+    /**
+     * REQUIRED string. Human-readable but durable execution summary from daimyo's ExecutionEvidence.summary field. Consumers must use structured sibling fields for decisions.
+     */
+    summary: string;
+    touch_report: TouchReport;
+    /**
+     * REQUIRED array. Structured protocol replacement for daimyo's string artifacts field. Empty means the leaf produced no separate durable artifact refs beyond this record.
+     */
+    produced_artifact_refs: ArtifactReference[];
+    /**
+     * OPTIONAL string. Daimyo-compatible external or store-local report reference associated with this evidence.
+     */
+    report_ref?: string;
+    /**
+     * OPTIONAL array. Protocol snake_case representation of daimyo's intendedFiles field for conservative conflict checks before actual writes.
+     */
+    intended_files?: string[];
+    /**
+     * OPTIONAL array. Protocol snake_case representation of daimyo's intendedInterfaces field.
+     */
+    intended_interfaces?: string[];
+    /**
+     * OPTIONAL array. Protocol snake_case representation of daimyo's intendedData field.
+     */
+    intended_data?: string[];
+}
+/**
+ * REQUIRED object. Concrete touched surfaces reported by the leaf, using the reusable DGOS-T-0015 TouchReport sub-schema.
+ */
+export interface TouchReport {
+    /**
+     * REQUIRED string. Stable task id for the leaf that produced this report.
+     */
+    task_id: string;
+    /**
+     * REQUIRED string. Discriminator for touch-report payloads.
+     */
+    report_type: "touch_report";
+    /**
+     * REQUIRED array. Concrete repo-relative files or glob-scoped file surfaces touched by the leaf.
+     */
+    touched_files: string[];
+    /**
+     * REQUIRED array. Concrete interface, route, command, or API-contract surfaces touched by the leaf. Use HTTP route signatures such as PUT /api/example or symbolic interface:<name> identifiers.
+     */
+    touched_interfaces: string[];
+    /**
+     * REQUIRED array. Concrete data-store, config, or logical data-resource surfaces touched by the leaf. Use prefixed identifiers such as table:<name> or config:<key>.
+     */
+    touched_data: string[];
+    /**
+     * REQUIRED array. Concrete workflow steps touched by the leaf. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+     */
+    touched_workflow_steps: string[];
+}
+/**
  * Envelope-composed Role subprocess input artifact. This formalizes DGOS-A-0002's Role Invocation Convention with protocol snake_case fields under the shared artifact envelope.
  */
 export type RoleInvocation = ArtifactEnvelope & {
@@ -717,31 +789,142 @@ export interface RoleTraceResult {
     trace_id?: string;
 }
 /**
- * Reusable leaf touch-report metadata. Leaves emit concrete touched surfaces so parent loops can compare runtime evidence against sibling ownership surfaces and dependencies.
+ * Envelope-composed authoritative validation result. The payload mirrors daimyo's ValidationReport and ValidationResult fields while making ADR-3 completion authority machine-judgable.
  */
-export interface TouchReport {
+export type ValidationReport = ArtifactEnvelope & {
+    artifact_type: "ValidationReport";
+    payload: ValidationReportPayload;
+    [k: string]: unknown;
+};
+/**
+ * Daimyo-compatible ValidationReport payload. The union encodes ADR-3 completion authority: leaf reports cannot mark complete; parent pass can; parent fail cannot.
+ */
+export type ValidationReportPayload = LeafValidationReportPayload | ParentPassValidationReportPayload | ParentFailValidationReportPayload;
+/**
+ * REQUIRED string. Daimyo-compatible stable reference to the persisted validation report.
+ */
+export type ReportRef = string;
+/**
+ * REQUIRED string. Protocol snake_case representation of daimyo's taskId.
+ */
+export type TaskId = string;
+/**
+ * REQUIRED string. Protocol snake_case representation of daimyo's nodeId.
+ */
+export type NodeId = string;
+/**
+ * Daimyo-compatible validation status.
+ */
+export type ValidationStatus = "pass" | "fail";
+/**
+ * REQUIRED array. Daimyo-compatible validation reasons. Consumers may display these but must not parse them for completion decisions.
+ */
+export type Reasons = string[];
+/**
+ * Daimyo-compatible evidence-strength indicator distinguishing declared command results from model fallback acceptance checks.
+ */
+export type ValidationEvidenceStrength = "command" | "model_fallback";
+/**
+ * Structured JSON value.
+ */
+export type ValidationReportJsonValue = string | number | boolean | null | ValidationReportJsonValue[] | ValidationDetails;
+/**
+ * Machine-readable reason codes for blocked completion.
+ */
+export type BlockingReasonCodes = string[];
+export interface LeafValidationReportPayload {
+    report_ref: ReportRef;
+    task_id: TaskId;
+    node_id: NodeId;
+    scope: "leaf";
+    status: ValidationStatus;
+    reasons: Reasons;
+    evidence_strength: ValidationEvidenceStrength;
+    evidence: ExecutionEvidence;
+    details: ValidationDetails;
+    completion_decision: LeafCompletionDecision;
+}
+export interface ExecutionEvidence {
     /**
-     * REQUIRED string. Stable task id for the leaf that produced this report.
+     * REQUIRED string. Daimyo-compatible execution evidence summary.
      */
-    task_id: string;
+    summary: string;
+    touch_report: TouchReport;
     /**
-     * REQUIRED string. Discriminator for touch-report payloads.
+     * REQUIRED array. Structured artifact refs corresponding to daimyo's ExecutionEvidence.artifacts values.
      */
-    report_type: "touch_report";
+    produced_artifact_refs: ArtifactReference[];
     /**
-     * REQUIRED array. Concrete repo-relative files or glob-scoped file surfaces touched by the leaf.
+     * OPTIONAL string. External or store-local report reference associated with this evidence.
      */
-    touched_files: string[];
+    report_ref?: string;
     /**
-     * REQUIRED array. Concrete interface, route, command, or API-contract surfaces touched by the leaf. Use HTTP route signatures such as PUT /api/example or symbolic interface:<name> identifiers.
+     * OPTIONAL array. Intended file surfaces from daimyo's ExecutionEvidence.intendedFiles.
      */
-    touched_interfaces: string[];
+    intended_files?: string[];
     /**
-     * REQUIRED array. Concrete data-store, config, or logical data-resource surfaces touched by the leaf. Use prefixed identifiers such as table:<name> or config:<key>.
+     * OPTIONAL array. Intended interface surfaces from daimyo's ExecutionEvidence.intendedInterfaces.
      */
-    touched_data: string[];
+    intended_interfaces?: string[];
     /**
-     * REQUIRED array. Concrete workflow steps touched by the leaf. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
+     * OPTIONAL array. Intended data surfaces from daimyo's ExecutionEvidence.intendedData.
      */
-    touched_workflow_steps: string[];
+    intended_data?: string[];
+}
+/**
+ * REQUIRED object. Structured details from the validation engine, such as command exit data or model fallback booleans.
+ */
+export interface ValidationDetails {
+    [k: string]: ValidationReportJsonValue;
+}
+/**
+ * Leaf-scope validation can support a completion claim but cannot mark work complete under ADR-3.
+ */
+export interface LeafCompletionDecision {
+    can_mark_complete: false;
+    authority: "leaf_claim";
+    blocking_reason_codes: BlockingReasonCodes;
+}
+export interface ParentPassValidationReportPayload {
+    report_ref: ReportRef;
+    task_id: TaskId;
+    node_id: NodeId;
+    scope: "parent";
+    status: "pass";
+    reasons: Reasons;
+    evidence_strength: ValidationEvidenceStrength;
+    evidence: ExecutionEvidence;
+    details: ValidationDetails;
+    completion_decision: ParentPassCompletionDecision;
+}
+/**
+ * Parent-scope pass is the authoritative ADR-3 condition for marking completion.
+ */
+export interface ParentPassCompletionDecision {
+    can_mark_complete: true;
+    authority: "parent_authoritative";
+    /**
+     * @maxItems 0
+     */
+    blocking_reason_codes: [];
+}
+export interface ParentFailValidationReportPayload {
+    report_ref: ReportRef;
+    task_id: TaskId;
+    node_id: NodeId;
+    scope: "parent";
+    status: "fail";
+    reasons: Reasons;
+    evidence_strength: ValidationEvidenceStrength;
+    evidence: ExecutionEvidence;
+    details: ValidationDetails;
+    completion_decision: ParentFailCompletionDecision;
+}
+/**
+ * Parent-scope fail is authoritative and blocks completion.
+ */
+export interface ParentFailCompletionDecision {
+    can_mark_complete: false;
+    authority: "parent_authoritative";
+    blocking_reason_codes: BlockingReasonCodes;
 }
