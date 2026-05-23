@@ -4,14 +4,14 @@ level: task
 title: "Architect Role: Versioned Prompt & Direct Role Runner"
 short_code: "DGOS-T-0022"
 created_at: 2026-05-23T22:55:26.365760+00:00
-updated_at: 2026-05-23T22:55:26.365760+00:00
+updated_at: 2026-05-23T23:12:57.897186+00:00
 parent: DGOS-I-0013
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ Build the **keystone of the proof**: a thin **`protocol-proof`** package (siblin
 ## Parent Initiative
 
 [[DGOS-I-0013]] — implements the approved "thin harness + direct Role runner" direction.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -65,4 +69,5 @@ Build the **keystone of the proof**: a thin **`protocol-proof`** package (siblin
 
 ## Status Updates
 
-*To be added during implementation.*
+2026-05-23: Implemented `protocol-proof/` as a new sibling package with Daimyo-style TS/eslint/vitest/esbuild tooling. Added versioned prompt `protocol-proof.architect-role@1.0.0`, a small direct `ArchitectRoleRunner`, protocol schema validation for `ArchitectureImpact`/`RoleResult`, and deterministic stub-client tests for produced, blocked-on-junk, skipped, and needs_human outcomes. Verified from `protocol-proof/`: `npm run typecheck`, `npm run lint`, `npm test`, and `npm run build` all clean. No recursive supervisor or AgentTransport usage.
+- 2026-05-23 (orchestrator verification): re-ran typecheck/lint/test/build — green (4 tests: produced, blocked-on-junk, skipped, needs_human). Deps are `protocol` + `daimyo` (file:) + ajv; runner imports daimyo's `StructuredModelCallError` (reuses daimyo's engine, no re-implementation). Confirmed **no supervisor/AgentTransport import** — the only matches are a `"no_recursive_supervisor"` marker + prompt text instructing the model not to use them (guardrail holds). Runner emits typed `RoleResult` (produced on valid output; blocked on junk) and exposes the schema-valid `ArchitectureImpact` body via an `artifactSink` (sensible: `RoleResult.output_artifacts` is a ref list per protocol). **Minor debt:** `src/types/daimyo.d.ts` hand-declares `StructuredModelCallError` rather than consuming daimyo's exported type — not an `any`/ts-ignore (proper class decl), but ideally the type flows from daimyo; noted for cleanup if daimyo's type exports are tightened. **exit_criteria_met: true.** Completed.
