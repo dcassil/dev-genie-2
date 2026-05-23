@@ -125,6 +125,19 @@ The envelope aligns with daimyo's existing direction around typed decision recor
 - A `DecisionVerdict` is the narrowed decision-channel projection of that role output: verdict type, suggested choice/response, confidence and risk on daimyo's `0..10` scale, and the block trigger.
 - The mapping between `RoleResult` and `DecisionVerdict` belongs in runtime code such as daimyo's `DecisionProvider`. Schemas only make the relationship expressible by keeping `DecisionVerdict` small, typed, and embeddable in `DecisionRecord`.
 
+## Role Artifacts
+
+`schemas/role-invocation.schema.json` and `schemas/role-result.schema.json` are concrete envelope-composed artifacts for the local subprocess Role runner convention decided in DGOS-A-0002. Both use the shared envelope through `allOf`; Role-specific data lives under `payload` and follows the protocol snake_case wire convention.
+
+`RoleInvocation` is the typed input envelope for a one-shot Role call. Its payload carries the ADR-2 invocation id, role id/version, requested operation, decision scope, input/source artifacts with optional content hashes, ContextBundle refs, policy decision refs, budget, model-tier policy, timeout, allowed Engines/tools, expected output artifact schemas, and trace destination.
+
+`RoleResult` is the typed output envelope for a Role call. Its payload encodes the DGOS-A-0001 canonical Role output: `status` is one of `produced`, `skipped`, `blocked`, or `needs_human`, with normalized `confidence`, structured `missing_context`, `human_review_required`, `source_artifacts`, `output_artifacts`, and optional structured `skip_reason`. Optional `decision_verdict` embeds the DGOS-T-0017 `DecisionVerdict` projection when a DecisionProvider adapter emits a role result, keeping the daimyo mapping expressible without changing the standalone verdict schema.
+
+The schema deliberately extends the ADR text in two places:
+
+- DGOS-A-0002 lists runner `failed` among RoleResult statuses, while DGOS-A-0001 and daimyo's DecisionVerdict mapping use the four Role outcome states. Protocol v1 keeps `payload.status` to the four canonical Role outcomes; runner/process failure is represented by the inherited envelope `diagnostics.status: "failed"`, envelope errors, trace refs, and the subprocess exit code.
+- DGOS-A-0002 names several operational concerns but not their nested wire shapes. Protocol v1 records those as structured payload objects: `budget`, `model_tier_policy`, `allowed_engines`, `allowed_tools`, `expected_output_artifacts`, `trace`, `usage`, `retry_recommendation`, and `proposed_artifact_patches`.
+
 ## Adding An Artifact Type
 
 1. Add `schemas/<artifact-name>.schema.json` with `$schema` set to `https://json-schema.org/draft/2020-12/schema`.

@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/role-result.schema.json",
+  "title": "RoleResult",
+  "description": "Envelope-composed Role subprocess output artifact. This encodes DGOS-A-0001's canonical Role output and the DGOS-A-0002 RoleResult handoff with machine-readable status, confidence, missing context, review, and artifact refs.",
+  "$comment": "DGOS-A-0001 defines Role outputs as produced, skipped, blocked, or needs_human with confidence, missing_context, human_review_required, source_artifacts, output_artifacts, and optional skip_reason. DGOS-A-0002 also describes runner failure status; in this schema runner failure is represented by the shared envelope diagnostics.status/errors and process exit code, while payload.status remains the ADR-1/DecisionVerdict-compatible Role-result status set.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "RoleResult"
+        },
+        "payload": {
+          "$ref": "#/$defs/roleResultPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "roleResultPayload": {
+      "title": "RoleResultPayload",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invocation_id",
+        "role_id",
+        "role_version",
+        "status",
+        "confidence",
+        "missing_context",
+        "human_review_required",
+        "source_artifacts",
+        "output_artifacts",
+        "trace"
+      ],
+      "properties": {
+        "invocation_id": {
+          "type": "string",
+          "description": "REQUIRED string. Correlation id from the matching RoleInvocation.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "role_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable Role identity that produced this result.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9._:-]*$"
+        },
+        "role_version": {
+          "type": "string",
+          "description": "REQUIRED string. Version of the role prompt, profile, and artifact contract.",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/roleResultStatus"
+        },
+        "confidence": {
+          "$ref": "artifact-envelope.schema.json#/$defs/confidence"
+        },
+        "missing_context": {
+          "type": "array",
+          "description": "REQUIRED array. Machine-readable context the Role needed but did not have.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/missingContext"
+          }
+        },
+        "human_review_required": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. Daimyo-compatible review gate flag for RoleResult to DecisionVerdict projection."
+        },
+        "source_artifacts": {
+          "type": "array",
+          "description": "REQUIRED array. Source artifacts the Role actually consumed or relied on.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "output_artifacts": {
+          "type": "array",
+          "description": "REQUIRED array. Output artifacts produced, skipped, blocked, or proposed by this Role result.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "skip_reason": {
+          "$ref": "#/$defs/roleSkipReason"
+        },
+        "decision_verdict": {
+          "description": "OPTIONAL object. Decision-channel projection when this RoleResult is emitted by a DecisionProvider adapter; shape is the DGOS-T-0017 DecisionVerdict schema.",
+          "$ref": "decision-verdict.schema.json"
+        },
+        "proposed_artifact_patches": {
+          "type": "array",
+          "description": "OPTIONAL array. Patches proposed when the Role does not own the target artifact.",
+          "items": {
+            "$ref": "#/$defs/proposedArtifactPatch"
+          },
+          "default": []
+        },
+        "usage": {
+          "$ref": "#/$defs/roleUsage"
+        },
+        "retry_recommendation": {
+          "$ref": "#/$defs/retryRecommendation"
+        },
+        "trace": {
+          "$ref": "#/$defs/roleTraceResult"
+        }
+      }
+    },
+    "roleResultStatus": {
+      "title": "RoleResultStatus",
+      "type": "string",
+      "description": "ADR-1 canonical Role-result status, aligned with daimyo's DecisionVerdict adapter mapping.",
+      "enum": ["produced", "skipped", "blocked", "needs_human"]
+    },
+    "roleSkipReason": {
+      "title": "RoleSkipReason",
+      "type": "object",
+      "description": "OPTIONAL object. Machine-readable reason for status=skipped; consumers must not parse prose.",
+      "additionalProperties": false,
+      "required": ["code", "category"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "REQUIRED string. Stable skip reason code.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "category": {
+          "type": "string",
+          "description": "REQUIRED string. Skip category for routing and metrics.",
+          "enum": ["not_applicable", "duplicate", "policy", "missing_context", "upstream_result"]
+        },
+        "ref": {
+          "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+        },
+        "details": {
+          "$ref": "#/$defs/jsonObject"
+        }
+      }
+    },
+    "proposedArtifactPatch": {
+      "title": "ProposedArtifactPatch",
+      "type": "object",
+      "description": "Machine-readable proposed artifact patch emitted when the Role does not own the target artifact.",
+      "additionalProperties": false,
+      "required": ["target", "patch_type", "patch_ref"],
+      "properties": {
+        "target": {
+          "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+        },
+        "patch_type": {
+          "type": "string",
+          "description": "REQUIRED string. Patch format.",
+          "enum": ["json_patch", "merge_patch", "unified_diff", "artifact_seed"]
+        },
+        "patch_ref": {
+          "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+        }
+      }
+    },
+    "roleUsage": {
+      "title": "RoleUsage",
+      "type": "object",
+      "description": "OPTIONAL object. Cost estimate or actual usage when available.",
+      "additionalProperties": false,
+      "properties": {
+        "estimated_cost_usd": {
+          "type": "number",
+          "description": "OPTIONAL number. Estimated invocation cost in USD.",
+          "minimum": 0
+        },
+        "actual_cost_usd": {
+          "type": "number",
+          "description": "OPTIONAL number. Actual invocation cost in USD when known.",
+          "minimum": 0
+        },
+        "input_tokens": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Input tokens consumed when known.",
+          "minimum": 0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Output tokens consumed when known.",
+          "minimum": 0
+        },
+        "model_id": {
+          "type": "string",
+          "description": "OPTIONAL string. Model/provider identity when available.",
+          "minLength": 1
+        }
+      }
+    },
+    "retryRecommendation": {
+      "title": "RetryRecommendation",
+      "type": "object",
+      "description": "OPTIONAL object. Machine-readable retry guidance from the Role runner.",
+      "additionalProperties": false,
+      "required": ["recommended"],
+      "properties": {
+        "recommended": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. Whether the caller should retry this Role invocation."
+        },
+        "reason_codes": {
+          "type": "array",
+          "description": "OPTIONAL array. Machine-readable reasons for the retry recommendation.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_:-]*$"
+          },
+          "default": []
+        },
+        "after_ms": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Minimum delay before retry.",
+          "minimum": 0
+        }
+      }
+    },
+    "roleTraceResult": {
+      "title": "RoleTraceResult",
+      "type": "object",
+      "description": "REQUIRED object. Durable trace records emitted by the Role runner.",
+      "additionalProperties": false,
+      "required": ["trace_refs"],
+      "properties": {
+        "trace_refs": {
+          "type": "array",
+          "description": "REQUIRED array. Trace artifacts, logs, stdout/stderr captures, or external trace ids.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "trace_id": {
+          "type": "string",
+          "description": "OPTIONAL string. Stable trace id allocated by the caller or runner.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        }
+      }
+    },
+    "jsonObject": {
+      "title": "RoleResultJsonObject",
+      "type": "object",
+      "description": "Structured JSON object; consumers must not parse prose from it.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "jsonValue": {
+      "title": "RoleResultJsonValue",
+      "description": "Structured JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonObject"
+        }
+      ]
+    }
+  }
+}

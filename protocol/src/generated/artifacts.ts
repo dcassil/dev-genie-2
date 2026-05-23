@@ -392,6 +392,351 @@ export type DecisionRequest = ArtifactEnvelope & {
 };
 
 
+// Source: schemas/role-invocation.schema.json
+/**
+ * Envelope-composed Role subprocess input artifact. This formalizes DGOS-A-0002's Role Invocation Convention with protocol snake_case fields under the shared artifact envelope.
+ */
+export type RoleInvocation = ArtifactEnvelope & {
+  artifact_type: "RoleInvocation";
+  payload: RoleInvocationPayload;
+  [k: string]: unknown;
+};
+/**
+ * Structured JSON value.
+ */
+export type RoleInvocationJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | RoleInvocationJsonValue[]
+  | RoleInvocationJsonObject;
+
+export interface RoleInvocationPayload {
+  /**
+   * REQUIRED string. Stable correlation id for this one-shot Role invocation and its matching RoleResult.
+   */
+  invocation_id: string;
+  /**
+   * REQUIRED string. Stable Role identity being invoked.
+   */
+  role_id: string;
+  /**
+   * REQUIRED string. Version of the role prompt, profile, and artifact contract.
+   */
+  role_version: string;
+  /**
+   * REQUIRED string. Machine-readable operation requested from the Role.
+   */
+  operation: string;
+  decision_scope: RoleDecisionScope;
+  /**
+   * REQUIRED array. Source artifact references supplied to the Role, including content hashes where available.
+   *
+   * @minItems 1
+   */
+  input_artifacts: [ArtifactReference, ...ArtifactReference[]];
+  /**
+   * REQUIRED array. ContextBundle artifact references bounding the Role's context window.
+   *
+   * @minItems 1
+   */
+  context_bundle_refs: [ArtifactReference, ...ArtifactReference[]];
+  /**
+   * REQUIRED array. Policy, DecisionRecord, or other decision references that constrain this invocation. Empty means no prior policy decision was provided.
+   */
+  policy_decision_refs: ArtifactReference[];
+  budget: RoleInvocationBudget;
+  model_tier_policy: ModelTierPolicy;
+  /**
+   * REQUIRED integer. Caller-enforced timeout in milliseconds.
+   */
+  timeout_ms: number;
+  /**
+   * REQUIRED array. Deterministic Engines the Role runner may call. Empty means no Engines are allowed.
+   */
+  allowed_engines: AllowedEngine[];
+  /**
+   * REQUIRED array. Tools the Role runner may call behind the subprocess boundary. Empty means no tools are allowed.
+   */
+  allowed_tools: AllowedTool[];
+  /**
+   * REQUIRED array. Output artifact schemas the caller expects the Role to produce or reference.
+   *
+   * @minItems 1
+   */
+  expected_output_artifacts: [ExpectedOutputArtifact, ...ExpectedOutputArtifact[]];
+  trace: RoleTraceRequest;
+}
+/**
+ * REQUIRED object. Machine-readable scope that bounds what the Role is allowed to decide.
+ */
+export interface RoleDecisionScope {
+  /**
+   * REQUIRED string. Scope category such as task, initiative, artifact, patch, review, or decision.
+   */
+  scope_type: "task" | "initiative" | "artifact" | "patch" | "review" | "decision" | "workflow";
+  /**
+   * REQUIRED string. Stable id of the scoped work, artifact, or decision.
+   */
+  scope_id: string;
+  /**
+   * REQUIRED string. Bounded outcome requested from the Role.
+   */
+  objective: string;
+  /**
+   * OPTIONAL array. Machine-readable constraints or policy codes for this invocation.
+   */
+  constraints?: string[];
+  /**
+   * OPTIONAL array. Prior decisions that shape this scope.
+   */
+  decision_refs?: ArtifactReference[];
+}
+/**
+ * REQUIRED object. Machine-readable spend and token budget for the Role runner.
+ */
+export interface RoleInvocationBudget {
+  /**
+   * OPTIONAL number. Maximum allowed estimated or actual cost in USD.
+   */
+  max_cost_usd?: number;
+  /**
+   * OPTIONAL integer. Maximum input tokens available to the Role.
+   */
+  max_input_tokens?: number;
+  /**
+   * OPTIONAL integer. Maximum output tokens available to the Role.
+   */
+  max_output_tokens?: number;
+}
+/**
+ * REQUIRED object. Machine-readable policy for model/provider tier selection.
+ */
+export interface ModelTierPolicy {
+  /**
+   * REQUIRED array. Model tiers the Role runner may use.
+   *
+   * @minItems 1
+   */
+  allowed_tiers: [
+    "deterministic" | "small" | "standard" | "frontier" | "human",
+    ...("deterministic" | "small" | "standard" | "frontier" | "human")[]
+  ];
+  /**
+   * OPTIONAL string. Preferred model tier when several allowed tiers are available.
+   */
+  preferred_tier?: "deterministic" | "small" | "standard" | "frontier" | "human";
+  /**
+   * REQUIRED boolean. Whether the runner may choose a non-preferred allowed tier.
+   */
+  fallback_allowed: boolean;
+}
+export interface AllowedEngine {
+  /**
+   * REQUIRED string. Stable Engine identity.
+   */
+  engine_id: string;
+  /**
+   * OPTIONAL string. Required Engine version or version range.
+   */
+  engine_version?: string;
+  /**
+   * OPTIONAL array. Engine operations allowed for this invocation.
+   */
+  operations?: string[];
+}
+export interface AllowedTool {
+  /**
+   * REQUIRED string. Stable tool identity as understood by the Role runner.
+   */
+  tool_id: string;
+  /**
+   * REQUIRED string. Permission level granted for this invocation.
+   */
+  permission: "read_only" | "write" | "deny";
+  restrictions?: RoleInvocationJsonObject;
+}
+/**
+ * Structured JSON object; consumers must not parse prose from it.
+ */
+export interface RoleInvocationJsonObject {
+  [k: string]: RoleInvocationJsonValue;
+}
+export interface ExpectedOutputArtifact {
+  /**
+   * REQUIRED string. Expected output artifact catalog type.
+   */
+  artifact_type: string;
+  /**
+   * REQUIRED string. Expected payload schema version.
+   */
+  schema_version: string;
+  /**
+   * REQUIRED boolean. Whether absence of this output blocks the invocation result.
+   */
+  required: boolean;
+  /**
+   * OPTIONAL string. Expected relationship to the invocation.
+   */
+  relation?: "produces" | "patches" | "validates" | "supersedes";
+}
+/**
+ * REQUIRED object. Durable trace destination for invocation logs and related records.
+ */
+export interface RoleTraceRequest {
+  destination: ArtifactReference;
+  /**
+   * OPTIONAL string. Stable trace id when allocated by the caller.
+   */
+  trace_id?: string;
+}
+// Source: schemas/role-result.schema.json
+/**
+ * Envelope-composed Role subprocess output artifact. This encodes DGOS-A-0001's canonical Role output and the DGOS-A-0002 RoleResult handoff with machine-readable status, confidence, missing context, review, and artifact refs.
+ */
+export type RoleResult = ArtifactEnvelope & {
+  artifact_type: "RoleResult";
+  payload: RoleResultPayload;
+  [k: string]: unknown;
+};
+/**
+ * ADR-1 canonical Role-result status, aligned with daimyo's DecisionVerdict adapter mapping.
+ */
+export type RoleResultStatus = "produced" | "skipped" | "blocked" | "needs_human";
+/**
+ * Structured JSON value.
+ */
+export type RoleResultJsonValue = string | number | boolean | null | RoleResultJsonValue[] | RoleResultJsonObject;
+
+export interface RoleResultPayload {
+  /**
+   * REQUIRED string. Correlation id from the matching RoleInvocation.
+   */
+  invocation_id: string;
+  /**
+   * REQUIRED string. Stable Role identity that produced this result.
+   */
+  role_id: string;
+  /**
+   * REQUIRED string. Version of the role prompt, profile, and artifact contract.
+   */
+  role_version: string;
+  status: RoleResultStatus;
+  confidence: Confidence;
+  /**
+   * REQUIRED array. Machine-readable context the Role needed but did not have.
+   */
+  missing_context: MissingContext[];
+  /**
+   * REQUIRED boolean. Daimyo-compatible review gate flag for RoleResult to DecisionVerdict projection.
+   */
+  human_review_required: boolean;
+  /**
+   * REQUIRED array. Source artifacts the Role actually consumed or relied on.
+   */
+  source_artifacts: ArtifactReference[];
+  /**
+   * REQUIRED array. Output artifacts produced, skipped, blocked, or proposed by this Role result.
+   */
+  output_artifacts: ArtifactReference[];
+  skip_reason?: RoleSkipReason;
+  decision_verdict?: DecisionVerdict;
+  /**
+   * OPTIONAL array. Patches proposed when the Role does not own the target artifact.
+   */
+  proposed_artifact_patches?: ProposedArtifactPatch[];
+  usage?: RoleUsage;
+  retry_recommendation?: RetryRecommendation;
+  trace: RoleTraceResult;
+}
+/**
+ * OPTIONAL object. Machine-readable reason for status=skipped; consumers must not parse prose.
+ */
+export interface RoleSkipReason {
+  /**
+   * REQUIRED string. Stable skip reason code.
+   */
+  code: string;
+  /**
+   * REQUIRED string. Skip category for routing and metrics.
+   */
+  category: "not_applicable" | "duplicate" | "policy" | "missing_context" | "upstream_result";
+  ref?: ArtifactReference;
+  details?: RoleResultJsonObject;
+}
+/**
+ * Structured JSON object; consumers must not parse prose from it.
+ */
+export interface RoleResultJsonObject {
+  [k: string]: RoleResultJsonValue;
+}
+/**
+ * Machine-readable proposed artifact patch emitted when the Role does not own the target artifact.
+ */
+export interface ProposedArtifactPatch {
+  target: ArtifactReference;
+  /**
+   * REQUIRED string. Patch format.
+   */
+  patch_type: "json_patch" | "merge_patch" | "unified_diff" | "artifact_seed";
+  patch_ref: ArtifactReference;
+}
+/**
+ * OPTIONAL object. Cost estimate or actual usage when available.
+ */
+export interface RoleUsage {
+  /**
+   * OPTIONAL number. Estimated invocation cost in USD.
+   */
+  estimated_cost_usd?: number;
+  /**
+   * OPTIONAL number. Actual invocation cost in USD when known.
+   */
+  actual_cost_usd?: number;
+  /**
+   * OPTIONAL integer. Input tokens consumed when known.
+   */
+  input_tokens?: number;
+  /**
+   * OPTIONAL integer. Output tokens consumed when known.
+   */
+  output_tokens?: number;
+  /**
+   * OPTIONAL string. Model/provider identity when available.
+   */
+  model_id?: string;
+}
+/**
+ * OPTIONAL object. Machine-readable retry guidance from the Role runner.
+ */
+export interface RetryRecommendation {
+  /**
+   * REQUIRED boolean. Whether the caller should retry this Role invocation.
+   */
+  recommended: boolean;
+  /**
+   * OPTIONAL array. Machine-readable reasons for the retry recommendation.
+   */
+  reason_codes?: string[];
+  /**
+   * OPTIONAL integer. Minimum delay before retry.
+   */
+  after_ms?: number;
+}
+/**
+ * REQUIRED object. Durable trace records emitted by the Role runner.
+ */
+export interface RoleTraceResult {
+  /**
+   * REQUIRED array. Trace artifacts, logs, stdout/stderr captures, or external trace ids.
+   */
+  trace_refs: ArtifactReference[];
+  /**
+   * OPTIONAL string. Stable trace id allocated by the caller or runner.
+   */
+  trace_id?: string;
+}
 // Source: schemas/touch-report.schema.json
 /**
  * Reusable leaf touch-report metadata. Leaves emit concrete touched surfaces so parent loops can compare runtime evidence against sibling ownership surfaces and dependencies.

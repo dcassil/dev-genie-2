@@ -4,14 +4,14 @@ level: task
 title: "RoleInvocation & RoleResult Schemas + TS Bindings"
 short_code: "DGOS-T-0018"
 created_at: 2026-05-23T18:56:10.938174+00:00
-updated_at: 2026-05-23T18:56:10.938174+00:00
+updated_at: 2026-05-23T19:54:20.336581+00:00
 parent: DGOS-I-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0001
 ## Objective
 
 Author the **`RoleInvocation`** and **`RoleResult`** schemas (typed payloads under the shared envelope) with generated TS bindings, per **ADR-2 (Role Invocation Convention)** and **ADR-1**'s Role-result schema. `RoleInvocation` is the typed input envelope for a Role call (context bundle + source artifacts + scope); `RoleResult` is the typed output (`produced`/`skipped`/`blocked`/`needs_human` with `confidence`, `missing_context`, `human_review_required`, `source_artifacts`, `output_artifacts`, optional `skip_reason`). These are what the Protocol Proof MVP (DGOS-I-0013) and the Roles initiative (DGOS-I-0010) build on, and what daimyo's DecisionProvider maps its `DecisionVerdict` to/from.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -64,3 +68,14 @@ Author the **`RoleInvocation`** and **`RoleResult`** schemas (typed payloads und
 ## Status Updates
 
 *To be added during implementation.*
+
+### 2026-05-23
+
+- Added `protocol` RoleInvocation and RoleResult envelope-composed schemas with generated TypeScript bindings.
+- Added valid/invalid fixture coverage for representative RoleInvocation and RoleResult `produced`, `skipped`, `blocked`, and `needs_human` outcomes.
+- Documented ADR-1/ADR-2 alignment and the schema extension decisions in `protocol/README.md`.
+- Verification passed from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`, `npm run check:codegen`.
+
+### 2026-05-23 (orchestrator verification)
+
+- Re-ran typecheck/lint/test/build + check:codegen — all green (36 fixture tests). Both schemas extend the envelope via `allOf` (no field redefinition). RoleResult covers `produced`/`skipped`/`blocked`/`needs_human` with structured confidence/missing_context/human_review_required/source_artifacts/output_artifacts/optional skip_reason + an optional DecisionVerdict projection (coordinated with T-0017). Fixtures include the `failed-is-not-role-status` invalid, enforcing the documented decision that runner/process failure is carried via envelope diagnostics, not a 5th Role status. ADR-1/ADR-2 cited in README. No escape hatches. **exit_criteria_met: true.** Completed.

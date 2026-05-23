@@ -1,0 +1,80 @@
+{
+  "artifact_id": "artifact:sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "artifact_type": "RoleResult",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "role",
+    "name": "decision.role",
+    "version": "1.0.0",
+    "invocation_id": "role-call-004"
+  },
+  "created_at": "2026-05-23T20:05:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": [],
+    "owns_data": [],
+    "owns_workflow_steps": []
+  },
+  "confidence": {
+    "score": 0.6,
+    "level": "medium",
+    "reason_codes": ["fixture:human_decision"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["role:needs_human"]
+  },
+  "diagnostics": {
+    "status": "blocked",
+    "warnings": [],
+    "errors": [],
+    "missing_context": [
+      {
+        "code": "human_decision",
+        "ref_type": "external",
+        "id": "maintainer"
+      }
+    ]
+  },
+  "payload": {
+    "invocation_id": "role-call-004",
+    "role_id": "decision.role",
+    "role_version": "1.0.0",
+    "status": "needs_human",
+    "confidence": {
+      "score": 0.6,
+      "level": "medium",
+      "reason_codes": ["fixture:human_decision"]
+    },
+    "missing_context": [
+      {
+        "code": "human_decision",
+        "ref_type": "external",
+        "id": "maintainer"
+      }
+    ],
+    "human_review_required": true,
+    "source_artifacts": [],
+    "output_artifacts": [],
+    "decision_verdict": {
+      "type": "human",
+      "suggested_choice": "escalate-human",
+      "suggested_response": "Escalate this decision to a maintainer.",
+      "confidence": 6,
+      "risk": 10,
+      "block_trigger": true
+    },
+    "trace": {
+      "trace_refs": [
+        {
+          "ref_type": "file",
+          "id": "traces/roles/role-call-004.jsonl",
+          "relation": "produces"
+        }
+      ]
+    }
+  }
+}

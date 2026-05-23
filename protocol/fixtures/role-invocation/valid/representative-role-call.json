@@ -1,0 +1,157 @@
+{
+  "artifact_id": "artifact:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "artifact_type": "RoleInvocation",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.0.0",
+  "producer": {
+    "primitive": "loop",
+    "name": "daimyo-supervisor",
+    "version": "0.1.0",
+    "invocation_id": "role-invocation-fixture-001"
+  },
+  "created_at": "2026-05-23T20:00:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifact_type": "DecisionRequest",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "content_hash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "canonicalization": "canonical-json-v1"
+      },
+      "relation": "read"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "artifact_type": "RoleResult",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.0.0",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": ["interface:protocol-role-invocation"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:role-invocation"]
+  },
+  "confidence": {
+    "score": 0.84,
+    "level": "high",
+    "reason_codes": ["fixture:bounded_role_input"]
+  },
+  "review_required": {
+    "required": false,
+    "reason_codes": []
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "invocation_id": "role-call-001",
+    "role_id": "decision.role",
+    "role_version": "1.0.0",
+    "operation": "decide_routing",
+    "decision_scope": {
+      "scope_type": "decision",
+      "scope_id": "decision-shared-contract",
+      "objective": "Resolve the routing choice for a shared protocol contract change.",
+      "constraints": ["scope:protocol_only"]
+    },
+    "input_artifacts": [
+      {
+        "ref_type": "artifact",
+        "id": "artifact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "artifact_type": "DecisionRequest",
+        "schema_version": "1.0.0",
+        "protocol_version": "1.0.0",
+        "content_hash": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "canonicalization": "canonical-json-v1"
+        },
+        "relation": "read"
+      }
+    ],
+    "context_bundle_refs": [
+      {
+        "ref_type": "artifact",
+        "id": "artifact:sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "artifact_type": "ContextBundle",
+        "schema_version": "1.0.0",
+        "protocol_version": "1.0.0",
+        "content_hash": {
+          "algorithm": "sha256",
+          "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "canonicalization": "canonical-json-v1"
+        },
+        "relation": "read"
+      }
+    ],
+    "policy_decision_refs": [
+      {
+        "ref_type": "policy",
+        "id": "policy:decision-autonomy-tier-1",
+        "relation": "read"
+      }
+    ],
+    "budget": {
+      "max_cost_usd": 0.25,
+      "max_input_tokens": 12000,
+      "max_output_tokens": 2000
+    },
+    "model_tier_policy": {
+      "allowed_tiers": ["standard", "frontier"],
+      "preferred_tier": "standard",
+      "fallback_allowed": true
+    },
+    "timeout_ms": 120000,
+    "allowed_engines": [
+      {
+        "engine_id": "context.engine",
+        "engine_version": "1.0.0",
+        "operations": ["read_bundle"]
+      }
+    ],
+    "allowed_tools": [
+      {
+        "tool_id": "repo.read",
+        "permission": "read_only",
+        "restrictions": {
+          "root": "protocol"
+        }
+      }
+    ],
+    "expected_output_artifacts": [
+      {
+        "artifact_type": "RoleResult",
+        "schema_version": "1.0.0",
+        "required": true,
+        "relation": "produces"
+      },
+      {
+        "artifact_type": "DecisionRecord",
+        "schema_version": "1.0.0",
+        "required": false,
+        "relation": "produces"
+      }
+    ],
+    "trace": {
+      "destination": {
+        "ref_type": "file",
+        "id": "traces/roles/role-call-001.jsonl",
+        "relation": "produces"
+      },
+      "trace_id": "trace-role-call-001"
+    }
+  }
+}
