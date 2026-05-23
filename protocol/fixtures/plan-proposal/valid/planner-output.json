@@ -1,0 +1,120 @@
+{
+  "artifact_id": "artifact:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+  "artifact_type": "PlanProposal",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.2.0",
+  "producer": {
+    "primitive": "role",
+    "name": "dev-genie.planner-role",
+    "version": "1.0.0",
+    "invocation_id": "planner-role-call-001"
+  },
+  "created_at": "2026-05-23T23:55:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "artifact_type": "RoleInvocation",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.2.0",
+      "relation": "derived_from"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "artifact_type": "PlanProposal",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.2.0",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": ["interface:roles-planning"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:planner-role-output"],
+    "depends_on": ["interface:protocol-role-result"]
+  },
+  "confidence": {
+    "score": 0.82,
+    "level": "high",
+    "reason_codes": ["planner:bounded_context"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["autonomy:planning_review"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "planning_goal": "Add protocol schemas for Planner and Quality Governor Role artifacts.",
+    "tasks": [
+      {
+        "task_ref": "task-001",
+        "title": "Author PlanProposal schema",
+        "body": "Create the Planner output artifact schema and fixtures.",
+        "acceptance_criteria": [
+          "PlanProposal validates through the protocol fixture corpus.",
+          "Generated TypeScript includes PlanProposal bindings."
+        ],
+        "depends_on": [],
+        "ordering": {
+          "priority": 0,
+          "before": ["task-002"]
+        },
+        "metadata": {
+          "package": "protocol",
+          "artifact_type": "PlanProposal"
+        }
+      },
+      {
+        "task_ref": "task-002",
+        "title": "Author ReviewJudgment schema",
+        "body": "Create the Quality Governor review artifact schema and fixtures.",
+        "acceptance_criteria": [
+          "ReviewJudgment validates through the protocol fixture corpus.",
+          "Completion decision fields reuse validation-report vocabulary."
+        ],
+        "depends_on": ["task-001"],
+        "ordering": {
+          "after": ["task-001"],
+          "priority": 1
+        },
+        "metadata": {
+          "package": "protocol",
+          "artifact_type": "ReviewJudgment"
+        }
+      }
+    ],
+    "decision_requests": [
+      {
+        "decision_id": "plan-review-001",
+        "node_id": "node-protocol-planning",
+        "task_id": "DGOS-T-0031",
+        "surface": "routing",
+        "prompt": "Review additive protocol artifact schema shape before downstream Role implementation.",
+        "context": {
+          "domain": "engineering"
+        },
+        "options": ["approve", "revise"]
+      }
+    ],
+    "confidence": {
+      "score": 0.82,
+      "level": "high",
+      "reason_codes": ["planner:bounded_context"]
+    },
+    "missing_context": [],
+    "review_required": {
+      "required": true,
+      "reason_codes": ["autonomy:planning_review"]
+    },
+    "reason_codes": ["planner:additive_protocol_contract"]
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/plan-proposal.schema.json",
+  "title": "PlanProposal",
+  "description": "Envelope-composed Planner Role artifact. The payload is shaped to project onto daimyo's RolesPlanning PlanningResult with snake_case wire fields and no prose parsing.",
+  "$comment": "Required payload fields are planning_goal, tasks, decision_requests, confidence, missing_context, review_required, and reason_codes. The shared envelope owns artifact identity, timestamps, refs, producer metadata, confidence, review gates, diagnostics, and top-level ownership.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "PlanProposal"
+        },
+        "payload": {
+          "$ref": "#/$defs/planProposalPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "planProposalPayload": {
+      "title": "PlanProposalPayload",
+      "type": "object",
+      "description": "Planner output that maps to daimyo's PlanningResult: tasks become PlannedTask entries and decision_requests become DecisionRequest payloads.",
+      "additionalProperties": false,
+      "required": [
+        "planning_goal",
+        "tasks",
+        "decision_requests",
+        "confidence",
+        "missing_context",
+        "review_required",
+        "reason_codes"
+      ],
+      "properties": {
+        "planning_goal": {
+          "type": "string",
+          "description": "REQUIRED string. Goal or request the Planner decomposed.",
+          "minLength": 1
+        },
+        "tasks": {
+          "type": "array",
+          "description": "REQUIRED ordered array. Each entry maps losslessly to daimyo's PlannedTask after snake_case to camelCase conversion.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/proposedPlanTask"
+          }
+        },
+        "decision_requests": {
+          "type": "array",
+          "description": "REQUIRED array. Decision requests the caller must route before or during execution; empty means the plan can proceed without extra decisions.",
+          "items": {
+            "$ref": "decision-request.schema.json#/$defs/decisionRequestPayload"
+          }
+        },
+        "confidence": {
+          "$ref": "artifact-envelope.schema.json#/$defs/confidence"
+        },
+        "missing_context": {
+          "type": "array",
+          "description": "REQUIRED array. Context the Planner needed but did not have.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/missingContext"
+          }
+        },
+        "review_required": {
+          "$ref": "artifact-envelope.schema.json#/$defs/reviewRequired"
+        },
+        "reason_codes": {
+          "$ref": "artifact-envelope.schema.json#/$defs/reasonCodes"
+        }
+      }
+    },
+    "proposedPlanTask": {
+      "title": "ProposedPlanTask",
+      "type": "object",
+      "description": "One ordered task proposed by the Planner. Field names intentionally mirror PlannedTask with protocol snake_case.",
+      "additionalProperties": false,
+      "required": ["title", "body", "acceptance_criteria"],
+      "properties": {
+        "task_ref": {
+          "type": "string",
+          "description": "OPTIONAL string. Planner-local stable reference for dependency links before a durable task id exists.",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+        },
+        "title": {
+          "type": "string",
+          "description": "REQUIRED string. Proposed task title.",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "description": "REQUIRED string. Proposed task objective/body, mapping to PlannedTask.body.",
+          "minLength": 1
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "description": "REQUIRED array. Acceptance criteria mapping to PlannedTask.acceptanceCriteria.",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "OPTIONAL array. Planner-local task_refs or existing task ids that must precede this task.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        },
+        "ordering": {
+          "$ref": "#/$defs/planTaskOrdering"
+        },
+        "metadata": {
+          "$ref": "artifact-envelope.schema.json#/$defs/jsonObject"
+        }
+      }
+    },
+    "planTaskOrdering": {
+      "title": "PlanTaskOrdering",
+      "type": "object",
+      "description": "OPTIONAL ordering hints beyond array position for adapters that need explicit before/after constraints.",
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "type": "array",
+          "description": "OPTIONAL array. Planner-local task_refs or existing task ids that should execute before this task.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        },
+        "before": {
+          "type": "array",
+          "description": "OPTIONAL array. Planner-local task_refs or existing task ids that should execute after this task.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default": []
+        },
+        "priority": {
+          "type": "integer",
+          "description": "OPTIONAL integer. Lower numbers execute earlier when dependencies do not decide ordering.",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

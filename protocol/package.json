@@ -1,6 +1,6 @@
 {
   "name": "protocol",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -19,6 +19,7 @@
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.mjs && tsc -p tsconfig.build.json",
     "codegen": "tsx scripts/codegen.ts",
     "check:compat": "tsx scripts/check-compatibility.ts",
+    "check:compatibility": "npm run check:compat",
     "check:codegen": "tsx scripts/check-codegen.ts",
     "validate:schemas": "tsx scripts/validate-schemas.ts",
     "test": "npm run validate:schemas && npm run check:codegen && npm run check:compat && vitest run",

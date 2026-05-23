@@ -13,6 +13,27 @@ export type ArchitectureImpact = ArtifactEnvelope & {
   [k: string]: unknown;
 };
 /**
+ * Machine-readable reason code used for routing, policy, review, or adapter decisions.
+ *
+ * This interface was referenced by `ArtifactEnvelope`'s JSON-Schema
+ * via the `definition` "reasonCode".
+ */
+export type EnvelopeReasonCode = string;
+/**
+ * Machine-readable reason codes used for routing, policy, review, or adapter decisions.
+ *
+ * This interface was referenced by `ArtifactEnvelope`'s JSON-Schema
+ * via the `definition` "reasonCodes".
+ */
+export type EnvelopeReasonCodes = EnvelopeReasonCode[];
+/**
+ * Structured JSON value.
+ *
+ * This interface was referenced by `ArtifactEnvelope`'s JSON-Schema
+ * via the `definition` "jsonValue".
+ */
+export type ArtifactJsonValue = string | number | boolean | null | ArtifactJsonValue[] | ArtifactJsonObject;
+/**
  * Machine-readable reason codes; consumers must not parse prose to understand the decision.
  *
  * @minItems 1
@@ -285,6 +306,15 @@ export interface MissingContext {
    */
   id?: string;
 }
+/**
+ * Structured JSON object value for metadata; consumers must not parse prose from it.
+ *
+ * This interface was referenced by `ArtifactEnvelope`'s JSON-Schema
+ * via the `definition` "jsonObject".
+ */
+export interface ArtifactJsonObject {
+  [k: string]: ArtifactJsonValue;
+}
 export interface ArchitectureImpactPayload {
   summary: ArchitectureImpactSummary;
   affected_surfaces: OwnershipSurface1;
@@ -549,6 +579,7 @@ export interface ArchitectureAssumption {
    */
   validation_needed: boolean;
 }
+
 // Source: schemas/decision-record.schema.json
 /**
  * Envelope-composed ADR-3 sideways-channel durable record for a resolved decision request.
@@ -753,6 +784,173 @@ export interface TouchReport {
    * REQUIRED array. Concrete workflow steps touched by the leaf. Use workflow:<step> for cross-artifact references or a domain-scoped step such as admin-settings:save.
    */
   touched_workflow_steps: string[];
+}
+// Source: schemas/plan-proposal.schema.json
+/**
+ * Envelope-composed Planner Role artifact. The payload is shaped to project onto daimyo's RolesPlanning PlanningResult with snake_case wire fields and no prose parsing.
+ */
+export type PlanProposal = ArtifactEnvelope & {
+  artifact_type: "PlanProposal";
+  payload: PlanProposalPayload;
+  [k: string]: unknown;
+};
+
+/**
+ * Planner output that maps to daimyo's PlanningResult: tasks become PlannedTask entries and decision_requests become DecisionRequest payloads.
+ */
+export interface PlanProposalPayload {
+  /**
+   * REQUIRED string. Goal or request the Planner decomposed.
+   */
+  planning_goal: string;
+  /**
+   * REQUIRED ordered array. Each entry maps losslessly to daimyo's PlannedTask after snake_case to camelCase conversion.
+   *
+   * @minItems 1
+   */
+  tasks: [ProposedPlanTask, ...ProposedPlanTask[]];
+  /**
+   * REQUIRED array. Decision requests the caller must route before or during execution; empty means the plan can proceed without extra decisions.
+   */
+  decision_requests: DecisionRequestPayload[];
+  confidence: Confidence;
+  /**
+   * REQUIRED array. Context the Planner needed but did not have.
+   */
+  missing_context: MissingContext[];
+  review_required: ReviewRequired;
+  reason_codes: EnvelopeReasonCodes;
+}
+/**
+ * One ordered task proposed by the Planner. Field names intentionally mirror PlannedTask with protocol snake_case.
+ */
+export interface ProposedPlanTask {
+  /**
+   * OPTIONAL string. Planner-local stable reference for dependency links before a durable task id exists.
+   */
+  task_ref?: string;
+  /**
+   * REQUIRED string. Proposed task title.
+   */
+  title: string;
+  /**
+   * REQUIRED string. Proposed task objective/body, mapping to PlannedTask.body.
+   */
+  body: string;
+  /**
+   * REQUIRED array. Acceptance criteria mapping to PlannedTask.acceptanceCriteria.
+   *
+   * @minItems 1
+   */
+  acceptance_criteria: [string, ...string[]];
+  /**
+   * OPTIONAL array. Planner-local task_refs or existing task ids that must precede this task.
+   */
+  depends_on?: string[];
+  ordering?: PlanTaskOrdering;
+  metadata?: ArtifactJsonObject;
+}
+/**
+ * OPTIONAL ordering hints beyond array position for adapters that need explicit before/after constraints.
+ */
+export interface PlanTaskOrdering {
+  /**
+   * OPTIONAL array. Planner-local task_refs or existing task ids that should execute before this task.
+   */
+  after?: string[];
+  /**
+   * OPTIONAL array. Planner-local task_refs or existing task ids that should execute after this task.
+   */
+  before?: string[];
+  /**
+   * OPTIONAL integer. Lower numbers execute earlier when dependencies do not decide ordering.
+   */
+  priority?: number;
+}
+// Source: schemas/review-judgment.schema.json
+/**
+ * Envelope-composed Quality Governor Role artifact. The payload captures a structured review verdict and reuses ValidationReport completion-decision vocabulary for completion authority and blockers.
+ */
+export type ReviewJudgment = ArtifactEnvelope & {
+  artifact_type: "ReviewJudgment";
+  payload: ReviewJudgmentPayload;
+  [k: string]: unknown;
+};
+/**
+ * Quality Governor review verdict.
+ */
+export type ReviewVerdict = "pass" | "fail" | "needs_human";
+/**
+ * Machine-readable reason codes for blocked completion.
+ */
+export type BlockingReasonCodes = string[];
+
+/**
+ * Quality Governor review judgment with ValidationReport-compatible completion authority and blocker semantics.
+ */
+export interface ReviewJudgmentPayload {
+  review_subject: ArtifactReference;
+  verdict: ReviewVerdict;
+  /**
+   * REQUIRED array. Per-criterion findings supporting the overall verdict.
+   *
+   * @minItems 1
+   */
+  criteria: [ReviewCriterionFinding, ...ReviewCriterionFinding[]];
+  completion_decision: CompletionDecision;
+  blocking_reason_codes: BlockingReasonCodes;
+  confidence: Confidence;
+  /**
+   * REQUIRED array. Context the Quality Governor needed but did not have.
+   */
+  missing_context: MissingContext[];
+  review_required: ReviewRequired;
+  /**
+   * REQUIRED boolean. True when the Quality Governor requires human review before the caller treats the reviewed work as complete.
+   */
+  human_review_required: boolean;
+  reason_codes: EnvelopeReasonCodes;
+}
+/**
+ * One criterion-level review finding.
+ */
+export interface ReviewCriterionFinding {
+  /**
+   * REQUIRED string. Stable criterion identifier.
+   */
+  criterion_id: string;
+  /**
+   * REQUIRED string. Human-readable criterion label.
+   */
+  criterion: string;
+  status: ReviewVerdict;
+  /**
+   * REQUIRED array. Structured finding statements for this criterion.
+   */
+  findings: string[];
+  blocking_reason_codes: BlockingReasonCodes;
+  /**
+   * REQUIRED array. Artifacts, files, commands, or external sources supporting the finding.
+   */
+  evidence_refs: ArtifactReference[];
+  confidence?: Confidence;
+}
+/**
+ * REQUIRED object. Structured ADR-3 completion judgement; consumers must not infer completion from prose reasons.
+ */
+export interface CompletionDecision {
+  /**
+   * REQUIRED boolean. True only when this report is sufficient to mark the validated work complete.
+   */
+  can_mark_complete: boolean;
+  /**
+   * REQUIRED string. Whether this result is merely leaf-local evidence or parent-authoritative completion authority.
+   */
+  authority: "leaf_claim" | "parent_authoritative";
+  /**
+   * REQUIRED array. Machine-readable blockers when can_mark_complete is false. Empty when the parent report passes and can mark complete.
+   */
+  blocking_reason_codes: string[];
 }
 // Source: schemas/role-invocation.schema.json
 /**
@@ -1149,10 +1347,6 @@ export type ValidationReportJsonValue =
   | null
   | ValidationReportJsonValue[]
   | ValidationDetails;
-/**
- * Machine-readable reason codes for blocked completion.
- */
-export type BlockingReasonCodes = string[];
 
 export interface LeafValidationReportPayload {
   report_ref: ReportRef;

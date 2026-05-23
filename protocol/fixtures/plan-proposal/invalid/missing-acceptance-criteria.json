@@ -1,0 +1,58 @@
+{
+  "artifact_id": "artifact:sha256:4444444444444444444444444444444444444444444444444444444444444444",
+  "artifact_type": "PlanProposal",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.2.0",
+  "producer": {
+    "primitive": "role",
+    "name": "dev-genie.planner-role",
+    "version": "1.0.0",
+    "invocation_id": "planner-role-call-invalid"
+  },
+  "created_at": "2026-05-23T23:56:00.000Z",
+  "source_refs": [],
+  "output_refs": [],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": ["interface:roles-planning"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:planner-role-output"]
+  },
+  "confidence": {
+    "score": 0.62,
+    "level": "medium",
+    "reason_codes": ["fixture:invalid"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["fixture:invalid"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": []
+  },
+  "payload": {
+    "planning_goal": "Demonstrate invalid proposed task shape.",
+    "tasks": [
+      {
+        "task_ref": "task-invalid",
+        "title": "Missing acceptance criteria",
+        "body": "This task intentionally omits the required acceptance_criteria array."
+      }
+    ],
+    "decision_requests": [],
+    "confidence": {
+      "score": 0.62,
+      "level": "medium",
+      "reason_codes": ["fixture:invalid"]
+    },
+    "missing_context": [],
+    "review_required": {
+      "required": true,
+      "reason_codes": ["fixture:invalid"]
+    },
+    "reason_codes": ["fixture:invalid"]
+  }
+}

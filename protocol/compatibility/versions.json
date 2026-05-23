@@ -1,5 +1,5 @@
 {
-  "protocol_version": "1.1.0",
+  "protocol_version": "1.2.0",
   "schemas": {
     "architecture-impact": {
       "schema_version": "1.0.0",
@@ -28,6 +28,14 @@
     "ownership-surface": {
       "schema_version": "1.0.0",
       "version_scope": "protocol"
+    },
+    "plan-proposal": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
+    },
+    "review-judgment": {
+      "schema_version": "1.0.0",
+      "version_scope": "schema"
     },
     "role-invocation": {
       "schema_version": "1.0.0",

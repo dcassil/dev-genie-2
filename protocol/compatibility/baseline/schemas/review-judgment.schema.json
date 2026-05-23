@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/review-judgment.schema.json",
+  "title": "ReviewJudgment",
+  "description": "Envelope-composed Quality Governor Role artifact. The payload captures a structured review verdict and reuses ValidationReport completion-decision vocabulary for completion authority and blockers.",
+  "$comment": "Required payload fields are review_subject, verdict, criteria, completion_decision, blocking_reason_codes, confidence, missing_context, review_required, human_review_required, and reason_codes. The shared envelope owns artifact identity, timestamps, refs, producer metadata, confidence, review gates, diagnostics, and top-level ownership.",
+  "allOf": [
+    {
+      "$ref": "artifact-envelope.schema.json"
+    },
+    {
+      "type": "object",
+      "required": ["artifact_type", "payload"],
+      "properties": {
+        "artifact_type": {
+          "const": "ReviewJudgment"
+        },
+        "payload": {
+          "$ref": "#/$defs/reviewJudgmentPayload"
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "reviewJudgmentPayload": {
+      "title": "ReviewJudgmentPayload",
+      "type": "object",
+      "description": "Quality Governor review judgment with ValidationReport-compatible completion authority and blocker semantics.",
+      "additionalProperties": false,
+      "required": [
+        "review_subject",
+        "verdict",
+        "criteria",
+        "completion_decision",
+        "blocking_reason_codes",
+        "confidence",
+        "missing_context",
+        "review_required",
+        "human_review_required",
+        "reason_codes"
+      ],
+      "properties": {
+        "review_subject": {
+          "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+        },
+        "verdict": {
+          "$ref": "#/$defs/reviewVerdict"
+        },
+        "criteria": {
+          "type": "array",
+          "description": "REQUIRED array. Per-criterion findings supporting the overall verdict.",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/reviewCriterionFinding"
+          }
+        },
+        "completion_decision": {
+          "$ref": "validation-report.schema.json#/$defs/completionDecision"
+        },
+        "blocking_reason_codes": {
+          "$ref": "validation-report.schema.json#/$defs/blockingReasonCodes"
+        },
+        "confidence": {
+          "$ref": "artifact-envelope.schema.json#/$defs/confidence"
+        },
+        "missing_context": {
+          "type": "array",
+          "description": "REQUIRED array. Context the Quality Governor needed but did not have.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/missingContext"
+          }
+        },
+        "review_required": {
+          "$ref": "artifact-envelope.schema.json#/$defs/reviewRequired"
+        },
+        "human_review_required": {
+          "type": "boolean",
+          "description": "REQUIRED boolean. True when the Quality Governor requires human review before the caller treats the reviewed work as complete."
+        },
+        "reason_codes": {
+          "$ref": "artifact-envelope.schema.json#/$defs/reasonCodes"
+        }
+      }
+    },
+    "reviewVerdict": {
+      "title": "ReviewVerdict",
+      "type": "string",
+      "description": "Quality Governor review verdict.",
+      "enum": ["pass", "fail", "needs_human"]
+    },
+    "reviewCriterionFinding": {
+      "title": "ReviewCriterionFinding",
+      "type": "object",
+      "description": "One criterion-level review finding.",
+      "additionalProperties": false,
+      "required": [
+        "criterion_id",
+        "criterion",
+        "status",
+        "findings",
+        "blocking_reason_codes",
+        "evidence_refs"
+      ],
+      "properties": {
+        "criterion_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable criterion identifier.",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "criterion": {
+          "type": "string",
+          "description": "REQUIRED string. Human-readable criterion label.",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/reviewVerdict"
+        },
+        "findings": {
+          "type": "array",
+          "description": "REQUIRED array. Structured finding statements for this criterion.",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "blocking_reason_codes": {
+          "$ref": "validation-report.schema.json#/$defs/blockingReasonCodes"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "description": "REQUIRED array. Artifacts, files, commands, or external sources supporting the finding.",
+          "items": {
+            "$ref": "artifact-envelope.schema.json#/$defs/artifactReference"
+          }
+        },
+        "confidence": {
+          "$ref": "artifact-envelope.schema.json#/$defs/confidence"
+        }
+      }
+    }
+  }
+}

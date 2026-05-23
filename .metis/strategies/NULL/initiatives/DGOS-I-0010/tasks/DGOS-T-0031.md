@@ -4,14 +4,14 @@ level: task
 title: "Author protocol schemas for the Planner and Quality Governor Role artifacts"
 short_code: "DGOS-T-0031"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-23T23:57:51.078239+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Add two new artifact types to the `protocol` package: a Planner output artifact (`PlanProposal`) and a Quality Governor output artifact (`ReviewJudgment`), each as an envelope-composed JSON Schema (`allOf` over `artifact-envelope.schema.json`, like the existing `architecture-impact.schema.json`), each with valid/invalid fixtures, regenerated TypeScript bindings, and an updated compatibility baseline. After this task the protocol catalog can express what the Planner and Quality Governor Roles produce, so [[DGOS-T-0032]]/[[DGOS-T-0033]] can validate their outputs against the real schema instead of hand-rolling types.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,3 +71,10 @@ Add two new artifact types to the `protocol` package: a Planner output artifact 
 ## Status Updates
 
 *To be added during implementation.*
+
+### 2026-05-23 implementation
+
+- Added `PlanProposal` and `ReviewJudgment` as envelope-composed protocol artifacts with fixtures and generated TypeScript bindings.
+- Updated compatibility snapshots/manifests for the additive catalog change and bumped protocol package metadata to `0.3.0`.
+- Verified from `protocol/`: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build`, `npm run check:codegen`, and `npm run check:compatibility` all pass.
+- 2026-05-23 (orchestrator verification): re-ran the unified protocol gate — green (67 tests incl. new plan-proposal + review-judgment fixtures); codegen drift clean; additive (non-breaking) compat. **Correction applied:** worker created `protocol/.claude-plugin/plugin.json` (task criterion over-specified it), but DGOS-T-0013 made `protocol` a plain library, not a plugin — removed the stray manifest and re-verified (67 green). Version lives in `package.json` (0.2.0 → 0.3.0). PlanProposal shaped onto daimyo PlannedTask/PlanningResult; ReviewJudgment onto ValidationReport completion-decision vocab. No escape hatches. **exit_criteria_met: true.** Completed.

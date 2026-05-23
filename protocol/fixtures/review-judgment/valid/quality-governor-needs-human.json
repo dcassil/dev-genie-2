@@ -1,0 +1,122 @@
+{
+  "artifact_id": "artifact:sha256:5555555555555555555555555555555555555555555555555555555555555555",
+  "artifact_type": "ReviewJudgment",
+  "schema_version": "1.0.0",
+  "protocol_version": "1.2.0",
+  "producer": {
+    "primitive": "role",
+    "name": "dev-genie.quality-governor-role",
+    "version": "1.0.0",
+    "invocation_id": "quality-governor-call-001"
+  },
+  "created_at": "2026-05-23T23:57:00.000Z",
+  "source_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "artifact_type": "PlanProposal",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.2.0",
+      "relation": "validates"
+    }
+  ],
+  "output_refs": [
+    {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "artifact_type": "ReviewJudgment",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.2.0",
+      "relation": "produces"
+    }
+  ],
+  "ownership": {
+    "owns_files": [],
+    "owns_interfaces": ["interface:quality-governor-review"],
+    "owns_data": [],
+    "owns_workflow_steps": ["workflow:quality-governor-output"],
+    "depends_on": ["interface:protocol-validation-report"]
+  },
+  "confidence": {
+    "score": 0.74,
+    "level": "medium",
+    "reason_codes": ["review:missing_authority_context"]
+  },
+  "review_required": {
+    "required": true,
+    "reason_codes": ["review:needs_human"]
+  },
+  "diagnostics": {
+    "status": "produced",
+    "warnings": [],
+    "errors": [],
+    "missing_context": [
+      {
+        "code": "context:parent_authority_not_available",
+        "ref_type": "artifact",
+        "id": "ValidationReport"
+      }
+    ]
+  },
+  "payload": {
+    "review_subject": {
+      "ref_type": "artifact",
+      "id": "artifact:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "artifact_type": "PlanProposal",
+      "schema_version": "1.0.0",
+      "protocol_version": "1.2.0",
+      "relation": "validates"
+    },
+    "verdict": "needs_human",
+    "criteria": [
+      {
+        "criterion_id": "completion_authority",
+        "criterion": "Completion authority is available and parent-authoritative.",
+        "status": "needs_human",
+        "findings": [
+          "The plan is structurally valid, but parent-authoritative completion evidence is not available in the review context."
+        ],
+        "blocking_reason_codes": ["context:parent_authority_not_available"],
+        "evidence_refs": [
+          {
+            "ref_type": "artifact",
+            "id": "artifact:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+            "artifact_type": "PlanProposal",
+            "schema_version": "1.0.0",
+            "protocol_version": "1.2.0",
+            "relation": "read"
+          }
+        ],
+        "confidence": {
+          "score": 0.74,
+          "level": "medium",
+          "reason_codes": ["review:missing_authority_context"]
+        }
+      }
+    ],
+    "completion_decision": {
+      "can_mark_complete": false,
+      "authority": "parent_authoritative",
+      "blocking_reason_codes": ["context:parent_authority_not_available"]
+    },
+    "blocking_reason_codes": ["context:parent_authority_not_available"],
+    "confidence": {
+      "score": 0.74,
+      "level": "medium",
+      "reason_codes": ["review:missing_authority_context"]
+    },
+    "missing_context": [
+      {
+        "code": "context:parent_authority_not_available",
+        "ref_type": "artifact",
+        "id": "ValidationReport"
+      }
+    ],
+    "review_required": {
+      "required": true,
+      "reason_codes": ["review:needs_human"]
+    },
+    "human_review_required": true,
+    "reason_codes": ["review:completion_authority_blocked"]
+  }
+}

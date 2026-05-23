@@ -211,6 +211,21 @@
         }
       }
     },
+    "reasonCode": {
+      "title": "EnvelopeReasonCode",
+      "type": "string",
+      "description": "Machine-readable reason code used for routing, policy, review, or adapter decisions.",
+      "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_:-]*$"
+    },
+    "reasonCodes": {
+      "title": "EnvelopeReasonCodes",
+      "type": "array",
+      "description": "Machine-readable reason codes used for routing, policy, review, or adapter decisions.",
+      "items": {
+        "$ref": "#/$defs/reasonCode"
+      }
+    },
     "reviewRequired": {
       "type": "object",
       "description": "REQUIRED object. Machine-readable human or policy review requirement.",
@@ -239,6 +254,41 @@
           "default": []
         }
       }
+    },
+    "jsonObject": {
+      "title": "ArtifactJsonObject",
+      "type": "object",
+      "description": "Structured JSON object value for metadata; consumers must not parse prose from it.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "jsonValue": {
+      "title": "ArtifactJsonValue",
+      "description": "Structured JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/jsonObject"
+        }
+      ]
     },
     "diagnostics": {
       "type": "object",
