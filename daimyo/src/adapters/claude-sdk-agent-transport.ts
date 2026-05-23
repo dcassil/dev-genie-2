@@ -12,7 +12,7 @@ import type {
   PreToolUseHookInput,
   SDKMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { JsonObject, JsonValue } from "../core/domain.js";
+import { asTaskId, makeExecutionEvidence, makeArtifactReference, type JsonObject, type JsonValue } from "../core/domain.js";
 import type {
   AgentCommand,
   AgentEvent,
@@ -73,6 +73,7 @@ type PendingResolution =
 
 interface SessionState {
   readonly session: AgentSession;
+  readonly taskId: string;
   readonly abortController: AbortController;
   query: ClaudeSdkQuery | undefined;
   readonly events: AgentEvent[];
@@ -112,6 +113,7 @@ export class ClaudeSdkAgentTransport implements AgentTransport {
     const abortController = new AbortController();
     const state: SessionState = {
       session,
+      taskId: request.metadata?.taskId === undefined ? "unknown-task" : String(request.metadata.taskId),
       abortController,
       query: undefined,
       events: [],
@@ -202,10 +204,11 @@ export class ClaudeSdkAgentTransport implements AgentTransport {
     }, this.interruptTimeoutMs);
     unrefTimer(state.interruptTimer);
     return {
-      workProduct: {
+      workProduct: makeExecutionEvidence({
+        taskId: asTaskId(state.taskId),
         summary: `Interrupted worker session ${sessionId} before a terminal result.`,
-        artifacts: [`agent-session:${sessionId}`],
-      },
+        producedArtifactRefs: [makeArtifactReference(`agent-session:${sessionId}`)],
+      }),
     };
   }
 

@@ -1,4 +1,7 @@
 // src/core/domain.ts
+import { createHash } from "node:crypto";
+var PROTOCOL_VERSION = "1.0.0";
+var PROTOCOL_SCHEMA_VERSION = "1.0.0";
 function asNodeId(value) {
   if (value.length === 0) throw new Error("NodeId cannot be empty");
   return value;
@@ -10,6 +13,150 @@ function asTaskId(value) {
 function asDecisionId(value) {
   if (value.length === 0) throw new Error("DecisionId cannot be empty");
   return value;
+}
+function makeArtifactReference(id, relation = "produces") {
+  return {
+    ref_type: "artifact",
+    id,
+    relation
+  };
+}
+function makeExecutionEvidence(input) {
+  const produced_artifact_refs = [
+    ...input.producedArtifactRefs ?? [],
+    ...(input.producedArtifactIds ?? []).map((id) => makeArtifactReference(id))
+  ];
+  return {
+    summary: input.summary,
+    touch_report: makeTouchReport(input),
+    produced_artifact_refs,
+    ...input.report_ref === void 0 ? {} : { report_ref: input.report_ref },
+    ...input.intendedFiles === void 0 ? {} : { intended_files: [...input.intendedFiles] },
+    ...input.intendedInterfaces === void 0 ? {} : { intended_interfaces: [...input.intendedInterfaces] },
+    ...input.intendedData === void 0 ? {} : { intended_data: [...input.intendedData] }
+  };
+}
+function makeTouchReport(input) {
+  return {
+    task_id: input.taskId,
+    report_type: "touch_report",
+    touched_files: [...input.touchedFiles ?? []],
+    touched_interfaces: [...input.touchedInterfaces ?? []],
+    touched_data: [...input.touchedData ?? []],
+    touched_workflow_steps: [...input.touchedWorkflowSteps ?? []]
+  };
+}
+function makeDecisionRecord(input) {
+  const payload = {
+    decision_id: input.decision_id,
+    request: input.request,
+    verdict: input.verdict,
+    tier: input.tier,
+    rationale: input.rationale
+  };
+  return {
+    ...makeEnvelope("DecisionRecord", payload, input.created_at, input.producer, input.source_refs, input.output_refs, input.artifact_id),
+    artifact_type: "DecisionRecord",
+    payload
+  };
+}
+function makeValidationReport(input) {
+  const payload = validationReportPayload(input);
+  return {
+    ...makeEnvelope("ValidationReport", payload, input.created_at, input.producer, input.source_refs, input.output_refs, input.artifact_id),
+    artifact_type: "ValidationReport",
+    payload
+  };
+}
+function decisionRequestId(request) {
+  return asDecisionId(request.decision_id);
+}
+function decisionRequestNodeId(request) {
+  return asNodeId(request.node_id);
+}
+function decisionRequestTaskId(request) {
+  return asTaskId(request.task_id);
+}
+function decisionRecordId(record) {
+  return asDecisionId(record.payload.decision_id);
+}
+function validationReportRef(report) {
+  return report.payload.report_ref;
+}
+function makeEnvelope(artifactType, payload, createdAt, producer, sourceRefs, outputRefs, artifactId) {
+  const envelope = {
+    artifact_id: artifactId ?? artifactIdFor(artifactType, createdAt, payload),
+    artifact_type: artifactType,
+    schema_version: PROTOCOL_SCHEMA_VERSION,
+    protocol_version: PROTOCOL_VERSION,
+    producer: producer ?? { primitive: "loop", name: "daimyo" },
+    created_at: createdAt,
+    source_refs: [...sourceRefs ?? []],
+    output_refs: [...outputRefs ?? []],
+    ownership: emptyOwnershipSurface(),
+    confidence: { score: 1, level: "high" },
+    review_required: { required: false, reason_codes: [] },
+    diagnostics: { status: "produced", warnings: [], errors: [], missing_context: [] },
+    payload
+  };
+  return envelope;
+}
+function emptyOwnershipSurface() {
+  return {
+    owns_files: [],
+    owns_interfaces: [],
+    owns_data: [],
+    owns_workflow_steps: []
+  };
+}
+function artifactIdFor(artifactType, createdAt, payload) {
+  const digest = createHash("sha256").update(JSON.stringify({ artifact_type: artifactType, created_at: createdAt, payload })).digest("hex");
+  return `artifact:sha256:${digest}`;
+}
+function validationReportPayload(input) {
+  const common = {
+    report_ref: input.report_ref,
+    task_id: input.task_id,
+    node_id: input.node_id,
+    reasons: [...input.reasons],
+    evidence_strength: input.evidence_strength,
+    evidence: input.evidence,
+    details: input.details
+  };
+  if (input.scope === "leaf") {
+    return {
+      ...common,
+      scope: "leaf",
+      status: input.status,
+      completion_decision: {
+        can_mark_complete: false,
+        authority: "leaf_claim",
+        blocking_reason_codes: input.status === "pass" ? [] : [...input.reasons]
+      }
+    };
+  }
+  if (input.status === "pass") {
+    return {
+      ...common,
+      scope: "parent",
+      status: "pass",
+      completion_decision: {
+        can_mark_complete: true,
+        authority: "parent_authoritative",
+        blocking_reason_codes: []
+      }
+    };
+  }
+  return {
+    ...common,
+    scope: "parent",
+    status: "fail",
+    completion_decision: {
+      can_mark_complete: false,
+      authority: "parent_authoritative",
+      blocking_reason_codes: [...input.reasons]
+    }
+  };
 }
 
 // src/standalone/composition.ts
@@ -19510,6 +19657,7 @@ var ClaudeSdkAgentTransport = class {
     const abortController = new AbortController();
     const state = {
       session,
+      taskId: request.metadata?.taskId === void 0 ? "unknown-task" : String(request.metadata.taskId),
       abortController,
       query: void 0,
       events: [],
@@ -19590,10 +19738,11 @@ var ClaudeSdkAgentTransport = class {
     }, this.interruptTimeoutMs);
     unrefTimer(state.interruptTimer);
     return {
-      workProduct: {
+      workProduct: makeExecutionEvidence({
+        taskId: asTaskId(state.taskId),
         summary: `Interrupted worker session ${sessionId} before a terminal result.`,
-        artifacts: [`agent-session:${sessionId}`]
-      }
+        producedArtifactRefs: [makeArtifactReference(`agent-session:${sessionId}`)]
+      })
     };
   }
   async disposeSession(sessionId) {
@@ -20029,7 +20178,7 @@ function unrefTimer(timer) {
 
 // src/adapters/json-work-source.ts
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 import { dirname } from "node:path";
 
 // src/core/ports/work-source.ts
@@ -20190,7 +20339,7 @@ function withRevision(task) {
   };
 }
 function hash(content) {
-  return createHash("sha256").update(content).digest("hex");
+  return createHash2("sha256").update(content).digest("hex");
 }
 async function readTextFileIfPresent(filePath) {
   try {
@@ -20219,7 +20368,13 @@ function optionalStringArray(value) {
 }
 function isExecutionEvidence(value) {
   if (!isRecord(value) || typeof value.summary !== "string") return false;
-  return optionalStringArray(value.artifacts) && optionalStringArray(value.touchedFiles) && optionalString(value.report_ref);
+  return isTouchReport(value.touch_report) && Array.isArray(value.produced_artifact_refs) && value.produced_artifact_refs.every(isArtifactReference) && optionalStringArray(value.intended_files) && optionalStringArray(value.intended_interfaces) && optionalStringArray(value.intended_data) && optionalString(value.report_ref);
+}
+function isTouchReport(value) {
+  return isRecord(value) && typeof value.task_id === "string" && value.report_type === "touch_report" && Array.isArray(value.touched_files) && value.touched_files.every((item) => typeof item === "string") && Array.isArray(value.touched_interfaces) && value.touched_interfaces.every((item) => typeof item === "string") && Array.isArray(value.touched_data) && value.touched_data.every((item) => typeof item === "string") && Array.isArray(value.touched_workflow_steps) && value.touched_workflow_steps.every((item) => typeof item === "string");
+}
+function isArtifactReference(value) {
+  return isRecord(value) && typeof value.ref_type === "string" && typeof value.id === "string";
 }
 function optionalJsonObject(value) {
   return value === void 0 || isJsonObject(value);
@@ -20243,7 +20398,7 @@ function isRecord(value) {
 
 // src/adapters/markdown-checklist-work-source.ts
 import { mkdir as mkdir2, readFile as readFile2, writeFile as writeFile2 } from "node:fs/promises";
-import { createHash as createHash2 } from "node:crypto";
+import { createHash as createHash3 } from "node:crypto";
 import { dirname as dirname2 } from "node:path";
 var markdownChecklistStatusMapping = {
   fromNative(status) {
@@ -20474,7 +20629,7 @@ function contentHash(content) {
   return `sha256:${hash2(content)}`;
 }
 function hash2(content) {
-  return createHash2("sha256").update(content).digest("hex");
+  return createHash3("sha256").update(content).digest("hex");
 }
 async function readTextFileIfPresent2(filePath) {
   try {
@@ -20503,7 +20658,13 @@ function optionalEvidence(value) {
 }
 function isExecutionEvidence2(value) {
   if (!isRecord2(value) || typeof value.summary !== "string") return false;
-  return optionalStringArray2(value.artifacts) && optionalStringArray2(value.touchedFiles) && optionalString2(value.report_ref);
+  return isTouchReport2(value.touch_report) && Array.isArray(value.produced_artifact_refs) && value.produced_artifact_refs.every(isArtifactReference2) && optionalStringArray2(value.intended_files) && optionalStringArray2(value.intended_interfaces) && optionalStringArray2(value.intended_data) && optionalString2(value.report_ref);
+}
+function isTouchReport2(value) {
+  return isRecord2(value) && typeof value.task_id === "string" && value.report_type === "touch_report" && Array.isArray(value.touched_files) && value.touched_files.every((item) => typeof item === "string") && Array.isArray(value.touched_interfaces) && value.touched_interfaces.every((item) => typeof item === "string") && Array.isArray(value.touched_data) && value.touched_data.every((item) => typeof item === "string") && Array.isArray(value.touched_workflow_steps) && value.touched_workflow_steps.every((item) => typeof item === "string");
+}
+function isArtifactReference2(value) {
+  return isRecord2(value) && typeof value.ref_type === "string" && typeof value.id === "string";
 }
 function optionalString2(value) {
   return value === void 0 || typeof value === "string";
@@ -20641,16 +20802,18 @@ function projectEvents(taskId, events) {
         break;
       }
       case "decision_recorded": {
-        decisions.set(event.record.id, event.record);
+        const decisionId = asDecisionId(event.record.payload.decision_id);
+        decisions.set(decisionId, event.record);
         const node = requireNode(nodes, event.nodeId, event.type);
-        const decisionRecordIds = node.decisionRecordIds.includes(event.record.id) ? node.decisionRecordIds : [...node.decisionRecordIds, event.record.id];
+        const decisionRecordIds = node.decisionRecordIds.includes(decisionId) ? node.decisionRecordIds : [...node.decisionRecordIds, decisionId];
         nodes.set(event.nodeId, { ...node, decisionRecordIds });
         break;
       }
       case "validation_report_recorded": {
-        validationReports.set(event.report.report_ref, event.report);
+        const reportRef = validationReportRef(event.report);
+        validationReports.set(reportRef, event.report);
         const node = requireNode(nodes, event.nodeId, event.type);
-        const validationReportRefs = node.validationReportRefs.includes(event.report.report_ref) ? node.validationReportRefs : [...node.validationReportRefs, event.report.report_ref];
+        const validationReportRefs = node.validationReportRefs.includes(reportRef) ? node.validationReportRefs : [...node.validationReportRefs, reportRef];
         nodes.set(event.nodeId, { ...node, validationReportRefs });
         break;
       }
@@ -20782,22 +20945,27 @@ function readCursor(value) {
   };
 }
 function readDecisionRecord(value) {
-  return {
-    id: asDecisionId(readString(value, "id")),
-    request: readDecisionRequest(readObject(value, "request")),
-    verdict: readDecisionVerdict(readObject(value, "verdict")),
-    tier: readDecisionTier(value, "tier"),
-    rationale: readString(value, "rationale"),
-    createdAt: readString(value, "createdAt")
-  };
+  const payload = readObject(value, "payload");
+  return makeDecisionRecord({
+    artifact_id: readString(value, "artifact_id"),
+    decision_id: asDecisionId(readString(payload, "decision_id")),
+    request: readDecisionRequest(readObject(payload, "request")),
+    verdict: readDecisionVerdict(readObject(payload, "verdict")),
+    tier: readDecisionTier(payload, "tier"),
+    rationale: readString(payload, "rationale"),
+    created_at: readString(value, "created_at"),
+    producer: readProducer(readObject(value, "producer")),
+    source_refs: readArtifactReferences(value, "source_refs"),
+    output_refs: readArtifactReferences(value, "output_refs")
+  });
 }
 function readDecisionRequest(value) {
   const options = readOptionalStringArray(value, "options");
   const context = readOptionalObject(value, "context");
   const base = {
-    id: asDecisionId(readString(value, "id")),
-    nodeId: asNodeId(readString(value, "nodeId")),
-    taskId: asTaskId(readString(value, "taskId")),
+    decision_id: asDecisionId(readString(value, "decision_id")),
+    node_id: asNodeId(readString(value, "node_id")),
+    task_id: asTaskId(readString(value, "task_id")),
     prompt: readString(value, "prompt"),
     ...context === void 0 ? {} : { context }
   };
@@ -20806,14 +20974,14 @@ function readDecisionRequest(value) {
     return {
       ...base,
       surface,
-      toolName: readString(value, "toolName"),
+      tool_name: readString(value, "tool_name"),
       arguments: readObject(value, "arguments")
     };
   }
   return {
     ...base,
     surface,
-    ...options === void 0 ? {} : { options }
+    ...options === void 0 ? {} : { options: [...options] }
   };
 }
 function readDecisionVerdict(value) {
@@ -20827,28 +20995,83 @@ function readDecisionVerdict(value) {
   };
 }
 function readValidationReport(value) {
-  return {
-    report_ref: readString(value, "report_ref"),
-    taskId: asTaskId(readString(value, "taskId")),
-    nodeId: asNodeId(readString(value, "nodeId")),
-    scope: readValidationScope(value, "scope"),
-    status: readValidationStatus(value, "status"),
-    reasons: readStringArray(value, "reasons"),
-    evidence_strength: readValidationEvidenceStrength(value, "evidence_strength"),
-    evidence: readEvidence(readObject(value, "evidence")),
-    details: readObject(value, "details"),
-    createdAt: readString(value, "createdAt")
-  };
+  const payload = readObject(value, "payload");
+  return makeValidationReport({
+    artifact_id: readString(value, "artifact_id"),
+    report_ref: readString(payload, "report_ref"),
+    task_id: asTaskId(readString(payload, "task_id")),
+    node_id: asNodeId(readString(payload, "node_id")),
+    scope: readValidationScope(payload, "scope"),
+    status: readValidationStatus(payload, "status"),
+    reasons: readStringArray(payload, "reasons"),
+    evidence_strength: readValidationEvidenceStrength(payload, "evidence_strength"),
+    evidence: readEvidence(readObject(payload, "evidence")),
+    details: readObject(payload, "details"),
+    created_at: readString(value, "created_at"),
+    producer: readProducer(readObject(value, "producer")),
+    source_refs: readArtifactReferences(value, "source_refs"),
+    output_refs: readArtifactReferences(value, "output_refs")
+  });
 }
 function readEvidence(value) {
-  const artifacts = readOptionalStringArray(value, "artifacts");
-  const touchedFiles = readOptionalStringArray(value, "touchedFiles");
+  const touchReport = readObject(value, "touch_report");
   const reportRef = readOptionalString(value, "report_ref");
-  return {
+  const intendedFiles = readOptionalStringArray(value, "intended_files");
+  const intendedInterfaces = readOptionalStringArray(value, "intended_interfaces");
+  const intendedData = readOptionalStringArray(value, "intended_data");
+  return makeExecutionEvidence({
+    taskId: asTaskId(readString(touchReport, "task_id")),
     summary: readString(value, "summary"),
-    ...artifacts === void 0 ? {} : { artifacts },
-    ...touchedFiles === void 0 ? {} : { touchedFiles },
+    producedArtifactRefs: readArtifactReferences(value, "produced_artifact_refs"),
+    touchedFiles: readStringArray(touchReport, "touched_files"),
+    touchedInterfaces: readStringArray(touchReport, "touched_interfaces"),
+    touchedData: readStringArray(touchReport, "touched_data"),
+    touchedWorkflowSteps: readStringArray(touchReport, "touched_workflow_steps"),
+    ...intendedFiles === void 0 ? {} : { intendedFiles },
+    ...intendedInterfaces === void 0 ? {} : { intendedInterfaces },
+    ...intendedData === void 0 ? {} : { intendedData },
     ...reportRef === void 0 ? {} : { report_ref: reportRef }
+  });
+}
+function readProducer(value) {
+  const version = readOptionalString(value, "version");
+  const invocationId = readOptionalString(value, "invocation_id");
+  return {
+    primitive: readStringUnion(value, "primitive", ["engine", "role", "loop", "adapter", "human"]),
+    name: readString(value, "name"),
+    ...version === void 0 ? {} : { version },
+    ...invocationId === void 0 ? {} : { invocation_id: invocationId }
+  };
+}
+function readArtifactReferences(source, key) {
+  const value = source[key];
+  if (!Array.isArray(value)) throw new Error(`Expected ${key} to be an artifact reference array`);
+  return value.map(readArtifactReference);
+}
+function readArtifactReference(value) {
+  const object = readObjectValue(value, "artifact reference");
+  const artifactType = readOptionalString(object, "artifact_type");
+  const schemaVersion = readOptionalString(object, "schema_version");
+  const protocolVersion = readOptionalString(object, "protocol_version");
+  const uri = readOptionalString(object, "uri");
+  const relation = readOptionalArtifactRelation(object, "relation");
+  return {
+    ref_type: readStringUnion(object, "ref_type", [
+      "artifact",
+      "file",
+      "task",
+      "policy",
+      "command",
+      "config",
+      "url",
+      "external"
+    ]),
+    id: readString(object, "id"),
+    ...artifactType === void 0 ? {} : { artifact_type: artifactType },
+    ...schemaVersion === void 0 ? {} : { schema_version: schemaVersion },
+    ...protocolVersion === void 0 ? {} : { protocol_version: protocolVersion },
+    ...uri === void 0 ? {} : { uri },
+    ...relation === void 0 ? {} : { relation }
   };
 }
 function readObject(source, key) {
@@ -20943,6 +21166,14 @@ function readStringUnion(source, key, allowed) {
   const value = readString(source, key);
   if (isOneOf(value, allowed)) return value;
   throw new Error(`Unexpected ${key}: ${value}`);
+}
+function readOptionalArtifactRelation(source, key) {
+  const value = source[key];
+  if (value === void 0) return void 0;
+  if (value === "read" || value === "derived_from" || value === "validates" || value === "produces" || value === "supersedes" || value === "patches" || value === "blocks") {
+    return value;
+  }
+  throw new Error(`Unexpected ${key}: ${String(value)}`);
 }
 function isOneOf(value, allowed) {
   return allowed.some((item) => item === value);
@@ -21157,7 +21388,7 @@ function reconcileCheckpoints(workSourceSnapshot, executionStoreSnapshot) {
 }
 function workDefinitionFingerprint(task) {
   return stableStringify({
-    acceptanceCriteria: task.acceptanceCriteria,
+    acceptanceCriteria: [...task.acceptanceCriteria],
     dependencies: dependencyMetadata(task.metadata)
   });
 }
@@ -21286,11 +21517,11 @@ var ConsoleHumanDecisionNotifier = class {
   async notify(record) {
     this.write(
       [
-        `Daimyo awaiting human decision ${record.id}`,
-        `node=${record.request.nodeId}`,
-        `task=${record.request.taskId}`,
-        `tier=${record.tier}`,
-        `reason=${record.rationale}`,
+        `Daimyo awaiting human decision ${record.payload.decision_id}`,
+        `node=${record.payload.request.node_id}`,
+        `task=${record.payload.request.task_id}`,
+        `tier=${record.payload.tier}`,
+        `reason=${record.payload.rationale}`,
         ""
       ].join("\n")
     );
@@ -21313,7 +21544,7 @@ var AgentTransportTier2InvestigationHook = class {
   }
   async investigate(request) {
     const session = await this.agentTransport.spawnSession({
-      nodeId: asNodeId(`${request.request.nodeId}:tier2`),
+      nodeId: asNodeId(`${request.request.node_id}:tier2`),
       cwd: this.cwd,
       prompt: tier2InvestigationPrompt(request),
       metadata: {
@@ -21404,17 +21635,17 @@ var TieredDecisionProvider = class {
     return this.resolve(request, tier1);
   }
   evaluatePermissionTier0(request) {
-    const rule = this.toolRule(request.toolName);
+    const rule = this.toolRule(request.tool_name);
     const policy = decisionPolicyContext(request, this.autonomyProfile);
     if (rule === "deny") {
       return {
         kind: "resolved",
         tier: 0,
-        rationale: `Tier 0 static deny rule matched tool ${request.toolName}`,
+        rationale: `Tier 0 static deny rule matched tool ${request.tool_name}`,
         verdict: {
           type: "access",
           suggested_choice: "deny",
-          suggested_response: `Denied ${request.toolName} by static rule.`,
+          suggested_response: `Denied ${request.tool_name} by static rule.`,
           confidence: 10,
           risk: 10,
           block_trigger: false
@@ -21424,7 +21655,7 @@ var TieredDecisionProvider = class {
     const provisional = {
       type: "access",
       suggested_choice: rule === "allow" || policy.level === "delegate" ? "allow" : "deny",
-      suggested_response: rule === "allow" || policy.level === "delegate" ? `Allowed ${request.toolName} by Tier 0 policy.` : `Denied ${request.toolName} pending stronger policy.`,
+      suggested_response: rule === "allow" || policy.level === "delegate" ? `Allowed ${request.tool_name} by Tier 0 policy.` : `Denied ${request.tool_name} pending stronger policy.`,
       confidence: rule === "allow" ? 9 : 6,
       risk: policy.declaredRisk,
       block_trigger: false
@@ -21434,7 +21665,7 @@ var TieredDecisionProvider = class {
         kind: "resolved",
         tier: 0,
         verdict: provisional,
-        rationale: `Tier 0 denied unlisted tool ${request.toolName}`
+        rationale: `Tier 0 denied unlisted tool ${request.tool_name}`
       };
     }
     const threshold = evaluateAutonomyThreshold(request, provisional, this.autonomyProfile);
@@ -21442,7 +21673,7 @@ var TieredDecisionProvider = class {
       return {
         kind: "resolved",
         tier: 3,
-        verdict: humanVerdict(`Permission for ${request.toolName} requires human review.`),
+        verdict: humanVerdict(`Permission for ${request.tool_name} requires human review.`),
         rationale: `Tier 3 policy escalation: ${threshold.reason}`
       };
     }
@@ -21450,7 +21681,7 @@ var TieredDecisionProvider = class {
       kind: "resolved",
       tier: 0,
       verdict: provisional,
-      rationale: `Tier 0 ${rule === "allow" ? "static allow" : "delegated"} rule allowed tool ${request.toolName}`
+      rationale: `Tier 0 ${rule === "allow" ? "static allow" : "delegated"} rule allowed tool ${request.tool_name}`
     };
   }
   evaluateRoutingTier0(request) {
@@ -21517,14 +21748,14 @@ var TieredDecisionProvider = class {
     const threshold = evaluateAutonomyThreshold(request, investigatedVerdict, this.autonomyProfile);
     if (threshold.action === "escalate") {
       if (investigatedVerdict !== verdict) {
-        await this.recordIntermediateDecision({
-          id: asDecisionId(`${request.id}:tier2`),
+        await this.recordIntermediateDecision(makeDecisionRecord({
+          decision_id: asDecisionId(`${request.decision_id}:tier2`),
           request,
           verdict: investigatedVerdict,
           tier: 2,
           rationale: `Tier 2 investigation completed but policy still escalated: ${threshold.reason}`,
-          createdAt: this.clock()
-        });
+          created_at: this.clock()
+        }));
       }
       return {
         kind: "resolved",
@@ -21551,31 +21782,37 @@ var TieredDecisionProvider = class {
     });
   }
   async resolve(request, outcome) {
-    const record = {
-      id: request.id,
+    const record = makeDecisionRecord({
+      decision_id: decisionRequestId(request),
       request,
       verdict: outcome.verdict,
       tier: outcome.tier,
       rationale: outcome.rationale,
-      createdAt: this.clock()
-    };
+      created_at: this.clock()
+    });
     if (outcome.tier === 3) {
       await this.parkAwaitingHuman(request);
     }
-    await this.executionStore.recordDecision(request.taskId, request.nodeId, record);
+    await this.executionStore.recordDecision(decisionRequestTaskId(request), decisionRequestNodeId(request), record);
     if (outcome.tier === 3) {
       await this.notifier.notify(record);
     }
     return record;
   }
   async recordIntermediateDecision(record) {
-    await this.executionStore.recordDecision(record.request.taskId, record.request.nodeId, record);
+    await this.executionStore.recordDecision(
+      decisionRequestTaskId(record.payload.request),
+      decisionRequestNodeId(record.payload.request),
+      record
+    );
   }
   async parkAwaitingHuman(request) {
-    const snapshot = await this.executionStore.load(request.taskId);
-    const node = snapshot.nodes.find((candidate) => candidate.id === request.nodeId);
+    const taskId = decisionRequestTaskId(request);
+    const nodeId = decisionRequestNodeId(request);
+    const snapshot = await this.executionStore.load(taskId);
+    const node = snapshot.nodes.find((candidate) => candidate.id === nodeId);
     if (node === void 0) {
-      throw new Error(`Cannot park unknown node awaiting human: ${request.nodeId}`);
+      throw new Error(`Cannot park unknown node awaiting human: ${request.node_id}`);
     }
     const input = {
       id: node.id,
@@ -21586,7 +21823,7 @@ var TieredDecisionProvider = class {
       ...node.parentId === void 0 ? {} : { parentId: node.parentId },
       ...node.session === void 0 ? {} : { session: node.session }
     };
-    await this.executionStore.upsertNode(request.taskId, input);
+    await this.executionStore.upsertNode(taskId, input);
   }
   toolRule(toolName) {
     if ((this.staticRules.denyTools ?? []).includes(toolName)) return "deny";
@@ -21617,9 +21854,9 @@ var TieredDecisionProvider = class {
   }
   tier1Request(request) {
     return {
-      id: request.id,
-      nodeId: request.nodeId,
-      taskId: request.taskId,
+      decision_id: request.decision_id,
+      node_id: request.node_id,
+      task_id: request.task_id,
       surface: request.surface,
       prompt: request.prompt,
       ...request.options === void 0 ? {} : { options: [...request.options] }
@@ -21972,7 +22209,7 @@ var BuiltInValidation = class {
     const details = {
       kind: "command",
       command: command.command,
-      args: command.args ?? [],
+      args: [...command.args ?? []],
       cwd: command.cwd ?? null,
       timeoutMs: command.timeoutMs ?? null,
       exitCode: result.exitCode,
@@ -21989,7 +22226,7 @@ var BuiltInValidation = class {
           task: {
             id: request.task.id,
             title: request.task.title,
-            acceptanceCriteria: request.task.acceptanceCriteria
+            acceptanceCriteria: [...request.task.acceptanceCriteria]
           },
           scope: request.scope,
           evidence: request.evidence
@@ -22011,18 +22248,21 @@ var BuiltInValidation = class {
   }
   async persistResult(request, status, reasons, evidenceStrength, details) {
     const report_ref = this.makeReportRef(request);
-    const report = {
+    const report = makeValidationReport({
       report_ref,
-      taskId: request.task.id,
-      nodeId: request.node.id,
+      task_id: request.task.id,
+      node_id: request.node.id,
       scope: request.scope,
       status,
-      reasons,
+      reasons: [...reasons],
       evidence_strength: evidenceStrength,
       evidence: request.evidence,
       details,
-      createdAt: this.now()
-    };
+      created_at: this.now(),
+      producer: { primitive: "engine", name: "daimyo-built-in-validation" },
+      source_refs: [{ ref_type: "task", id: request.task.id, relation: "validates" }],
+      output_refs: [makeArtifactReference(report_ref, "produces")]
+    });
     const evidence = validationEvidence(request.node, report, request.evidence);
     await this.executionStore.recordValidationReport(request.task.id, request.node.id, report);
     await this.executionStore.appendEvidence(request.task.id, request.node.id, evidence);
@@ -22030,12 +22270,16 @@ var BuiltInValidation = class {
   }
 };
 function validationEvidence(node, report, producedEvidence) {
-  return {
-    summary: `${report.scope}-scope validation ${report.status} for node ${node.id}`,
-    artifacts: [report.report_ref],
-    ...producedEvidence.touchedFiles === void 0 ? {} : { touchedFiles: producedEvidence.touchedFiles },
-    report_ref: report.report_ref
-  };
+  return makeExecutionEvidence({
+    taskId: node.taskId,
+    summary: `${report.payload.scope}-scope validation ${report.payload.status} for node ${node.id}`,
+    producedArtifactRefs: [makeArtifactReference(report.payload.report_ref, "validates")],
+    touchedFiles: producedEvidence.touch_report.touched_files,
+    touchedInterfaces: producedEvidence.touch_report.touched_interfaces,
+    touchedData: producedEvidence.touch_report.touched_data,
+    touchedWorkflowSteps: producedEvidence.touch_report.touched_workflow_steps,
+    report_ref: report.payload.report_ref
+  });
 }
 function readValidationCommand(task) {
   const metadata = task.metadata;
@@ -22122,19 +22366,19 @@ function classifyDecisionSize(request) {
   return "small";
 }
 function selectDecisionAction(record, autonomyProfile = DEFAULT_AUTONOMY_PROFILE) {
-  if (record.verdict.type === "human" || record.verdict.block_trigger) {
+  if (record.payload.verdict.type === "human" || record.payload.verdict.block_trigger) {
     return {
       type: "await-human",
-      size: classifyDecisionSize(record.request),
-      reason: record.verdict.suggested_response ?? record.rationale
+      size: classifyDecisionSize(record.payload.request),
+      reason: record.payload.verdict.suggested_response ?? record.payload.rationale
     };
   }
   const threshold = evaluateAutonomyThreshold(
-    record.request,
-    record.verdict,
+    record.payload.request,
+    record.payload.verdict,
     autonomyProfile
   );
-  const size = classifyDecisionSize(record.request);
+  const size = classifyDecisionSize(record.payload.request);
   if (threshold.action === "escalate") {
     return {
       type: "await-human",
@@ -22152,29 +22396,29 @@ function selectDecisionAction(record, autonomyProfile = DEFAULT_AUTONOMY_PROFILE
   return {
     type: "patch-and-resume",
     size,
-    instruction: verdictInstruction(record.verdict)
+    instruction: verdictInstruction(record.payload.verdict)
   };
 }
 function verdictInstruction(verdict) {
   return verdict.suggested_response ?? verdict.suggested_choice ?? "Decision resolved; continue with the selected approach.";
 }
 function followUpTask(record) {
-  const instruction = verdictInstruction(record.verdict);
+  const instruction = verdictInstruction(record.payload.verdict);
   return {
-    title: `Follow up: ${record.request.prompt.slice(0, 72)}`,
+    title: `Follow up: ${record.payload.request.prompt.slice(0, 72)}`,
     body: [
       "Created by Daimyo from a large needs-decision verdict.",
       "",
       `Decision: ${instruction}`,
       "",
-      `Original request: ${record.request.prompt}`
+      `Original request: ${record.payload.request.prompt}`
     ].join("\n"),
     acceptanceCriteria: ["Resolve the large decision as its own authoritative task."],
     metadata: {
       source: "daimyo-decision-action",
-      decision_id: record.id,
-      source_task_id: record.request.taskId,
-      source_node_id: record.request.nodeId,
+      decision_id: decisionRecordId(record),
+      source_task_id: record.payload.request.task_id,
+      source_node_id: record.payload.request.node_id,
       decision_size: "large"
     }
   };
@@ -22245,14 +22489,17 @@ var Supervisor = class {
   async executeInnerNode(task, childSummaries, parent, budget) {
     const node = await this.ensureNode(task, "inner", parent);
     await this.markNode(task, node, "running", node.retryCount, void 0);
-    await this.workSource.markStatus(task.id, "active", {
-      summary: `Daimyo inner node ${node.id} started governing children.`
-    });
+    await this.workSource.markStatus(
+      task.id,
+      "active",
+      simpleEvidence(task.id, `Daimyo inner node ${node.id} started governing children.`)
+    );
     const waveResult = await this.executeChildWave(task, node, childSummaries, budget);
     if (waveResult.returnValue.type !== "done") return waveResult;
-    const doneEvidence = {
-      summary: `Inner node ${node.id} completed ${childSummaries.length} children after parent-scope validation.`
-    };
+    const doneEvidence = simpleEvidence(
+      task.id,
+      `Inner node ${node.id} completed ${childSummaries.length} children after parent-scope validation.`
+    );
     await this.executionStore.appendEvidence(task.id, node.id, doneEvidence);
     await this.markNode(task, node, "done", node.retryCount, void 0);
     await this.executionStore.setCursor(task.id, null);
@@ -22420,10 +22667,10 @@ var Supervisor = class {
         nodeId: parentNode.id,
         retryable: true,
         error: `Parent validation failed: ${parentValidation.reasons.join("; ")}`,
-        evidence: {
-          summary: "Parent validation rejected wave completion claims.",
-          artifacts: [parentValidation.report_ref]
-        }
+        evidence: simpleEvidence(parentTask.id, "Parent validation rejected wave completion claims.", {
+          producedArtifactIds: [parentValidation.report_ref],
+          report_ref: parentValidation.report_ref
+        })
       };
       for (const [childTaskId, childDone] of completed) {
         const childTask = await this.workSource.getTask(childTaskId);
@@ -22436,9 +22683,9 @@ var Supervisor = class {
           type: "needs-decision",
           nodeId: parentNode.id,
           request: {
-            id: asDecisionId(`decision:${parentNode.id}:parent-validation:${this.now()}`),
-            nodeId: parentNode.id,
-            taskId: parentTask.id,
+            decision_id: asDecisionId(`decision:${parentNode.id}:parent-validation:${this.now()}`),
+            node_id: parentNode.id,
+            task_id: parentTask.id,
             surface: "routing",
             prompt: failed.error,
             context: {
@@ -22464,7 +22711,7 @@ var Supervisor = class {
         returnValue: {
           type: "done",
           nodeId: node.id,
-          evidence: latestEvidence(node) ?? { summary: `Node ${node.id} already done.` }
+          evidence: latestEvidence(node) ?? simpleEvidence(task.id, `Node ${node.id} already done.`)
         },
         eventsProcessed: budget.processedEvents
       };
@@ -22517,9 +22764,11 @@ var Supervisor = class {
   }
   async startLeafWorker(task, parent, resumeInstruction) {
     const node = await this.ensureNode(task, "leaf", parent);
-    await this.workSource.markStatus(task.id, "active", {
-      summary: `Daimyo leaf node ${node.id} started worker execution.`
-    });
+    await this.workSource.markStatus(
+      task.id,
+      "active",
+      simpleEvidence(task.id, `Daimyo leaf node ${node.id} started worker execution.`)
+    );
     const session = await this.startWorkerSession(task, node, resumeInstruction);
     return {
       task,
@@ -22589,10 +22838,10 @@ var Supervisor = class {
           nodeId: node.id,
           retryable: true,
           error: `Leaf validation failed: ${validation.reasons.join("; ")}`,
-          evidence: {
-            summary: "Leaf validation rejected worker completion claim.",
-            artifacts: [validation.report_ref]
-          }
+          evidence: simpleEvidence(task.id, "Leaf validation rejected worker completion claim.", {
+            producedArtifactIds: [validation.report_ref],
+            report_ref: validation.report_ref
+          })
         }
       };
     }
@@ -22641,10 +22890,15 @@ var Supervisor = class {
     const exhausted = childFailed(node.id, failed.error, false, failed.evidence);
     await this.markNode(task, node, "failed", node.retryCount, void 0);
     await this.executionStore.setCursor(task.id, null);
-    await this.workSource.markStatus(task.id, "blocked", {
-      summary: failed.error,
-      ...failed.evidence === void 0 ? {} : { artifacts: failed.evidence.artifacts }
-    });
+    await this.workSource.markStatus(
+      task.id,
+      "blocked",
+      simpleEvidence(
+        task.id,
+        failed.error,
+        failed.evidence === void 0 ? {} : { producedArtifactRefs: failed.evidence.produced_artifact_refs }
+      )
+    );
     return { returnValue: exhausted, eventsProcessed: budget.processedEvents };
   }
   async handleChildFailure(parentTask, parentNode, childTask, failed, budget) {
@@ -22656,9 +22910,9 @@ var Supervisor = class {
     }
     await this.markNode(childTask, childNode, "failed", childNode.retryCount, void 0);
     const request = {
-      id: asDecisionId(`decision:${parentNode.id}:failed:${failed.nodeId}:${this.now()}`),
-      nodeId: parentNode.id,
-      taskId: parentTask.id,
+      decision_id: asDecisionId(`decision:${parentNode.id}:failed:${failed.nodeId}:${this.now()}`),
+      node_id: parentNode.id,
+      task_id: parentTask.id,
       surface: "routing",
       prompt: `Child ${failed.nodeId} failed after bounded retries: ${failed.error}`,
       context: {
@@ -22684,16 +22938,16 @@ var Supervisor = class {
   }
   async routeNeedsDecision(parentTask, parentNode, childTask, childReturn) {
     const request = {
-      id: asDecisionId(`decision:${parentNode.id}:routing:${childReturn.nodeId}:${this.now()}`),
-      nodeId: parentNode.id,
-      taskId: parentTask.id,
+      decision_id: asDecisionId(`decision:${parentNode.id}:routing:${childReturn.nodeId}:${this.now()}`),
+      node_id: parentNode.id,
+      task_id: parentTask.id,
       surface: "routing",
       prompt: childReturn.request.prompt,
       ...childReturn.request.surface === "routing" && childReturn.request.options !== void 0 ? { options: childReturn.request.options } : {},
       context: {
         affectedNodeId: childReturn.nodeId,
         affectedTaskId: childTask.id,
-        originalDecisionId: childReturn.request.id,
+        originalDecisionId: childReturn.request.decision_id,
         ...childReturn.request.context === void 0 ? {} : childReturn.request.context
       }
     };
@@ -22712,15 +22966,16 @@ var Supervisor = class {
         returnValue: {
           type: "needs-decision",
           nodeId: parentNode.id,
-          request: action.record.request
+          request: action.record.payload.request
         },
         eventsProcessed: budget.processedEvents
       };
     }
     if (action.type === "create-follow-up") {
-      const evidence = {
-        summary: `Large decision ${action.record.id} was extracted to follow-up task ${action.followUpTaskId}.`
-      };
+      const evidence = simpleEvidence(
+        childTask.id,
+        `Large decision ${decisionRecordId(action.record)} was extracted to follow-up task ${action.followUpTaskId}.`
+      );
       await this.executionStore.appendEvidence(childTask.id, childReturn.nodeId, evidence);
       await this.markNode(childTask, await this.reloadNode(childTask.id, childReturn.nodeId), "done", 0, void 0);
       await this.workSource.markStatus(childTask.id, "done", evidence);
@@ -22738,9 +22993,10 @@ var Supervisor = class {
   async loadSiblingContext(parentNode, sourceTask, conflict) {
     for (const taskId of conflict.affectedTaskIds) {
       const task = await this.workSource.getTask(taskId);
-      const evidence = {
-        summary: `Soft sibling impact from ${sourceTask.id}: ${conflict.reason}`
-      };
+      const evidence = simpleEvidence(
+        task.id,
+        `Soft sibling impact from ${sourceTask.id}: ${conflict.reason}`
+      );
       await this.executionStore.appendEvidence(task.id, nodeIdForTask(task.id), evidence);
       await this.workSource.patchTask(
         task.id,
@@ -22789,14 +23045,14 @@ var Supervisor = class {
   async handleHardConflict(parentTask, parentNode, sourceTask, conflict, quiescedTasks, budget) {
     if (quiescedTasks.length !== conflict.affectedTaskIds.length) {
       const request = {
-        id: asDecisionId(`decision:${parentNode.id}:quiesce:${stablePromptId(conflict.reason)}:${this.now()}`),
-        nodeId: parentNode.id,
-        taskId: parentTask.id,
+        decision_id: asDecisionId(`decision:${parentNode.id}:quiesce:${stablePromptId(conflict.reason)}:${this.now()}`),
+        node_id: parentNode.id,
+        task_id: parentTask.id,
         surface: "routing",
         prompt: `Hard sibling conflict could not be bounded for resume: ${conflict.reason}`,
         context: {
           sourceTaskId: sourceTask.id,
-          affectedTaskIds: conflict.affectedTaskIds,
+          affectedTaskIds: [...conflict.affectedTaskIds],
           reason: conflict.reason
         }
       };
@@ -22810,15 +23066,15 @@ var Supervisor = class {
     const completed = [];
     for (const affectedTask of quiescedTasks) {
       const request = {
-        id: asDecisionId(`decision:${parentNode.id}:sibling-impact:${affectedTask.id}:${this.now()}`),
-        nodeId: parentNode.id,
-        taskId: parentTask.id,
+        decision_id: asDecisionId(`decision:${parentNode.id}:sibling-impact:${affectedTask.id}:${this.now()}`),
+        node_id: parentNode.id,
+        task_id: parentTask.id,
         surface: "routing",
         prompt: `Patch and resume ${affectedTask.id} after hard sibling impact from ${sourceTask.id}: ${conflict.reason}`,
         context: {
           sourceTaskId: sourceTask.id,
           affectedTaskId: affectedTask.id,
-          affectedTaskIds: conflict.affectedTaskIds,
+          affectedTaskIds: [...conflict.affectedTaskIds],
           conflict: conflict.level,
           reason: conflict.reason
         }
@@ -22858,9 +23114,10 @@ var Supervisor = class {
       returnValue: {
         type: "done",
         nodeId: parentNode.id,
-        evidence: {
-          summary: `Resolved hard sibling conflict from ${sourceTask.id}: ${conflict.reason}`
-        }
+        evidence: simpleEvidence(
+          parentTask.id,
+          `Resolved hard sibling conflict from ${sourceTask.id}: ${conflict.reason}`
+        )
       },
       eventsProcessed: budget.processedEvents,
       completed
@@ -22880,9 +23137,14 @@ var Supervisor = class {
     }
     if (selection.type === "create-follow-up") {
       const followUpTaskId = await this.workSource.createTask(selection.task, childTask.parentId);
-      await this.executionStore.appendEvidence(childTask.id, affectedNodeId, {
-        summary: `Created follow-up task ${followUpTaskId} for large decision ${record.id}.`
-      });
+      await this.executionStore.appendEvidence(
+        childTask.id,
+        affectedNodeId,
+        simpleEvidence(
+          childTask.id,
+          `Created follow-up task ${followUpTaskId} for large decision ${decisionRecordId(record)}.`
+        )
+      );
       return {
         type: "create-follow-up",
         record,
@@ -22892,9 +23154,10 @@ var Supervisor = class {
       };
     }
     const instruction = selection.instruction;
-    const patchEvidence = {
-      summary: `Applied decision patch ${record.id}: ${instruction}`
-    };
+    const patchEvidence = simpleEvidence(
+      childTask.id,
+      `Applied decision patch ${decisionRecordId(record)}: ${instruction}`
+    );
     await this.executionStore.appendEvidence(childTask.id, affectedNodeId, patchEvidence);
     await this.workSource.patchTask(
       childTask.id,
@@ -22917,11 +23180,11 @@ var Supervisor = class {
   }
   async handlePermissionEvent(task, node, event) {
     const request = {
-      id: asDecisionId(`decision:${node.id}:permission:${event.correlationId}`),
-      nodeId: node.id,
-      taskId: task.id,
+      decision_id: asDecisionId(`decision:${node.id}:permission:${event.correlationId}`),
+      node_id: node.id,
+      task_id: task.id,
       surface: "permission",
-      toolName: event.toolName,
+      tool_name: event.toolName,
       arguments: event.arguments,
       prompt: event.prompt ?? `May worker ${node.id} use ${event.toolName}?`,
       ...event.origin === void 0 ? {} : { context: event.origin }
@@ -22938,12 +23201,12 @@ var Supervisor = class {
   }
   async handleInputEvent(task, node, event) {
     const request = {
-      id: asDecisionId(`decision:${node.id}:input:${event.correlationId}`),
-      nodeId: node.id,
-      taskId: task.id,
+      decision_id: asDecisionId(`decision:${node.id}:input:${event.correlationId}`),
+      node_id: node.id,
+      task_id: task.id,
       surface: "routing",
       prompt: event.prompt,
-      ...event.options === void 0 ? {} : { options: event.options }
+      ...event.options === void 0 ? {} : { options: [...event.options] }
     };
     const record = await this.decisionProvider.decideRouting(request, {
       agentTransport: this.agentTransport,
@@ -23062,9 +23325,14 @@ var Supervisor = class {
         ...executionNodeInput(node),
         status: "cancelled"
       });
-      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
-        summary: `Checkpoint reconciliation cancelled node ${action.nodeId}: task disappeared from WorkSource.`
-      });
+      await this.executionStore.appendEvidence(
+        action.taskId,
+        action.nodeId,
+        simpleEvidence(
+          action.taskId,
+          `Checkpoint reconciliation cancelled node ${action.nodeId}: task disappeared from WorkSource.`
+        )
+      );
       return;
     }
     if (action.type === "drop-from-queue") {
@@ -23074,9 +23342,14 @@ var Supervisor = class {
         workSourceRevision: action.workSourceRevision,
         ...action.workDefinitionFingerprint === void 0 ? {} : { workDefinitionFingerprint: action.workDefinitionFingerprint }
       });
-      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
-        summary: `Checkpoint reconciliation dropped node ${action.nodeId}: task was externally marked done.`
-      });
+      await this.executionStore.appendEvidence(
+        action.taskId,
+        action.nodeId,
+        simpleEvidence(
+          action.taskId,
+          `Checkpoint reconciliation dropped node ${action.nodeId}: task was externally marked done.`
+        )
+      );
       return;
     }
     if (action.type === "mark-stale") {
@@ -23087,9 +23360,14 @@ var Supervisor = class {
         workSourceRevision: action.workSourceRevision,
         workDefinitionFingerprint: action.workDefinitionFingerprint
       });
-      await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
-        summary: `Checkpoint reconciliation marked node ${action.nodeId} stale after WorkSource definition changed; existing work product was not reverted.`
-      });
+      await this.executionStore.appendEvidence(
+        action.taskId,
+        action.nodeId,
+        simpleEvidence(
+          action.taskId,
+          `Checkpoint reconciliation marked node ${action.nodeId} stale after WorkSource definition changed; existing work product was not reverted.`
+        )
+      );
       return;
     }
     if (action.type === "refresh-observed-revision") {
@@ -23111,9 +23389,14 @@ var Supervisor = class {
       ...executionNodeInput(node),
       status: "superseded"
     });
-    await this.executionStore.appendEvidence(action.taskId, action.nodeId, {
-      summary: `Checkpoint reconciliation marked node ${action.nodeId} superseded after ${action.reason}.`
-    });
+    await this.executionStore.appendEvidence(
+      action.taskId,
+      action.nodeId,
+      simpleEvidence(
+        action.taskId,
+        `Checkpoint reconciliation marked node ${action.nodeId} superseded after ${action.reason}.`
+      )
+    );
     await this.agentTransport.disposeSession(action.sessionId);
     if (action.replacement !== void 0) {
       await this.executionStore.upsertNode(action.taskId, {
@@ -23210,22 +23493,33 @@ var Supervisor = class {
     return affectedTaskIds.every((taskId) => owned.has(taskId));
   }
   async persistDecisionRecord(record) {
-    await this.executionStore.recordDecision(record.request.taskId, record.request.nodeId, record);
+    await this.executionStore.recordDecision(
+      asTaskId(record.payload.request.task_id),
+      nodeIdForString(record.payload.request.node_id),
+      record
+    );
   }
   async recordActionDecision(source, selection, affectedNodeId) {
-    const record = {
-      id: asDecisionId(`${source.id}:action:${selection.type}`),
-      request: source.request,
-      verdict: source.verdict,
-      tier: source.tier,
+    const record = makeDecisionRecord({
+      decision_id: asDecisionId(`${source.payload.decision_id}:action:${selection.type}`),
+      request: source.payload.request,
+      verdict: source.payload.verdict,
+      tier: source.payload.tier,
       rationale: `Decision action ${selection.type} selected for ${affectedNodeId} (${selection.size} decision).`,
-      createdAt: this.now()
-    };
-    await this.executionStore.recordDecision(source.request.taskId, source.request.nodeId, record);
+      created_at: this.now()
+    });
+    await this.executionStore.recordDecision(
+      asTaskId(source.payload.request.task_id),
+      nodeIdForString(source.payload.request.node_id),
+      record
+    );
   }
 };
 function nodeIdForTask(taskId) {
   return defaultNodeIdForTask(taskId);
+}
+function nodeIdForString(nodeId) {
+  return asNodeId(nodeId);
 }
 function uniqueTaskIds(taskIds) {
   return Array.from(new Set(taskIds)).sort((left, right) => left.localeCompare(right));
@@ -23275,6 +23569,15 @@ function nodeRef(node, status) {
 function latestEvidence(node) {
   return node.evidence[node.evidence.length - 1];
 }
+function simpleEvidence(taskId, summary, options = {}) {
+  return makeExecutionEvidence({
+    taskId,
+    summary,
+    ...options.producedArtifactRefs === void 0 ? {} : { producedArtifactRefs: options.producedArtifactRefs },
+    ...options.producedArtifactIds === void 0 ? {} : { producedArtifactIds: options.producedArtifactIds },
+    ...options.report_ref === void 0 ? {} : { report_ref: options.report_ref }
+  });
+}
 function sortedSessionIds(activeBySession) {
   return Array.from(activeBySession.keys()).sort((left, right) => {
     const leftTask = activeBySession.get(left)?.task.id ?? "";
@@ -23295,12 +23598,18 @@ function ownershipSurface(task) {
 }
 function classifySiblingImpact(sourceTaskId, evidence, ownership) {
   const sourceSurface = ownership.get(sourceTaskId);
-  const touchedFiles = uniqueStrings([...evidence.touchedFiles ?? [], ...evidence.intendedFiles ?? []]);
-  const touchedInterfaces = uniqueStrings([
-    ...evidence.touchedInterfaces ?? [],
-    ...evidence.intendedInterfaces ?? []
+  const touchedFiles = uniqueStrings([
+    ...evidence.touch_report.touched_files,
+    ...evidence.intended_files ?? []
   ]);
-  const touchedData = uniqueStrings([...evidence.touchedData ?? [], ...evidence.intendedData ?? []]);
+  const touchedInterfaces = uniqueStrings([
+    ...evidence.touch_report.touched_interfaces,
+    ...evidence.intended_interfaces ?? []
+  ]);
+  const touchedData = uniqueStrings([
+    ...evidence.touch_report.touched_data,
+    ...evidence.intended_data ?? []
+  ]);
   const hardAffected = /* @__PURE__ */ new Set();
   const softAffected = /* @__PURE__ */ new Set();
   const hardReasons = [];
@@ -23360,16 +23669,19 @@ function classifySiblingImpact(sourceTaskId, evidence, ownership) {
   };
 }
 function aggregateChildEvidence(children) {
-  return {
+  const taskId = children[0]?.evidence.touch_report.task_id ?? "wave";
+  return makeExecutionEvidence({
+    taskId: asTaskId(taskId),
     summary: `Wave children claimed done: ${children.map((child) => child.nodeId).join(", ")}`,
-    artifacts: uniqueStrings(children.flatMap((child) => child.evidence.artifacts ?? [])),
-    touchedFiles: uniqueStrings(children.flatMap((child) => child.evidence.touchedFiles ?? [])),
-    touchedInterfaces: uniqueStrings(children.flatMap((child) => child.evidence.touchedInterfaces ?? [])),
-    touchedData: uniqueStrings(children.flatMap((child) => child.evidence.touchedData ?? [])),
-    intendedFiles: uniqueStrings(children.flatMap((child) => child.evidence.intendedFiles ?? [])),
-    intendedInterfaces: uniqueStrings(children.flatMap((child) => child.evidence.intendedInterfaces ?? [])),
-    intendedData: uniqueStrings(children.flatMap((child) => child.evidence.intendedData ?? []))
-  };
+    producedArtifactRefs: uniqueArtifactReferences(children.flatMap((child) => child.evidence.produced_artifact_refs)),
+    touchedFiles: uniqueStrings(children.flatMap((child) => child.evidence.touch_report.touched_files)),
+    touchedInterfaces: uniqueStrings(children.flatMap((child) => child.evidence.touch_report.touched_interfaces)),
+    touchedData: uniqueStrings(children.flatMap((child) => child.evidence.touch_report.touched_data)),
+    touchedWorkflowSteps: uniqueStrings(children.flatMap((child) => child.evidence.touch_report.touched_workflow_steps)),
+    intendedFiles: uniqueStrings(children.flatMap((child) => child.evidence.intended_files ?? [])),
+    intendedInterfaces: uniqueStrings(children.flatMap((child) => child.evidence.intended_interfaces ?? [])),
+    intendedData: uniqueStrings(children.flatMap((child) => child.evidence.intended_data ?? []))
+  });
 }
 function decisionAffectedTaskIds(context) {
   if (context === void 0) return [];
@@ -23396,6 +23708,13 @@ function intersection(left, right) {
 function uniqueStrings(values) {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right));
 }
+function uniqueArtifactReferences(values) {
+  const byId = /* @__PURE__ */ new Map();
+  for (const value of values) {
+    byId.set(`${value.ref_type}:${value.id}:${value.relation ?? ""}`, value);
+  }
+  return Array.from(byId.values()).sort((left, right) => left.id.localeCompare(right.id));
+}
 function describeOverlap(taskId, level, values) {
   return `${level} impact on ${taskId}${values.length === 0 ? "" : ` via ${values.join(", ")}`}`;
 }
@@ -23405,16 +23724,16 @@ function patchedTaskBody(task, record, instruction) {
     "",
     "## Daimyo Decision Patch",
     "",
-    `Decision ${record.id}: ${instruction}`
+    `Decision ${decisionRecordId(record)}: ${instruction}`
   ].join("\n");
 }
 function patchedTaskMetadata(task, record) {
   return {
     ...task.metadata ?? {},
     daimyo_last_decision_patch: {
-      decision_id: record.id,
+      decision_id: decisionRecordId(record),
       action: "patch-and-resume",
-      instruction: verdictInstruction(record.verdict)
+      instruction: verdictInstruction(record.payload.verdict)
     }
   };
 }
@@ -23436,22 +23755,22 @@ function childReturnToRunStatus(value) {
   return value.retryable ? "paused" : "failed";
 }
 function permissionCommand(correlationId, record) {
-  const choice = record.verdict.suggested_choice;
-  if (record.verdict.type === "access" && (choice === "allow" || choice === "approve" || choice === "approved")) {
+  const choice = record.payload.verdict.suggested_choice;
+  if (record.payload.verdict.type === "access" && (choice === "allow" || choice === "approve" || choice === "approved")) {
     return {
       type: "approve",
       correlationId,
-      reason: record.verdict.suggested_response ?? record.rationale
+      reason: record.payload.verdict.suggested_response ?? record.payload.rationale
     };
   }
   return {
     type: "deny",
     correlationId,
-    reason: record.verdict.suggested_response ?? record.rationale
+    reason: record.payload.verdict.suggested_response ?? record.payload.rationale
   };
 }
 function inputCommand(correlationId, options, record) {
-  const choice = record.verdict.suggested_choice;
+  const choice = record.payload.verdict.suggested_choice;
   if (choice !== null && options?.includes(choice) === true) {
     return {
       type: "choose_option",
@@ -23462,7 +23781,7 @@ function inputCommand(correlationId, options, record) {
   return {
     type: "respond",
     correlationId,
-    response: record.verdict.suggested_response ?? choice ?? record.rationale
+    response: record.payload.verdict.suggested_response ?? choice ?? record.payload.rationale
   };
 }
 function workerPrompt(task, node, evidence, resumeInstruction, resuming) {
@@ -23480,7 +23799,7 @@ ${resumeInstruction}`,
     evidence.length === 0 ? "Prior evidence: none" : `Prior evidence:
 ${evidence.map((item) => `- ${item.summary}`).join("\n")}`,
     "Return contract JSON:",
-    '{"type":"done","evidence":{"summary":"...","artifacts":[],"touchedFiles":[],"touchedInterfaces":[],"touchedData":[],"intendedFiles":[],"intendedInterfaces":[],"intendedData":[]}}',
+    '{"type":"done","evidence":{"summary":"...","produced_artifact_refs":[],"touch_report":{"touched_files":[],"touched_interfaces":[],"touched_data":[],"touched_workflow_steps":[]},"intended_files":[],"intended_interfaces":[],"intended_data":[]}}',
     '{"type":"needs-decision","prompt":"...","options":[],"context":{}}',
     '{"type":"failed","error":"...","retryable":true,"evidence":{"summary":"..."}}'
   ].filter((part) => part.length > 0).join("\n\n");
@@ -23493,7 +23812,7 @@ function parseWorkerReturn(result, nodeId, taskId) {
     return {
       type,
       nodeId,
-      evidence: readEvidence2(readObject2(object, "evidence"))
+      evidence: readEvidence2(readObject2(object, "evidence"), taskId)
     };
   }
   if (type === "needs-decision") {
@@ -23504,12 +23823,12 @@ function parseWorkerReturn(result, nodeId, taskId) {
       type,
       nodeId,
       request: {
-        id: decisionId,
-        nodeId,
-        taskId,
+        decision_id: decisionId,
+        node_id: nodeId,
+        task_id: taskId,
         surface: "routing",
         prompt: readString3(object, "prompt"),
-        ...options === void 0 ? {} : { options },
+        ...options === void 0 ? {} : { options: [...options] },
         ...context === void 0 ? {} : { context }
       }
     };
@@ -23521,7 +23840,7 @@ function parseWorkerReturn(result, nodeId, taskId) {
       nodeId,
       error: readString3(object, "error"),
       retryable: readBoolean4(object, "retryable"),
-      ...evidence === void 0 ? {} : { evidence: readEvidence2(evidence) }
+      ...evidence === void 0 ? {} : { evidence: readEvidence2(evidence, taskId) }
     };
   }
   throw new Error(`Unknown worker return type: ${type}`);
@@ -23529,26 +23848,31 @@ function parseWorkerReturn(result, nodeId, taskId) {
 function stablePromptId(value) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "request";
 }
-function readEvidence2(value) {
-  const artifacts = readOptionalStringArray3(value, "artifacts");
-  const touchedFiles = readOptionalStringArray3(value, "touchedFiles");
-  const touchedInterfaces = readOptionalStringArray3(value, "touchedInterfaces");
-  const touchedData = readOptionalStringArray3(value, "touchedData");
-  const intendedFiles = readOptionalStringArray3(value, "intendedFiles");
-  const intendedInterfaces = readOptionalStringArray3(value, "intendedInterfaces");
-  const intendedData = readOptionalStringArray3(value, "intendedData");
+function readEvidence2(value, taskId) {
+  const touchReport = readOptionalObject2(value, "touch_report");
+  const touchedFiles = touchReport === void 0 ? readOptionalStringArray3(value, "touchedFiles") : readOptionalStringArray3(touchReport, "touched_files");
+  const touchedInterfaces = touchReport === void 0 ? readOptionalStringArray3(value, "touchedInterfaces") : readOptionalStringArray3(touchReport, "touched_interfaces");
+  const touchedData = touchReport === void 0 ? readOptionalStringArray3(value, "touchedData") : readOptionalStringArray3(touchReport, "touched_data");
+  const touchedWorkflowSteps = touchReport === void 0 ? [] : readOptionalStringArray3(touchReport, "touched_workflow_steps") ?? [];
+  const intendedFiles = readOptionalStringArray3(value, "intended_files") ?? readOptionalStringArray3(value, "intendedFiles");
+  const intendedInterfaces = readOptionalStringArray3(value, "intended_interfaces") ?? readOptionalStringArray3(value, "intendedInterfaces");
+  const intendedData = readOptionalStringArray3(value, "intended_data") ?? readOptionalStringArray3(value, "intendedData");
   const reportRef = readOptionalString3(value, "report_ref");
-  return {
+  const touchReportTaskId = touchReport === void 0 ? taskId : asTaskId(readOptionalString3(touchReport, "task_id") ?? taskId);
+  return makeExecutionEvidence({
+    taskId: touchReportTaskId,
     summary: readString3(value, "summary"),
-    ...artifacts === void 0 ? {} : { artifacts },
+    ...readOptionalArtifactReferences(value, "produced_artifact_refs") === void 0 ? {} : { producedArtifactRefs: readOptionalArtifactReferences(value, "produced_artifact_refs") ?? [] },
+    ...readOptionalStringArray3(value, "artifacts") === void 0 ? {} : { producedArtifactIds: readOptionalStringArray3(value, "artifacts") ?? [] },
     ...touchedFiles === void 0 ? {} : { touchedFiles },
     ...touchedInterfaces === void 0 ? {} : { touchedInterfaces },
     ...touchedData === void 0 ? {} : { touchedData },
+    touchedWorkflowSteps,
     ...intendedFiles === void 0 ? {} : { intendedFiles },
     ...intendedInterfaces === void 0 ? {} : { intendedInterfaces },
     ...intendedData === void 0 ? {} : { intendedData },
     ...reportRef === void 0 ? {} : { report_ref: reportRef }
-  };
+  });
 }
 function readObject2(source, key) {
   return readObjectValue2(source[key], key);
@@ -23588,6 +23912,19 @@ function readOptionalStringArray3(source, key) {
     throw new Error(`Expected ${key} to be a string array`);
   }
   return value;
+}
+function readOptionalArtifactReferences(source, key) {
+  const value = source[key];
+  if (value === void 0) return void 0;
+  if (!Array.isArray(value)) throw new Error(`Expected ${key} to be an artifact reference array`);
+  return value.map((entry) => {
+    const object = readObjectValue2(entry, "artifact reference");
+    const relation = readOptionalString3(object, "relation");
+    return makeArtifactReference(
+      readString3(object, "id"),
+      relation === "read" || relation === "derived_from" || relation === "validates" || relation === "produces" || relation === "supersedes" || relation === "patches" || relation === "blocks" ? relation : "produces"
+    );
+  });
 }
 
 // src/standalone/composition.ts

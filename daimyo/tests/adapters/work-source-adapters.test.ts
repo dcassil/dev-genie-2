@@ -9,6 +9,7 @@ import {
   markdownChecklistStatusMapping,
   MARKDOWN_CHECKLIST_ID_SCHEME,
 } from "../../src/adapters/index.js";
+import { makeExecutionEvidence } from "../../src/core/index.js";
 import type { WorkSourceConformanceHarness } from "./work-source-conformance.js";
 import { defineWorkSourceConformanceSuite } from "./work-source-conformance.js";
 
@@ -79,7 +80,11 @@ describe("MarkdownChecklistWorkSource", () => {
     expect(completedTask?.status).toBe("done");
 
     if (firstTask === undefined) throw new Error("Expected first markdown task");
-    await source.markStatus(firstTask.id, "done", { summary: "completed from test" });
+    await source.markStatus(
+      firstTask.id,
+      "done",
+      makeExecutionEvidence({ taskId: firstTask.id, summary: "completed from test" }),
+    );
 
     await expect(readFile(filePath, "utf8")).resolves.toContain("- [x] First task");
   });
@@ -113,7 +118,11 @@ describe("JsonWorkSource", () => {
       acceptanceCriteria: ["has revision"],
     });
 
-    await source.markStatus(id, "blocked", { summary: "waiting on input" });
+    await source.markStatus(
+      id,
+      "blocked",
+      makeExecutionEvidence({ taskId: id, summary: "waiting on input" }),
+    );
 
     const content = await readFile(filePath, "utf8");
     expect(content).toContain('"status": "blocked"');

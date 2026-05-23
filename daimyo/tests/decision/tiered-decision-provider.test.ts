@@ -67,10 +67,10 @@ describe("TieredDecisionProvider", () => {
 
     expect(routingNode).toBe(asNodeId("node-routing-surface"));
     expect(permissionNode).toBe(asNodeId("node-permission-surface"));
-    expect(routing.tier).toBe(1);
-    expect(routing.verdict).toMatchObject({ type: "decision", suggested_choice: "postgres" });
-    expect(permission.tier).toBe(0);
-    expect(permission.verdict).toMatchObject({ type: "access", suggested_choice: "deny" });
+    expect(routing.payload.tier).toBe(1);
+    expect(routing.payload.verdict).toMatchObject({ type: "decision", suggested_choice: "postgres" });
+    expect(permission.payload.tier).toBe(0);
+    expect(permission.payload.verdict).toMatchObject({ type: "access", suggested_choice: "deny" });
     expect(model.inputs).toHaveLength(1);
   });
 
@@ -105,10 +105,10 @@ describe("TieredDecisionProvider", () => {
       }),
     );
 
-    expect(permission.tier).toBe(0);
-    expect(permission.verdict.suggested_choice).toBe("allow");
-    expect(routing.tier).toBe(0);
-    expect(routing.verdict.suggested_choice).toBe("use existing adapter");
+    expect(permission.payload.tier).toBe(0);
+    expect(permission.payload.verdict.suggested_choice).toBe("allow");
+    expect(routing.payload.tier).toBe(0);
+    expect(routing.payload.verdict.suggested_choice).toBe("use existing adapter");
     expect(model.inputs).toHaveLength(0);
     expect((await harness.store.load(asTaskId("task-read"))).decisions).toHaveLength(1);
     expect((await harness.store.load(asTaskId("task-routing"))).decisions).toHaveLength(1);
@@ -134,7 +134,7 @@ describe("TieredDecisionProvider", () => {
     const input = requireValue(model.inputs[0], "Tier 1 model input");
     const snapshot = await harness.store.load(asTaskId("task-tier1"));
 
-    expect(record.tier).toBe(1);
+    expect(record.payload.tier).toBe(1);
     expect(input).toMatchObject({
       context: {
         prompt_id: "daimyo.tier1-decision-role",
@@ -175,10 +175,10 @@ describe("TieredDecisionProvider", () => {
 
     const snapshot = await harness.store.load(asTaskId("task-human"));
 
-    expect(record.tier).toBe(3);
-    expect(record.verdict.type).toBe("human");
+    expect(record.payload.tier).toBe(3);
+    expect(record.payload.verdict.type).toBe("human");
     expect(snapshot.nodes[0]?.status).toBe("awaiting-human");
-    expect(snapshot.decisions.map((decision) => decision.tier)).toEqual([2, 3]);
+    expect(snapshot.decisions.map((decision) => decision.payload.tier)).toEqual([2, 3]);
     expect(notifier.records).toEqual([record]);
     expect(hook.requests).toHaveLength(1);
     expect(hook.requests[0]?.thresholdReason).toMatch(/confidence/);
@@ -210,8 +210,8 @@ describe("TieredDecisionProvider", () => {
 
     const snapshot = await harness.store.load(asTaskId("task-tier2-improved"));
 
-    expect(record.tier).toBe(2);
-    expect(record.verdict.suggested_choice).toBe("option-b");
+    expect(record.payload.tier).toBe(2);
+    expect(record.payload.verdict.suggested_choice).toBe("option-b");
     expect(snapshot.decisions).toEqual([record]);
     expect(transport.spawnRequests[0]).toMatchObject({
       cwd: "/tmp/daimyo-tier2-test",
@@ -303,8 +303,8 @@ describe("TieredDecisionProvider", () => {
       }),
     );
 
-    expect(record.tier).toBe(3);
-    expect(record.rationale).toMatch(/Tier 1 unavailable/);
+    expect(record.payload.tier).toBe(3);
+    expect(record.payload.rationale).toMatch(/Tier 1 unavailable/);
     expect(model.inputs).toHaveLength(0);
     expect(notifier.records).toEqual([record]);
   });
@@ -473,12 +473,12 @@ function permissionRequest(
   },
 ): PermissionDecisionRequest {
   return {
-    id: asDecisionId(`decision-${suffix}`),
-    nodeId: asNodeId(`node-${suffix}`),
-    taskId: asTaskId(`task-${suffix}`),
+    decision_id: asDecisionId(`decision-${suffix}`),
+    node_id: asNodeId(`node-${suffix}`),
+    task_id: asTaskId(`task-${suffix}`),
     surface: "permission",
     prompt: overrides.prompt ?? "May this tool run?",
-    toolName: overrides.toolName,
+    tool_name: overrides.toolName,
     arguments: { path: "src/example.ts" },
     ...(overrides.context === undefined ? {} : { context: overrides.context }),
   };
@@ -493,12 +493,12 @@ function routingRequest(
   } = {},
 ): RoutingDecisionRequest {
   return {
-    id: asDecisionId(`decision-${suffix}`),
-    nodeId: asNodeId(`node-${suffix}`),
-    taskId: asTaskId(`task-${suffix}`),
+    decision_id: asDecisionId(`decision-${suffix}`),
+    node_id: asNodeId(`node-${suffix}`),
+    task_id: asTaskId(`task-${suffix}`),
     surface: "routing",
     prompt: overrides.prompt ?? "Choose an implementation path.",
-    ...(overrides.options === undefined ? {} : { options: overrides.options }),
+    ...(overrides.options === undefined ? {} : { options: [...overrides.options] }),
     ...(overrides.context === undefined ? {} : { context: overrides.context }),
   };
 }

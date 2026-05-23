@@ -199,7 +199,7 @@ export function reconcileCheckpoints(
 
 export function workDefinitionFingerprint(task: WorkTask): string {
   return stableStringify({
-    acceptanceCriteria: task.acceptanceCriteria,
+    acceptanceCriteria: [...task.acceptanceCriteria],
     dependencies: dependencyMetadata(task.metadata),
   });
 }

@@ -1,6 +1,4 @@
-import type { DecisionVerdict, Score0To10 } from "../core/domain.js";
-
-export type RoleResultStatus = "produced" | "skipped" | "blocked" | "needs_human";
+import type { DecisionVerdict, RoleResultStatus, Score0To10 } from "../core/domain.js";
 
 export interface DecisionRoleResult {
   readonly status: RoleResultStatus;

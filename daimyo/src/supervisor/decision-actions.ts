@@ -5,6 +5,7 @@ import type {
   JsonObject,
   JsonValue,
 } from "../core/domain.js";
+import { decisionRecordId } from "../core/domain.js";
 import type { CreateTaskInput } from "../core/ports/work-source.js";
 import {
   DEFAULT_AUTONOMY_PROFILE,
@@ -63,20 +64,20 @@ export function selectDecisionAction(
   record: DecisionRecord,
   autonomyProfile: AutonomyProfile = DEFAULT_AUTONOMY_PROFILE,
 ): DecisionActionSelection {
-  if (record.verdict.type === "human" || record.verdict.block_trigger) {
+  if (record.payload.verdict.type === "human" || record.payload.verdict.block_trigger) {
     return {
       type: "await-human",
-      size: classifyDecisionSize(record.request),
-      reason: record.verdict.suggested_response ?? record.rationale,
+      size: classifyDecisionSize(record.payload.request),
+      reason: record.payload.verdict.suggested_response ?? record.payload.rationale,
     };
   }
 
   const threshold = evaluateAutonomyThreshold(
-    record.request,
-    record.verdict,
+    record.payload.request,
+    record.payload.verdict,
     autonomyProfile,
   );
-  const size = classifyDecisionSize(record.request);
+  const size = classifyDecisionSize(record.payload.request);
   if (threshold.action === "escalate") {
     return {
       type: "await-human",
@@ -96,7 +97,7 @@ export function selectDecisionAction(
   return {
     type: "patch-and-resume",
     size,
-    instruction: verdictInstruction(record.verdict),
+    instruction: verdictInstruction(record.payload.verdict),
   };
 }
 
@@ -109,22 +110,22 @@ export function verdictInstruction(verdict: DecisionVerdict): string {
 }
 
 function followUpTask(record: DecisionRecord): CreateTaskInput {
-  const instruction = verdictInstruction(record.verdict);
+  const instruction = verdictInstruction(record.payload.verdict);
   return {
-    title: `Follow up: ${record.request.prompt.slice(0, 72)}`,
+    title: `Follow up: ${record.payload.request.prompt.slice(0, 72)}`,
     body: [
       "Created by Daimyo from a large needs-decision verdict.",
       "",
       `Decision: ${instruction}`,
       "",
-      `Original request: ${record.request.prompt}`,
+      `Original request: ${record.payload.request.prompt}`,
     ].join("\n"),
     acceptanceCriteria: ["Resolve the large decision as its own authoritative task."],
     metadata: {
       source: "daimyo-decision-action",
-      decision_id: record.id,
-      source_task_id: record.request.taskId,
-      source_node_id: record.request.nodeId,
+      decision_id: decisionRecordId(record),
+      source_task_id: record.payload.request.task_id,
+      source_node_id: record.payload.request.node_id,
       decision_size: "large",
     },
   };

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const portsDir = fileURLToPath(new URL("../../src/core/ports", import.meta.url));
 const coreDir = dirname(portsDir);
+// `protocol` is the shared artifact contract consumed by core types, not a sibling adapter.
+const allowedCoreContractImports = ["protocol"];
 const siblingImportPattern =
   /from ["'][^"']*(?:katana|guardrails|audit)[^"']*["']|require\(["'][^"']*(?:katana|guardrails|audit)[^"']*["']\)/;
 
@@ -54,14 +56,22 @@ describe("core port boundaries", () => {
     const entries = await readdir(coreDir);
     const coreFiles = entries.filter((entry) => entry.endsWith(".ts"));
     const siblingImports: string[] = [];
+    const contractImports: string[] = [];
 
     for (const file of coreFiles) {
       const content = await readFile(join(coreDir, file), "utf8");
       if (siblingImportPattern.test(content)) {
         siblingImports.push(file);
       }
+      for (const allowedImport of allowedCoreContractImports) {
+        if (content.includes(`from "${allowedImport}"`)) {
+          contractImports.push(`${file}->${allowedImport}`);
+        }
+      }
     }
 
     expect(siblingImports).toEqual([]);
+    expect(contractImports).toContain("domain.ts->protocol");
+    expect(allowedCoreContractImports).toEqual(["protocol"]);
   });
 });

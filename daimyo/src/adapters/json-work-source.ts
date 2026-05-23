@@ -258,10 +258,34 @@ function optionalStringArray(value: unknown): value is readonly string[] | undef
 function isExecutionEvidence(value: unknown): value is ExecutionEvidence {
   if (!isRecord(value) || typeof value.summary !== "string") return false;
   return (
-    optionalStringArray(value.artifacts) &&
-    optionalStringArray(value.touchedFiles) &&
+    isTouchReport(value.touch_report) &&
+    Array.isArray(value.produced_artifact_refs) &&
+    value.produced_artifact_refs.every(isArtifactReference) &&
+    optionalStringArray(value.intended_files) &&
+    optionalStringArray(value.intended_interfaces) &&
+    optionalStringArray(value.intended_data) &&
     optionalString(value.report_ref)
   );
+}
+
+function isTouchReport(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.task_id === "string" &&
+    value.report_type === "touch_report" &&
+    Array.isArray(value.touched_files) &&
+    value.touched_files.every((item) => typeof item === "string") &&
+    Array.isArray(value.touched_interfaces) &&
+    value.touched_interfaces.every((item) => typeof item === "string") &&
+    Array.isArray(value.touched_data) &&
+    value.touched_data.every((item) => typeof item === "string") &&
+    Array.isArray(value.touched_workflow_steps) &&
+    value.touched_workflow_steps.every((item) => typeof item === "string")
+  );
+}
+
+function isArtifactReference(value: unknown): boolean {
+  return isRecord(value) && typeof value.ref_type === "string" && typeof value.id === "string";
 }
 
 function optionalJsonObject(value: unknown): value is JsonObject | undefined {

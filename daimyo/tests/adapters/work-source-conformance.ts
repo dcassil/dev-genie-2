@@ -5,7 +5,7 @@ import type {
   WorkStatusMapping,
   WorkTask,
 } from "../../src/core/index.js";
-import { WORK_STATUSES } from "../../src/core/index.js";
+import { asTaskId, makeExecutionEvidence, WORK_STATUSES } from "../../src/core/index.js";
 
 interface WorkSourceRuntimeProbe {
   markStatus(id: TaskId, status: string, evidence: ExecutionEvidence): Promise<WorkTask>;
@@ -33,11 +33,12 @@ const taskSpec = {
   } satisfies JsonObject,
 };
 
-const evidence: ExecutionEvidence = {
+const evidence: ExecutionEvidence = makeExecutionEvidence({
+  taskId: asTaskId("task-conformance"),
   summary: "contract status transition verified",
-  artifacts: ["tests/adapters/work-source-conformance.ts"],
+  producedArtifactIds: ["tests/adapters/work-source-conformance.ts"],
   touchedFiles: ["src/adapters/example.ts"],
-};
+});
 
 export function defineWorkSourceConformanceSuite<NativeStatus extends string>(
   adapter: WorkSourceConformanceAdapter<NativeStatus>,

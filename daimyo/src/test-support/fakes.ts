@@ -6,7 +6,7 @@ import type {
   RoutingDecisionRequest,
   TaskId,
 } from "../core/domain.js";
-import { asDecisionId } from "../core/domain.js";
+import { asDecisionId, makeDecisionRecord } from "../core/domain.js";
 import type {
   AgentCommand,
   AgentCommandRejectedError,
@@ -295,13 +295,22 @@ export class FakeDecisionProvider implements DecisionProvider {
   private decide(request: DecisionRequest): DecisionRecord {
     this.requests.push(request);
     const record = this.records.shift();
-    if (record !== undefined) return { ...record, request };
-    return {
-      id: asDecisionId(`fake-decision-${this.requests.length}`),
+    if (record !== undefined) {
+      return makeDecisionRecord({
+        decision_id: asDecisionId(record.payload.decision_id),
+        request,
+        verdict: record.payload.verdict,
+        tier: record.payload.tier,
+        rationale: record.payload.rationale,
+        created_at: typeof record.created_at === "string" ? record.created_at : new Date(0).toISOString(),
+      });
+    }
+    return makeDecisionRecord({
+      decision_id: asDecisionId(`fake-decision-${this.requests.length}`),
       request,
       tier: 0,
       rationale: "fake deterministic decision",
-      createdAt: new Date(0).toISOString(),
+      created_at: new Date(0).toISOString(),
       verdict: {
         type: "human",
         suggested_choice: null,
@@ -310,6 +319,6 @@ export class FakeDecisionProvider implements DecisionProvider {
         risk: 10,
         block_trigger: true,
       },
-    };
+    });
   }
 }

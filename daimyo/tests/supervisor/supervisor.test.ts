@@ -18,6 +18,8 @@ import {
   asTaskId,
   asTransportCorrelationId,
   JsonlExecutionStore,
+  makeDecisionRecord,
+  makeExecutionEvidence,
   Supervisor,
   TieredDecisionProvider,
   workDefinitionFingerprint,
@@ -118,8 +120,8 @@ describe("Supervisor", () => {
     expect(harness.decisionProvider.requests).toHaveLength(1);
     expect(harness.decisionProvider.requests[0]).toMatchObject({
       surface: "routing",
-      nodeId: asNodeId("node:task-root"),
-      taskId: root.id,
+      node_id: asNodeId("node:task-root"),
+      task_id: root.id,
       prompt: "Choose API shape",
     });
     expect(harness.transport.spawnRequests[1]?.prompt).toContain("Use option a.");
@@ -133,17 +135,17 @@ describe("Supervisor", () => {
     expect(harness.workSource.statusMarks).toContainEqual({
       id: child.id,
       status: "active",
-      evidence: {
+      evidence: expect.objectContaining({
         summary: expect.stringContaining("Applied decision patch"),
-      },
+      }),
     });
-    expect(rootSnapshot.decisions.map((decision) => decision.rationale)).toEqual([
+    expect(rootSnapshot.decisions.map((decision) => decision.payload.rationale)).toEqual([
       "queued fake decision",
       expect.stringContaining("Decision action patch-and-resume selected"),
     ]);
-    expect(childSnapshot.nodes[0]?.evidence).toContainEqual({
+    expect(childSnapshot.nodes[0]?.evidence).toContainEqual(expect.objectContaining({
       summary: expect.stringContaining("Applied decision patch"),
-    });
+    }));
     await expect(harness.workSource.getTask(root.id)).resolves.toMatchObject({ status: "done" });
     await expect(harness.workSource.getTask(child.id)).resolves.toMatchObject({ status: "done" });
   });
@@ -222,7 +224,7 @@ describe("Supervisor", () => {
     expect(result.status).toBe("needs-decision");
     expect(harness.workSource.createdTasks).toHaveLength(0);
     expect(rootSnapshot.nodes[0]?.status).toBe("awaiting-human");
-    expect(rootSnapshot.decisions.map((decision) => decision.rationale)).toEqual([
+    expect(rootSnapshot.decisions.map((decision) => decision.payload.rationale)).toEqual([
       "queued fake decision",
       expect.stringContaining("Decision action await-human selected"),
     ]);
@@ -267,7 +269,7 @@ describe("Supervisor", () => {
     const rootSnapshot = await store.load(root.id);
 
     expect(result.status).toBe("done");
-    expect(rootSnapshot.decisions.map((decision) => decision.tier)).toEqual([2, 2]);
+    expect(rootSnapshot.decisions.map((decision) => decision.payload.tier)).toEqual([2, 2]);
     expect(workSource.patches[0]?.patch.body).toContain("Use safe.");
     expect(transport.spawnRequests[1]).toMatchObject({
       metadata: {
@@ -342,7 +344,7 @@ describe("Supervisor", () => {
     ]);
     expect(harness.decisionProvider.requests[0]).toMatchObject({
       surface: "permission",
-      toolName: "Bash",
+      tool_name: "Bash",
     });
   });
 
@@ -552,8 +554,8 @@ describe("Supervisor", () => {
 
     expect(result.status).toBe("done");
     expect(harness.decisionProvider.requests[0]).toMatchObject({
-      nodeId: asNodeId("node:task-bubble-root"),
-      taskId: root.id,
+      node_id: asNodeId("node:task-bubble-root"),
+      task_id: root.id,
       prompt: "Change shared contract?",
     });
     expect(harness.workSource.patches[0]).toMatchObject({
@@ -585,9 +587,10 @@ describe("Supervisor", () => {
         tokenStatus: "resumable",
       },
     });
-    await harness.store.appendEvidence(taskId, nodeId, {
+    await harness.store.appendEvidence(taskId, nodeId, makeExecutionEvidence({
+      taskId,
       summary: "captured work before process loss",
-    });
+    }));
     harness.transport.rejectResumeFor(expiredSessionId);
 
     const result = await harness.supervisor.run(taskId);
@@ -630,10 +633,11 @@ describe("Supervisor", () => {
       workDefinitionFingerprint: workDefinitionFingerprint(oldTask),
     });
     harness.transport.setInterruptResult(inflightSessionId, {
-      workProduct: {
+      workProduct: makeExecutionEvidence({
+        taskId: oldTask.id,
         summary: "partial worker patch before interrupt",
-        artifacts: ["work-product:partial.patch"],
-      },
+        producedArtifactIds: ["work-product:partial.patch"],
+      }),
     });
 
     const result = await harness.supervisor.run(oldTask.id);
@@ -657,7 +661,10 @@ describe("Supervisor", () => {
     expect(superseded.status).toBe("superseded");
     expect(superseded.evidence).toContainEqual({
       summary: "partial worker patch before interrupt",
-      artifacts: ["work-product:partial.patch"],
+      produced_artifact_refs: expect.arrayContaining([
+        expect.objectContaining({ id: "work-product:partial.patch" }),
+      ]),
+      touch_report: expect.objectContaining({ task_id: oldTask.id }),
     });
     expect(replacement.status).toBe("done");
     expect(replacement.workSourceRevision).toBe("2");
@@ -684,10 +691,11 @@ describe("Supervisor", () => {
       workSourceRevision: oldTask.revision,
       workDefinitionFingerprint: workDefinitionFingerprint(oldTask),
     });
-    await harness.store.appendEvidence(oldTask.id, asNodeId("node:task-no-rollback"), {
+    await harness.store.appendEvidence(oldTask.id, asNodeId("node:task-no-rollback"), makeExecutionEvidence({
+      taskId: oldTask.id,
       summary: "already merged work product",
-      artifacts: ["merged:abc123"],
-    });
+      producedArtifactIds: ["merged:abc123"],
+    }));
 
     const result = await harness.supervisor.run(oldTask.id);
     const snapshot = await harness.store.load(oldTask.id);
@@ -699,10 +707,15 @@ describe("Supervisor", () => {
     expect(harness.transport.spawnRequests[0]?.prompt).toContain("already merged work product");
     expect(nodeState.evidence).toContainEqual({
       summary: "already merged work product",
-      artifacts: ["merged:abc123"],
+      produced_artifact_refs: expect.arrayContaining([
+        expect.objectContaining({ id: "merged:abc123" }),
+      ]),
+      touch_report: expect.objectContaining({ task_id: oldTask.id }),
     });
     expect(nodeState.evidence).toContainEqual({
       summary: expect.stringContaining("existing work product was not reverted"),
+      produced_artifact_refs: [],
+      touch_report: expect.objectContaining({ task_id: oldTask.id }),
     });
   });
 });
@@ -845,20 +858,20 @@ function needsDecisionResult(
 function decisionTemplate(verdict: DecisionVerdict): DecisionRecord {
   decisionSequence += 1;
   const decisionId = asDecisionId(`queued-decision-${decisionSequence}`);
-  return {
-    id: decisionId,
+  return makeDecisionRecord({
+    decision_id: decisionId,
     request: {
-      id: decisionId,
-      nodeId: asNodeId("queued-node"),
-      taskId: asTaskId("queued-task"),
+      decision_id: decisionId,
+      node_id: asNodeId("queued-node"),
+      task_id: asTaskId("queued-task"),
       surface: "routing",
       prompt: "queued",
     },
     verdict,
     tier: verdict.type === "access" ? 0 : 1,
     rationale: "queued fake decision",
-    createdAt: fixedNow(),
-  };
+    created_at: fixedNow(),
+  });
 }
 
 function decisionVerdict(

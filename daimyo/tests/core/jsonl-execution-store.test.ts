@@ -7,6 +7,8 @@ import {
   asNodeId,
   asTaskId,
   JsonlExecutionStore,
+  makeDecisionRecord,
+  makeExecutionEvidence,
   rebuildExecutionNodeTree,
   workerRequiresRestart,
 } from "../../src/core/index.js";
@@ -63,12 +65,15 @@ describe("JsonlExecutionStore", () => {
         tokenStatus: "resumable",
       },
     });
-    const record = makeDecisionRecord(childNodeId, asTaskId("task-child"));
+    const childTaskId = asTaskId("task-child");
+    const record = makeTestDecisionRecord(childNodeId, childTaskId);
     await store.recordDecision(rootTaskId, childNodeId, record);
-    await store.appendEvidence(rootTaskId, childNodeId, {
+    const evidence = makeExecutionEvidence({
+      taskId: childTaskId,
       summary: "child produced a partial patch",
       touchedFiles: ["src/example.ts"],
     });
+    await store.appendEvidence(rootTaskId, childNodeId, evidence);
     await store.setCursor(rootTaskId, cursor);
 
     const freshStore = new JsonlExecutionStore({ workspaceDir });
@@ -82,14 +87,9 @@ describe("JsonlExecutionStore", () => {
     expect(child.status).toBe("needs-decision");
     expect(child.retryCount).toBe(2);
     expect(child.session?.resumeToken).toBe("resume-token-1");
-    expect(child.decisionRecordIds).toEqual([record.id]);
+    expect(child.decisionRecordIds).toEqual([asDecisionId(record.payload.decision_id)]);
     expect(snapshot.decisions).toEqual([record]);
-    expect(child.evidence).toEqual([
-      {
-        summary: "child produced a partial patch",
-        touchedFiles: ["src/example.ts"],
-      },
-    ]);
+    expect(child.evidence).toEqual([evidence]);
   });
 
   it("keeps mid-decision execution state out of WorkSource status", async () => {
@@ -115,7 +115,7 @@ describe("JsonlExecutionStore", () => {
       status: "needs-decision",
       retryCount: 0,
     });
-    await store.recordDecision(taskId, nodeId, makeDecisionRecord(nodeId, taskId));
+    await store.recordDecision(taskId, nodeId, makeTestDecisionRecord(nodeId, taskId));
 
     const snapshot = await store.load(taskId);
     const summaries = await workSource.listTasks();
@@ -149,9 +149,11 @@ describe("JsonlExecutionStore", () => {
         tokenStatus: "resumable",
       },
     });
-    await store.appendEvidence(taskId, nodeId, {
+    const evidence = makeExecutionEvidence({
+      taskId,
       summary: "validation output captured before process loss",
     });
+    await store.appendEvidence(taskId, nodeId, evidence);
     await store.invalidateResumeToken(
       taskId,
       nodeId,
@@ -170,11 +172,7 @@ describe("JsonlExecutionStore", () => {
       restartReason: "transport rejected token after retention window",
       invalidatedAt: "2026-05-22T20:10:00.000Z",
     });
-    expect(node.evidence).toEqual([
-      {
-        summary: "validation output captured before process loss",
-      },
-    ]);
+    expect(node.evidence).toEqual([evidence]);
   });
 
   it("ignores and repairs an interrupted trailing write before later appends", async () => {
@@ -215,14 +213,14 @@ async function makeWorkspace(): Promise<string> {
   return dir;
 }
 
-function makeDecisionRecord(nodeId: ReturnType<typeof asNodeId>, taskId: ReturnType<typeof asTaskId>): DecisionRecord {
+function makeTestDecisionRecord(nodeId: ReturnType<typeof asNodeId>, taskId: ReturnType<typeof asTaskId>): DecisionRecord {
   const decisionId = asDecisionId(`decision-${nodeId}`);
-  return {
-    id: decisionId,
+  return makeDecisionRecord({
+    decision_id: decisionId,
     request: {
-      id: decisionId,
-      nodeId,
-      taskId,
+      decision_id: decisionId,
+      node_id: nodeId,
+      task_id: taskId,
       surface: "routing",
       prompt: "Choose an approach",
       options: ["a", "b"],
@@ -237,8 +235,8 @@ function makeDecisionRecord(nodeId: ReturnType<typeof asNodeId>, taskId: ReturnT
     },
     tier: 3,
     rationale: "fake decision record",
-    createdAt: "2026-05-22T20:00:01.000Z",
-  };
+    created_at: "2026-05-22T20:00:01.000Z",
+  });
 }
 
 function findNode(

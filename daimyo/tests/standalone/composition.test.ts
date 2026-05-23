@@ -84,16 +84,16 @@ describe("standalone composition root", () => {
     });
 
     const record = await daimyo.decisionProvider.decideRouting({
-      id: asDecisionId("decision-tier1"),
-      nodeId,
-      taskId,
+      decision_id: asDecisionId("decision-tier1"),
+      node_id: nodeId,
+      task_id: taskId,
       surface: "routing",
       prompt: "Choose option",
       options: ["option-a", "option-b"],
       context: { domain: "engineering", scope: "moderate" },
     });
 
-    expect(record.tier).toBe(1);
+    expect(record.payload.tier).toBe(1);
     expect(model.inputs[0]).toMatchObject({
       context: {
         prompt_id: "daimyo.tier1-decision-role",
@@ -130,17 +130,17 @@ describe("standalone composition root", () => {
     });
 
     const record = await daimyo.decisionProvider.decideRouting({
-      id: asDecisionId("decision-no-prompt"),
-      nodeId,
-      taskId,
+      decision_id: asDecisionId("decision-no-prompt"),
+      node_id: nodeId,
+      task_id: taskId,
       surface: "routing",
       prompt: "Choose option",
       options: ["option-a", "option-b"],
       context: { domain: "engineering", scope: "moderate" },
     });
 
-    expect(record.tier).toBe(3);
-    expect(record.verdict.type).toBe("human");
+    expect(record.payload.tier).toBe(3);
+    expect(record.payload.verdict.type).toBe("human");
     expect(model.inputs).toEqual([]);
     expect(notifier.records).toEqual([record]);
   });

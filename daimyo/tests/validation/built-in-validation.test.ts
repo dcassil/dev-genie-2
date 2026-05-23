@@ -11,6 +11,7 @@ import {
   asNodeId,
   asTaskId,
   JsonlExecutionStore,
+  makeExecutionEvidence,
 } from "../../src/core/index.js";
 import type { WorkTask } from "../../src/core/ports/work-source.js";
 import type {
@@ -37,7 +38,7 @@ describe("BuiltInValidation", () => {
       task: harness.task,
       node: harness.node,
       scope: "leaf",
-      evidence: { summary: "patch produced" },
+      evidence: evidence(harness.task.id, "patch produced"),
     });
     const snapshot = await harness.store.load(harness.task.id);
     const report = requireValue(snapshot.validationReports[0], "validation report");
@@ -45,9 +46,9 @@ describe("BuiltInValidation", () => {
     expect(result.status).toBe("pass");
     expect(result.report_ref).toBe("report-task-command-pass-leaf");
     expect(result.reasons).toContain("Validation command exited with code 0.");
-    expect(report.evidence_strength).toBe("command");
-    expect(report.status).toBe("pass");
-    expect(report.details.stdout).toBe("ok");
+    expect(report.payload.evidence_strength).toBe("command");
+    expect(report.payload.status).toBe("pass");
+    expect(report.payload.details.stdout).toBe("ok");
     expect(snapshot.nodes[0]?.validationReportRefs).toEqual([result.report_ref]);
     expect(snapshot.nodes[0]?.evidence[0]?.report_ref).toBe(result.report_ref);
   });
@@ -59,7 +60,7 @@ describe("BuiltInValidation", () => {
       task: harness.task,
       node: harness.node,
       scope: "leaf",
-      evidence: { summary: "patch produced" },
+      evidence: evidence(harness.task.id, "patch produced"),
     });
     const report = requireValue(
       (await harness.store.load(harness.task.id)).validationReports[0],
@@ -69,8 +70,8 @@ describe("BuiltInValidation", () => {
     expect(result.status).toBe("fail");
     expect(result.reasons).toContain("Validation command exited with code 7.");
     expect(result.reasons).toContain("stderr: bad");
-    expect(report.status).toBe("fail");
-    expect(report.details.exitCode).toBe(7);
+    expect(report.payload.status).toBe("fail");
+    expect(report.payload.details.exitCode).toBe(7);
   });
 
   it("passes through the weaker model fallback when no command is declared", async () => {
@@ -82,7 +83,7 @@ describe("BuiltInValidation", () => {
       task: harness.task,
       node: harness.node,
       scope: "parent",
-      evidence: { summary: "implementation evidence", touchedFiles: ["src/example.ts"] },
+      evidence: evidence(harness.task.id, "implementation evidence", ["src/example.ts"]),
     });
     const report = requireValue(
       (await harness.store.load(harness.task.id)).validationReports[0],
@@ -93,8 +94,8 @@ describe("BuiltInValidation", () => {
     expect(result.reasons[0]).toContain("weaker than a command result");
     expect(harness.modelClient.inputs).toHaveLength(1);
     expect(harness.modelClient.inputs[0]?.request).toContain("Works as specified");
-    expect(report.evidence_strength).toBe("model_fallback");
-    expect(report.scope).toBe("parent");
+    expect(report.payload.evidence_strength).toBe("model_fallback");
+    expect(report.payload.scope).toBe("parent");
   });
 
   it("fails through the weaker model fallback when no command is declared", async () => {
@@ -106,7 +107,7 @@ describe("BuiltInValidation", () => {
       task: harness.task,
       node: harness.node,
       scope: "leaf",
-      evidence: { summary: "implementation evidence" },
+      evidence: evidence(harness.task.id, "implementation evidence"),
     });
     const report = requireValue(
       (await harness.store.load(harness.task.id)).validationReports[0],
@@ -115,8 +116,8 @@ describe("BuiltInValidation", () => {
 
     expect(result.status).toBe("fail");
     expect(result.reasons).toContain("missing required evidence");
-    expect(report.status).toBe("fail");
-    expect(report.details.kind).toBe("model_fallback");
+    expect(report.payload.status).toBe("fail");
+    expect(report.payload.details.kind).toBe("model_fallback");
   });
 
   it("fails parent-scope validation even when a child claims done", async () => {
@@ -124,7 +125,7 @@ describe("BuiltInValidation", () => {
     const childDone: ChildDone = {
       type: "done",
       nodeId: asNodeId("node-child"),
-      evidence: { summary: "child claims done" },
+      evidence: evidence(harness.task.id, "child claims done"),
     };
 
     const result = await harness.validation.validate({
@@ -139,8 +140,8 @@ describe("BuiltInValidation", () => {
     );
 
     expect(result.status).toBe("fail");
-    expect(report.scope).toBe("parent");
-    expect(report.evidence.summary).toBe("child claims done");
+    expect(report.payload.scope).toBe("parent");
+    expect(report.payload.evidence.summary).toBe("child claims done");
   });
 });
 
@@ -177,6 +178,14 @@ async function makeHarness(
     makeReportRef: (request) => `report-${request.task.id}-${request.scope}`,
   });
   return { task, node, store, validation, modelClient };
+}
+
+function evidence(taskId: ReturnType<typeof asTaskId>, summary: string, touchedFiles: readonly string[] = []) {
+  return makeExecutionEvidence({
+    taskId,
+    summary,
+    touchedFiles,
+  });
 }
 
 function commandTask(id: string, exitCode: number): WorkTask {

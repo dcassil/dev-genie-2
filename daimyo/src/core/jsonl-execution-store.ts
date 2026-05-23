@@ -3,7 +3,11 @@ import { access, mkdir, open, readFile, readdir, truncate } from "node:fs/promis
 import { join } from "node:path";
 import type {
   DecisionRecord,
+  DecisionRequest,
+  DecisionTier,
+  DecisionVerdict,
   ExecutionEvidence,
+  ArtifactReference,
   JsonObject,
   JsonValue,
   NodeId,
@@ -15,11 +19,16 @@ import type {
   ValidationReport,
   ValidationScope,
   ValidationStatus,
+  Producer,
 } from "./domain.js";
 import {
   asDecisionId,
   asNodeId,
   asTaskId,
+  makeDecisionRecord,
+  makeExecutionEvidence,
+  makeValidationReport,
+  validationReportRef,
 } from "./domain.js";
 import type {
   ExecutionCursor,
@@ -224,20 +233,22 @@ function projectEvents(
         break;
       }
       case "decision_recorded": {
-        decisions.set(event.record.id, event.record);
+        const decisionId = asDecisionId(event.record.payload.decision_id);
+        decisions.set(decisionId, event.record);
         const node = requireNode(nodes, event.nodeId, event.type);
-        const decisionRecordIds = node.decisionRecordIds.includes(event.record.id)
+        const decisionRecordIds = node.decisionRecordIds.includes(decisionId)
           ? node.decisionRecordIds
-          : [...node.decisionRecordIds, event.record.id];
+          : [...node.decisionRecordIds, decisionId];
         nodes.set(event.nodeId, { ...node, decisionRecordIds });
         break;
       }
       case "validation_report_recorded": {
-        validationReports.set(event.report.report_ref, event.report);
+        const reportRef = validationReportRef(event.report);
+        validationReports.set(reportRef, event.report);
         const node = requireNode(nodes, event.nodeId, event.type);
-        const validationReportRefs = node.validationReportRefs.includes(event.report.report_ref)
+        const validationReportRefs = node.validationReportRefs.includes(reportRef)
           ? node.validationReportRefs
-          : [...node.validationReportRefs, event.report.report_ref];
+          : [...node.validationReportRefs, reportRef];
         nodes.set(event.nodeId, { ...node, validationReportRefs });
         break;
       }
@@ -382,23 +393,28 @@ function readCursor(value: JsonObject): ExecutionCursor {
 }
 
 function readDecisionRecord(value: JsonObject): DecisionRecord {
-  return {
-    id: asDecisionId(readString(value, "id")),
-    request: readDecisionRequest(readObject(value, "request")),
-    verdict: readDecisionVerdict(readObject(value, "verdict")),
-    tier: readDecisionTier(value, "tier"),
-    rationale: readString(value, "rationale"),
-    createdAt: readString(value, "createdAt"),
-  };
+  const payload = readObject(value, "payload");
+  return makeDecisionRecord({
+    artifact_id: readString(value, "artifact_id"),
+    decision_id: asDecisionId(readString(payload, "decision_id")),
+    request: readDecisionRequest(readObject(payload, "request")),
+    verdict: readDecisionVerdict(readObject(payload, "verdict")),
+    tier: readDecisionTier(payload, "tier"),
+    rationale: readString(payload, "rationale"),
+    created_at: readString(value, "created_at"),
+    producer: readProducer(readObject(value, "producer")),
+    source_refs: readArtifactReferences(value, "source_refs"),
+    output_refs: readArtifactReferences(value, "output_refs"),
+  });
 }
 
-function readDecisionRequest(value: JsonObject): DecisionRecord["request"] {
+function readDecisionRequest(value: JsonObject): DecisionRequest {
   const options = readOptionalStringArray(value, "options");
   const context = readOptionalObject(value, "context");
   const base = {
-    id: asDecisionId(readString(value, "id")),
-    nodeId: asNodeId(readString(value, "nodeId")),
-    taskId: asTaskId(readString(value, "taskId")),
+    decision_id: asDecisionId(readString(value, "decision_id")),
+    node_id: asNodeId(readString(value, "node_id")),
+    task_id: asTaskId(readString(value, "task_id")),
     prompt: readString(value, "prompt"),
     ...(context === undefined ? {} : { context }),
   };
@@ -408,7 +424,7 @@ function readDecisionRequest(value: JsonObject): DecisionRecord["request"] {
     return {
       ...base,
       surface,
-      toolName: readString(value, "toolName"),
+      tool_name: readString(value, "tool_name"),
       arguments: readObject(value, "arguments"),
     };
   }
@@ -416,11 +432,11 @@ function readDecisionRequest(value: JsonObject): DecisionRecord["request"] {
   return {
     ...base,
     surface,
-    ...(options === undefined ? {} : { options }),
+    ...(options === undefined ? {} : { options: [...options] }),
   };
 }
 
-function readDecisionVerdict(value: JsonObject): DecisionRecord["verdict"] {
+function readDecisionVerdict(value: JsonObject): DecisionVerdict {
   return {
     type: readStringUnion(value, "type", ["decision", "access", "human"]),
     suggested_choice: readNullableString(value, "suggested_choice"),
@@ -432,29 +448,87 @@ function readDecisionVerdict(value: JsonObject): DecisionRecord["verdict"] {
 }
 
 function readValidationReport(value: JsonObject): ValidationReport {
-  return {
-    report_ref: readString(value, "report_ref"),
-    taskId: asTaskId(readString(value, "taskId")),
-    nodeId: asNodeId(readString(value, "nodeId")),
-    scope: readValidationScope(value, "scope"),
-    status: readValidationStatus(value, "status"),
-    reasons: readStringArray(value, "reasons"),
-    evidence_strength: readValidationEvidenceStrength(value, "evidence_strength"),
-    evidence: readEvidence(readObject(value, "evidence")),
-    details: readObject(value, "details"),
-    createdAt: readString(value, "createdAt"),
-  };
+  const payload = readObject(value, "payload");
+  return makeValidationReport({
+    artifact_id: readString(value, "artifact_id"),
+    report_ref: readString(payload, "report_ref"),
+    task_id: asTaskId(readString(payload, "task_id")),
+    node_id: asNodeId(readString(payload, "node_id")),
+    scope: readValidationScope(payload, "scope"),
+    status: readValidationStatus(payload, "status"),
+    reasons: readStringArray(payload, "reasons"),
+    evidence_strength: readValidationEvidenceStrength(payload, "evidence_strength"),
+    evidence: readEvidence(readObject(payload, "evidence")),
+    details: readObject(payload, "details"),
+    created_at: readString(value, "created_at"),
+    producer: readProducer(readObject(value, "producer")),
+    source_refs: readArtifactReferences(value, "source_refs"),
+    output_refs: readArtifactReferences(value, "output_refs"),
+  });
 }
 
 function readEvidence(value: JsonObject): ExecutionEvidence {
-  const artifacts = readOptionalStringArray(value, "artifacts");
-  const touchedFiles = readOptionalStringArray(value, "touchedFiles");
+  const touchReport = readObject(value, "touch_report");
   const reportRef = readOptionalString(value, "report_ref");
-  return {
+  const intendedFiles = readOptionalStringArray(value, "intended_files");
+  const intendedInterfaces = readOptionalStringArray(value, "intended_interfaces");
+  const intendedData = readOptionalStringArray(value, "intended_data");
+  return makeExecutionEvidence({
+    taskId: asTaskId(readString(touchReport, "task_id")),
     summary: readString(value, "summary"),
-    ...(artifacts === undefined ? {} : { artifacts }),
-    ...(touchedFiles === undefined ? {} : { touchedFiles }),
+    producedArtifactRefs: readArtifactReferences(value, "produced_artifact_refs"),
+    touchedFiles: readStringArray(touchReport, "touched_files"),
+    touchedInterfaces: readStringArray(touchReport, "touched_interfaces"),
+    touchedData: readStringArray(touchReport, "touched_data"),
+    touchedWorkflowSteps: readStringArray(touchReport, "touched_workflow_steps"),
+    ...(intendedFiles === undefined ? {} : { intendedFiles }),
+    ...(intendedInterfaces === undefined ? {} : { intendedInterfaces }),
+    ...(intendedData === undefined ? {} : { intendedData }),
     ...(reportRef === undefined ? {} : { report_ref: reportRef }),
+  });
+}
+
+function readProducer(value: JsonObject): Producer {
+  const version = readOptionalString(value, "version");
+  const invocationId = readOptionalString(value, "invocation_id");
+  return {
+    primitive: readStringUnion(value, "primitive", ["engine", "role", "loop", "adapter", "human"]),
+    name: readString(value, "name"),
+    ...(version === undefined ? {} : { version }),
+    ...(invocationId === undefined ? {} : { invocation_id: invocationId }),
+  };
+}
+
+function readArtifactReferences(source: JsonObject, key: string): readonly ArtifactReference[] {
+  const value = source[key];
+  if (!Array.isArray(value)) throw new Error(`Expected ${key} to be an artifact reference array`);
+  return value.map(readArtifactReference);
+}
+
+function readArtifactReference(value: JsonValue): ArtifactReference {
+  const object = readObjectValue(value, "artifact reference");
+  const artifactType = readOptionalString(object, "artifact_type");
+  const schemaVersion = readOptionalString(object, "schema_version");
+  const protocolVersion = readOptionalString(object, "protocol_version");
+  const uri = readOptionalString(object, "uri");
+  const relation = readOptionalArtifactRelation(object, "relation");
+  return {
+    ref_type: readStringUnion(object, "ref_type", [
+      "artifact",
+      "file",
+      "task",
+      "policy",
+      "command",
+      "config",
+      "url",
+      "external",
+    ]),
+    id: readString(object, "id"),
+    ...(artifactType === undefined ? {} : { artifact_type: artifactType }),
+    ...(schemaVersion === undefined ? {} : { schema_version: schemaVersion }),
+    ...(protocolVersion === undefined ? {} : { protocol_version: protocolVersion }),
+    ...(uri === undefined ? {} : { uri }),
+    ...(relation === undefined ? {} : { relation }),
   };
 }
 
@@ -528,7 +602,7 @@ function readScore(source: JsonObject, key: string): Score0To10 {
   throw new Error(`Expected ${key} to be a score from 0 to 10`);
 }
 
-function readDecisionTier(source: JsonObject, key: string): DecisionRecord["tier"] {
+function readDecisionTier(source: JsonObject, key: string): DecisionTier {
   const value = readNonNegativeInteger(source, key);
   if (value === 0 || value === 1 || value === 2 || value === 3) return value;
   throw new Error(`Expected ${key} to be a decision tier`);
@@ -587,6 +661,26 @@ function readStringUnion<const T extends readonly string[]>(
   const value = readString(source, key);
   if (isOneOf(value, allowed)) return value;
   throw new Error(`Unexpected ${key}: ${value}`);
+}
+
+function readOptionalArtifactRelation(
+  source: JsonObject,
+  key: string,
+): ArtifactReference["relation"] | undefined {
+  const value = source[key];
+  if (value === undefined) return undefined;
+  if (
+    value === "read" ||
+    value === "derived_from" ||
+    value === "validates" ||
+    value === "produces" ||
+    value === "supersedes" ||
+    value === "patches" ||
+    value === "blocks"
+  ) {
+    return value;
+  }
+  throw new Error(`Unexpected ${key}: ${String(value)}`);
 }
 
 function isOneOf<const T extends readonly string[]>(

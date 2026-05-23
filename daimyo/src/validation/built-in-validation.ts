@@ -7,6 +7,11 @@ import type {
   ValidationReport,
   ValidationStatus,
 } from "../core/domain.js";
+import {
+  makeArtifactReference,
+  makeExecutionEvidence,
+  makeValidationReport,
+} from "../core/domain.js";
 import type { ExecutionStore } from "../core/execution-store.js";
 import type {
   CapabilityTask,
@@ -114,7 +119,7 @@ export class BuiltInValidation implements Validation {
     const details: JsonObject = {
       kind: "command",
       command: command.command,
-      args: command.args ?? [],
+      args: [...(command.args ?? [])],
       cwd: command.cwd ?? null,
       timeoutMs: command.timeoutMs ?? null,
       exitCode: result.exitCode,
@@ -136,7 +141,7 @@ export class BuiltInValidation implements Validation {
           task: {
             id: request.task.id,
             title: request.task.title,
-            acceptanceCriteria: request.task.acceptanceCriteria,
+          acceptanceCriteria: [...request.task.acceptanceCriteria],
           },
           scope: request.scope,
           evidence: request.evidence,
@@ -166,18 +171,21 @@ export class BuiltInValidation implements Validation {
     details: JsonObject,
   ): Promise<ValidationResult> {
     const report_ref = this.makeReportRef(request);
-    const report: ValidationReport = {
+    const report = makeValidationReport({
       report_ref,
-      taskId: request.task.id,
-      nodeId: request.node.id,
+      task_id: request.task.id,
+      node_id: request.node.id,
       scope: request.scope,
       status,
-      reasons,
+      reasons: [...reasons],
       evidence_strength: evidenceStrength,
       evidence: request.evidence,
       details,
-      createdAt: this.now(),
-    };
+      created_at: this.now(),
+      producer: { primitive: "engine", name: "daimyo-built-in-validation" },
+      source_refs: [{ ref_type: "task", id: request.task.id, relation: "validates" }],
+      output_refs: [makeArtifactReference(report_ref, "produces")],
+    });
     const evidence = validationEvidence(request.node, report, request.evidence);
     await this.executionStore.recordValidationReport(request.task.id, request.node.id, report);
     await this.executionStore.appendEvidence(request.task.id, request.node.id, evidence);
@@ -190,14 +198,16 @@ function validationEvidence(
   report: ValidationReport,
   producedEvidence: ExecutionEvidence,
 ): ExecutionEvidence {
-  return {
-    summary: `${report.scope}-scope validation ${report.status} for node ${node.id}`,
-    artifacts: [report.report_ref],
-    ...(producedEvidence.touchedFiles === undefined
-      ? {}
-      : { touchedFiles: producedEvidence.touchedFiles }),
-    report_ref: report.report_ref,
-  };
+  return makeExecutionEvidence({
+    taskId: node.taskId,
+    summary: `${report.payload.scope}-scope validation ${report.payload.status} for node ${node.id}`,
+    producedArtifactRefs: [makeArtifactReference(report.payload.report_ref, "validates")],
+    touchedFiles: producedEvidence.touch_report.touched_files,
+    touchedInterfaces: producedEvidence.touch_report.touched_interfaces,
+    touchedData: producedEvidence.touch_report.touched_data,
+    touchedWorkflowSteps: producedEvidence.touch_report.touched_workflow_steps,
+    report_ref: report.payload.report_ref,
+  });
 }
 
 function readValidationCommand(task: CapabilityTask): DeclaredCommand | undefined {

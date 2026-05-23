@@ -19,6 +19,10 @@ import type {
 import {
   asDecisionId,
   asNodeId,
+  decisionRequestId,
+  decisionRequestNodeId,
+  decisionRequestTaskId,
+  makeDecisionRecord,
 } from "../core/index.js";
 import type {
   StructuredModelRequest,
@@ -108,7 +112,7 @@ export class AgentTransportTier2InvestigationHook implements Tier2InvestigationH
 
   async investigate(request: Tier2InvestigationRequest): Promise<DecisionVerdict> {
     const session = await this.agentTransport.spawnSession({
-      nodeId: asNodeId(`${request.request.nodeId}:tier2`),
+      nodeId: asNodeId(`${request.request.node_id}:tier2`),
       cwd: this.cwd,
       prompt: tier2InvestigationPrompt(request),
       metadata: {
@@ -214,18 +218,18 @@ export class TieredDecisionProvider implements DecisionProvider {
   }
 
   private evaluatePermissionTier0(request: PermissionDecisionRequest): ResolvedDecisionOutcome {
-    const rule = this.toolRule(request.toolName);
+    const rule = this.toolRule(request.tool_name);
     const policy = decisionPolicyContext(request, this.autonomyProfile);
 
     if (rule === "deny") {
       return {
         kind: "resolved",
         tier: 0,
-        rationale: `Tier 0 static deny rule matched tool ${request.toolName}`,
+        rationale: `Tier 0 static deny rule matched tool ${request.tool_name}`,
         verdict: {
           type: "access",
           suggested_choice: "deny",
-          suggested_response: `Denied ${request.toolName} by static rule.`,
+          suggested_response: `Denied ${request.tool_name} by static rule.`,
           confidence: 10,
           risk: 10,
           block_trigger: false,
@@ -238,8 +242,8 @@ export class TieredDecisionProvider implements DecisionProvider {
       suggested_choice: rule === "allow" || policy.level === "delegate" ? "allow" : "deny",
       suggested_response:
         rule === "allow" || policy.level === "delegate"
-          ? `Allowed ${request.toolName} by Tier 0 policy.`
-          : `Denied ${request.toolName} pending stronger policy.`,
+          ? `Allowed ${request.tool_name} by Tier 0 policy.`
+          : `Denied ${request.tool_name} pending stronger policy.`,
       confidence: rule === "allow" ? 9 : 6,
       risk: policy.declaredRisk,
       block_trigger: false,
@@ -250,7 +254,7 @@ export class TieredDecisionProvider implements DecisionProvider {
         kind: "resolved",
         tier: 0,
         verdict: provisional,
-        rationale: `Tier 0 denied unlisted tool ${request.toolName}`,
+        rationale: `Tier 0 denied unlisted tool ${request.tool_name}`,
       };
     }
 
@@ -259,7 +263,7 @@ export class TieredDecisionProvider implements DecisionProvider {
       return {
         kind: "resolved",
         tier: 3,
-        verdict: humanVerdict(`Permission for ${request.toolName} requires human review.`),
+        verdict: humanVerdict(`Permission for ${request.tool_name} requires human review.`),
         rationale: `Tier 3 policy escalation: ${threshold.reason}`,
       };
     }
@@ -268,7 +272,7 @@ export class TieredDecisionProvider implements DecisionProvider {
       kind: "resolved",
       tier: 0,
       verdict: provisional,
-      rationale: `Tier 0 ${rule === "allow" ? "static allow" : "delegated"} rule allowed tool ${request.toolName}`,
+      rationale: `Tier 0 ${rule === "allow" ? "static allow" : "delegated"} rule allowed tool ${request.tool_name}`,
     };
   }
 
@@ -347,14 +351,14 @@ export class TieredDecisionProvider implements DecisionProvider {
     const threshold = evaluateAutonomyThreshold(request, investigatedVerdict, this.autonomyProfile);
     if (threshold.action === "escalate") {
       if (investigatedVerdict !== verdict) {
-        await this.recordIntermediateDecision({
-          id: asDecisionId(`${request.id}:tier2`),
+        await this.recordIntermediateDecision(makeDecisionRecord({
+          decision_id: asDecisionId(`${request.decision_id}:tier2`),
           request,
           verdict: investigatedVerdict,
           tier: 2,
           rationale: `Tier 2 investigation completed but policy still escalated: ${threshold.reason}`,
-          createdAt: this.clock(),
-        });
+          created_at: this.clock(),
+        }));
       }
       return {
         kind: "resolved",
@@ -396,20 +400,20 @@ export class TieredDecisionProvider implements DecisionProvider {
     request: DecisionRequest,
     outcome: ResolvedDecisionOutcome,
   ): Promise<DecisionRecord> {
-    const record: DecisionRecord = {
-      id: request.id,
+    const record = makeDecisionRecord({
+      decision_id: decisionRequestId(request),
       request,
       verdict: outcome.verdict,
       tier: outcome.tier,
       rationale: outcome.rationale,
-      createdAt: this.clock(),
-    };
+      created_at: this.clock(),
+    });
 
     if (outcome.tier === 3) {
       await this.parkAwaitingHuman(request);
     }
 
-    await this.executionStore.recordDecision(request.taskId, request.nodeId, record);
+    await this.executionStore.recordDecision(decisionRequestTaskId(request), decisionRequestNodeId(request), record);
 
     if (outcome.tier === 3) {
       await this.notifier.notify(record);
@@ -419,14 +423,20 @@ export class TieredDecisionProvider implements DecisionProvider {
   }
 
   private async recordIntermediateDecision(record: DecisionRecord): Promise<void> {
-    await this.executionStore.recordDecision(record.request.taskId, record.request.nodeId, record);
+    await this.executionStore.recordDecision(
+      decisionRequestTaskId(record.payload.request),
+      decisionRequestNodeId(record.payload.request),
+      record,
+    );
   }
 
   private async parkAwaitingHuman(request: DecisionRequest): Promise<void> {
-    const snapshot = await this.executionStore.load(request.taskId);
-    const node = snapshot.nodes.find((candidate) => candidate.id === request.nodeId);
+    const taskId = decisionRequestTaskId(request);
+    const nodeId = decisionRequestNodeId(request);
+    const snapshot = await this.executionStore.load(taskId);
+    const node = snapshot.nodes.find((candidate) => candidate.id === nodeId);
     if (node === undefined) {
-      throw new Error(`Cannot park unknown node awaiting human: ${request.nodeId}`);
+      throw new Error(`Cannot park unknown node awaiting human: ${request.node_id}`);
     }
 
     const input: ExecutionNodeInput = {
@@ -438,7 +448,7 @@ export class TieredDecisionProvider implements DecisionProvider {
       ...(node.parentId === undefined ? {} : { parentId: node.parentId }),
       ...(node.session === undefined ? {} : { session: node.session }),
     };
-    await this.executionStore.upsertNode(request.taskId, input);
+    await this.executionStore.upsertNode(taskId, input);
   }
 
   private toolRule(toolName: string): "allow" | "deny" | "none" {
@@ -474,9 +484,9 @@ export class TieredDecisionProvider implements DecisionProvider {
 
   private tier1Request(request: RoutingDecisionRequest): JsonObject {
     return {
-      id: request.id,
-      nodeId: request.nodeId,
-      taskId: request.taskId,
+      decision_id: request.decision_id,
+      node_id: request.node_id,
+      task_id: request.task_id,
       surface: request.surface,
       prompt: request.prompt,
       ...(request.options === undefined ? {} : { options: [...request.options] }),

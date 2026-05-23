@@ -18,11 +18,11 @@ export class ConsoleHumanDecisionNotifier implements HumanDecisionNotifier {
   async notify(record: DecisionRecord): Promise<void> {
     this.write(
       [
-        `Daimyo awaiting human decision ${record.id}`,
-        `node=${record.request.nodeId}`,
-        `task=${record.request.taskId}`,
-        `tier=${record.tier}`,
-        `reason=${record.rationale}`,
+        `Daimyo awaiting human decision ${record.payload.decision_id}`,
+        `node=${record.payload.request.node_id}`,
+        `task=${record.payload.request.task_id}`,
+        `tier=${record.payload.tier}`,
+        `reason=${record.payload.rationale}`,
         "",
       ].join("\n"),
     );
