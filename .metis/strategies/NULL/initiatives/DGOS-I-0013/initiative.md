@@ -4,14 +4,14 @@ level: initiative
 title: "Protocol Proof MVP"
 short_code: "DGOS-I-0013"
 created_at: 2026-05-21T17:47:46.081919+00:00
-updated_at: 2026-05-23T22:55:23.805926+00:00
+updated_at: 2026-05-23T23:30:16.281213+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#initiative"
-  - "#phase/decompose"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -97,3 +97,13 @@ Success evidence required (unchanged): the Role consumes bounded context; the ty
 | [[DGOS-T-0023]] | E2E proof harness + validation gate + dogfood run | T-0021, T-0022 | opus + medium |
 
 **Critical path:** T-0021 → T-0022 → T-0023 (sequential). T-0022 is the keystone (the direct Role-runner seam I-0010 later generalizes).
+
+## Outcome (2026-05-23)
+
+**Completed — thesis deterministically proven; live dogfood deferred as an environment follow-up (decision-maker accepted).**
+
+The proof validates the architectural thesis: `Story → typed RoleInvocation → ArchitectRoleRunner → typed RoleResult + ArchitectureImpact → structured ValidationReport`, reusing daimyo's structured-model-call engine + Validation built-in and the protocol schemas — with **no recursive supervisor** (the proof's non-goal). The validation gate judges via a structured `ValidationReport` (schema-valid + acceptance check), not prose. 7 deterministic tests (good→pass, bad-intent→fail, schema-invalid→fail) cover the wiring + gate.
+
+**Caveat / follow-up:** the live model dogfood did not run — the direct structured-model-call client found no credential (`ANTHROPIC_AUTH_TOKEN`/`ANTHROPIC_BASE_URL` empty in spawned shells; the T-0001 spike worked only because the Agent SDK resolves Claude Code's own session). The model is known reachable, so this is an environment gap, not a design gap. To close it fully later: provide a real `ANTHROPIC_API_KEY` and run `PROTOCOL_PROOF_LIVE_SDK_TESTS=1 npm run dogfood:live` in `protocol-proof/` (the opt-in script, PROOF.md, and evidence stub are in place). Of the four success-evidence points, (1)–(3) are met deterministically; (4) "useful enough to dogfood" awaits the live run.
+
+Also noted as minor debt: `protocol-proof/src/types/daimyo.d.ts` hand-declares `StructuredModelCallError` rather than consuming daimyo's exported type (DGOS-T-0022) — tidy up if daimyo's type exports are tightened.
