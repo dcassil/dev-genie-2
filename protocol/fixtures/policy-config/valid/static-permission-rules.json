@@ -1,0 +1,31 @@
+{
+  "autonomy_profile": {
+    "engineering": "big_questions_only",
+    "product": "delegate",
+    "design": "always_in_loop"
+  },
+  "product_baseline_approved": true,
+  "static_rules": [
+    {
+      "id": "deny-dangerous-bash",
+      "effect": "deny",
+      "match": {
+        "tool_name": "Bash",
+        "arguments_contains": {
+          "command": {
+            "contains": "rm -rf"
+          }
+        },
+        "altitude": "task"
+      }
+    },
+    {
+      "id": "allow-mcp-readonly",
+      "effect": "allow",
+      "match": {
+        "tool_name": "mcp__*",
+        "ownership_scope_prefix": "workflow:admin-settings:"
+      }
+    }
+  ]
+}

@@ -5,5 +5,5 @@
     "design": "always_in_loop"
   },
   "product_baseline_approved": false,
-  "static_rules": {}
+  "static_rules": []
 }

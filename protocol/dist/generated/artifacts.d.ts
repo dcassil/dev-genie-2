@@ -837,7 +837,23 @@ export interface PlanTaskOrdering {
  */
 export type PolicyAutonomyLevel = "always_in_loop" | "big_questions_only" | "delegate";
 /**
- * Governance configuration consumed by the Decision Policy Engine. The static_rules member is intentionally permissive until DGOS-T-0039 finalizes detailed rule shape.
+ * Ordered static allow/deny rule set for the permission surface. Array rules are evaluated in declared order, first match wins. Rule ids must be unique within a config and are reported as matched rule refs. Legacy placeholder objects remain accepted for additive compatibility during the policy-config v1 line.
+ *
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "staticRules".
+ */
+export type PolicyStaticRules = PolicyStaticRule[] | {
+    [k: string]: unknown;
+};
+/**
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "stringContainsPredicate".
+ */
+export type PolicyStringContainsPredicate = string | {
+    contains: string;
+};
+/**
+ * Governance configuration consumed by the Decision Policy Engine.
  */
 export interface PolicyConfig {
     autonomy_profile: PolicyAutonomyProfile;
@@ -857,13 +873,43 @@ export interface PolicyAutonomyProfile {
     design: PolicyAutonomyLevel;
 }
 /**
- * Reserved container for structured static allow/deny rules. DGOS-T-0039 narrows this shape.
- *
  * This interface was referenced by `PolicyConfig`'s JSON-Schema
- * via the `definition` "staticRules".
+ * via the `definition` "staticRule".
  */
-export interface PolicyStaticRules {
-    [k: string]: unknown;
+export interface PolicyStaticRule {
+    /**
+     * Unique rule identifier used as the matched_rule_ref when this rule settles a permission decision.
+     */
+    id: string;
+    /**
+     * Static permission effect applied when the rule matches.
+     */
+    effect: "allow" | "deny";
+    match: PolicyStaticRuleMatch;
+}
+/**
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "staticRuleMatch".
+ */
+export interface PolicyStaticRuleMatch {
+    /**
+     * Tool name matcher. Supports exact names and bounded '*' globs such as Bash or mcp__*.
+     */
+    tool_name: string;
+    /**
+     * Optional top-level argument predicates. Every listed argument key must exist as a string and contain the configured substring.
+     */
+    arguments_contains?: {
+        [k: string]: PolicyStringContainsPredicate;
+    };
+    /**
+     * Optional prefix matched against request.context.ownership_scope entries.
+     */
+    ownership_scope_prefix?: string;
+    /**
+     * Optional exact altitude match against request.context.altitude.
+     */
+    altitude?: string;
 }
 /**
  * Deterministic Decision Policy Engine output. This is the ADR-1 Engine verdict returned by evaluate(input), distinct from daimyo's DecisionVerdict wire payload.

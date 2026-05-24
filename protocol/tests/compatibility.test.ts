@@ -77,6 +77,17 @@ describe("schema compatibility classifier", () => {
     expect(classifySchemaChange(baseObjectSchema, current).kind).toBe("breaking");
   });
 
+  it("classifies type widening as backward-compatible", () => {
+    const current: JsonObject = {
+      ...baseObjectSchema,
+      properties: {
+        id: { type: ["string", "number"] },
+      },
+    };
+
+    expect(classifySchemaChange(baseObjectSchema, current).kind).toBe("backward-compatible");
+  });
+
   it("classifies ambiguous pattern changes as breaking", () => {
     const previous: JsonObject = {
       ...baseObjectSchema,

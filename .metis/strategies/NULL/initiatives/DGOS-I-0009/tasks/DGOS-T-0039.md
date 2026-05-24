@@ -4,14 +4,14 @@ level: task
 title: "Structured static allow/deny rule evaluator for the permission surface"
 short_code: "DGOS-T-0039"
 created_at: 2026-05-24T19:02:46.626022+00:00
-updated_at: 2026-05-24T19:02:46.626022+00:00
+updated_at: 2026-05-24T19:40:06.109049+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement a deterministic rule evaluator in `engines/src/decision-policy/` that, given a permission-surface `PolicyDecisionInput` (a protocol permission `DecisionRequest`: `tool_name` + `arguments` + ownership/altitude context) and the loaded `static_rules` from `PolicyConfig`, returns a `RuleMatch` (`{ effect: "allow" | "deny" | "no_match"; matched_rule_ref: string | null; rationale: string }`). Rules match on more than a bare tool name — tool name (with glob), argument predicates, ownership surface, and altitude — finalizing the `static_rules` shape reserved in `policy-config.schema.json` by DGOS-T-0037. No model call, no I/O.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -63,4 +67,5 @@ Implement a deterministic rule evaluator in `engines/src/decision-policy/` that,
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-24: Implemented structured permission static rules in `engines/src/decision-policy/static-rules.ts`; finalized `policy-config` static rule schema with additive legacy-object compatibility; regenerated protocol bindings/build output; added unit coverage for exact/glob/argument/ownership/altitude/order/no-match/daimyo parity; verified `engines` typecheck/lint/test/build and protocol test/codegen/compatibility gates.
+- 2026-05-24 (orchestrator verification): re-ran engines (25 tests) + protocol (76 tests, check:codegen clean, check:compatibility passed — 15 schemas, 1 changed = additive policy-config extension) — all green. Pure synchronous allow/deny evaluator over `PolicyConfig.static_rules` (exact/glob/argument/ownership/altitude matching, ordered precedence, no-match fall-through, matched_rule_refs for observability); no model/IO. protocol `policy-config` schema finalized (placeholder → real rule shape; schema 1.0.0→1.1.0), protocol 0.4.0→0.5.0; engines 0.2.0→0.3.0. No escape hatches. **exit_criteria_met: true.** Completed.

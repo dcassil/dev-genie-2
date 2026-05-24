@@ -50,11 +50,15 @@ describe("protocol schema loader", () => {
         design: "always_in_loop",
       },
       product_baseline_approved: false,
-      static_rules: {
-        reserved: {
-          rule_refs: ["static-rule:placeholder"],
+      static_rules: [
+        {
+          id: "allow-read",
+          effect: "allow",
+          match: {
+            tool_name: "Read",
+          },
         },
-      },
+      ],
     };
     const invalidConfig = {
       ...config,

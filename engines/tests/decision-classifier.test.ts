@@ -12,7 +12,7 @@ import {
 const config: PolicyGovernanceConfig = {
   autonomy_profile: DEFAULT_AUTONOMY_PROFILE,
   product_baseline_approved: true,
-  static_rules: {},
+  static_rules: [],
 };
 
 describe("classifyDecision", () => {

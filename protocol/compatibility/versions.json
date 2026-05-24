@@ -1,5 +1,5 @@
 {
-  "protocol_version": "1.3.0",
+  "protocol_version": "1.4.0",
   "schemas": {
     "architecture-impact": {
       "schema_version": "1.0.0",
@@ -34,7 +34,7 @@
       "version_scope": "schema"
     },
     "policy-config": {
-      "schema_version": "1.0.0",
+      "schema_version": "1.1.0",
       "version_scope": "schema"
     },
     "policy-verdict": {

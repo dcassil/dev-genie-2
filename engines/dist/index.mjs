@@ -7385,7 +7385,7 @@ function isOneOf(value, options) {
 }
 
 // src/decision-policy/engine.ts
-var DECISION_POLICY_ENGINE_VERSION = "0.2.0";
+var DECISION_POLICY_ENGINE_VERSION = "0.3.0";
 var DecisionPolicyEngine = class {
   evaluate(input) {
     return scaffoldFallbackVerdict(input);
@@ -7403,6 +7403,119 @@ function scaffoldFallbackVerdict(input) {
     rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators. ${classification.rationale}`,
     matched_rule_refs: [],
     engine_version: DECISION_POLICY_ENGINE_VERSION
+  };
+}
+
+// src/decision-policy/static-rules.ts
+function evaluateStaticRules(input, staticRules) {
+  if (input.request.surface !== "permission") {
+    return noMatch(`Static rules apply only to the permission surface, not ${input.request.surface}.`);
+  }
+  if (!Array.isArray(staticRules)) {
+    return noMatch("Static rules config is a legacy placeholder object with no ordered permission rules.");
+  }
+  for (const rule of staticRules) {
+    if (permissionRuleMatches(input.request, rule)) {
+      return {
+        effect: rule.effect,
+        matched_rule_ref: rule.id,
+        matched_rule_refs: [rule.id],
+        rationale: `Static ${rule.effect} rule ${rule.id} matched permission tool ${input.request.tool_name}. Rules are first-match-wins.`
+      };
+    }
+  }
+  return noMatch(`No static permission rule matched tool ${input.request.tool_name}.`);
+}
+function fromDaimyoStaticRules(allowTools = [], denyTools = []) {
+  return [
+    ...denyTools.map((toolName, index) => daimyoRule("deny", toolName, index)),
+    ...allowTools.map((toolName, index) => daimyoRule("allow", toolName, index))
+  ];
+}
+function permissionRuleMatches(request, rule) {
+  return toolNameMatches(rule.match.tool_name, request.tool_name) && argumentsContain(request.arguments, rule.match.arguments_contains) && ownershipScopeMatches(request.context, rule.match.ownership_scope_prefix) && altitudeMatches(request.context, rule.match.altitude);
+}
+function toolNameMatches(pattern, toolName) {
+  if (!pattern.includes("*")) {
+    return pattern === toolName;
+  }
+  const segments = pattern.split("*");
+  let searchIndex = 0;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment === void 0 || segment.length === 0) {
+      continue;
+    }
+    if (index === 0 && !pattern.startsWith("*")) {
+      if (!toolName.startsWith(segment)) return false;
+      searchIndex = segment.length;
+      continue;
+    }
+    const foundIndex = toolName.indexOf(segment, searchIndex);
+    if (foundIndex === -1) {
+      return false;
+    }
+    searchIndex = foundIndex + segment.length;
+  }
+  const finalSegment = segments[segments.length - 1];
+  if (!pattern.endsWith("*") && finalSegment !== void 0 && finalSegment.length > 0) {
+    return toolName.endsWith(finalSegment);
+  }
+  return true;
+}
+function argumentsContain(args, predicates) {
+  if (predicates === void 0) {
+    return true;
+  }
+  return Object.entries(predicates).every(([key, predicate]) => argumentContains(args[key], predicate));
+}
+function argumentContains(value, predicate) {
+  return typeof value === "string" && value.includes(containsText(predicate));
+}
+function containsText(predicate) {
+  if (typeof predicate === "string") {
+    return predicate;
+  }
+  return predicate.contains;
+}
+function ownershipScopeMatches(context, prefix) {
+  if (prefix === void 0) {
+    return true;
+  }
+  return readStringArray2(context, "ownership_scope").some((surface) => surface.startsWith(prefix));
+}
+function altitudeMatches(context, altitude) {
+  if (altitude === void 0) {
+    return true;
+  }
+  return readString2(context, "altitude") === altitude;
+}
+function readString2(context, key) {
+  const value = context?.[key];
+  return typeof value === "string" ? value : void 0;
+}
+function readStringArray2(context, key) {
+  const value = context?.[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry) => typeof entry === "string");
+}
+function daimyoRule(effect, toolName, index) {
+  return {
+    id: `daimyo:${effect}:${index}:${toolName}`,
+    effect,
+    match: {
+      tool_name: toolName
+    }
+  };
+}
+function noMatch(rationale) {
+  return {
+    effect: "no_match",
+    matched_rule_ref: null,
+    matched_rule_refs: [],
+    rationale
   };
 }
 
@@ -75821,7 +75934,7 @@ import { fileURLToPath as fileURLToPath3 } from "node:url";
 var require3 = createRequire3(import.meta.url);
 var addFormats3 = require3("ajv-formats").default;
 var loadedSchemas3 = loadProtocolSchemas3();
-var ajv3 = new import__3.Ajv2020({ allErrors: true, strict: true });
+var ajv3 = new import__3.Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
 addFormats3(ajv3);
 for (const loadedSchema of loadedSchemas3) {
   ajv3.addSchema(loadedSchema.schema);
@@ -75924,6 +76037,8 @@ export {
   DecisionPolicyEngine,
   classifyDecision,
   evaluateAutonomyThreshold,
+  evaluateStaticRules,
+  fromDaimyoStaticRules,
   isPolicyConfig,
   isPolicyVerdict,
   policyConfigJsonSchema,

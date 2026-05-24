@@ -7,6 +7,10 @@ export {
   DEFAULT_SCOPE_CLASSIFICATION_RULES,
   classifyDecision,
 } from "./classifier.js";
+export {
+  evaluateStaticRules,
+  fromDaimyoStaticRules,
+} from "./static-rules.js";
 export type {
   Engine,
   PolicyDecisionInput,
@@ -17,6 +21,10 @@ export type {
   DomainClassificationRule,
   ScopeClassificationRule,
 } from "./classifier.js";
+export type {
+  RuleMatch,
+  StaticRuleEffect,
+} from "./static-rules.js";
 export type {
   AutonomyDomain,
   AutonomyLevel,
@@ -30,6 +38,11 @@ export {
 } from "daimyo";
 export type {
   DecisionRequestPayload,
+  JsonObject,
   PolicyConfig,
+  PolicyStaticRule,
+  PolicyStaticRuleMatch,
+  PolicyStaticRules,
+  PolicyStringContainsPredicate,
   PolicyVerdict,
 } from "protocol";

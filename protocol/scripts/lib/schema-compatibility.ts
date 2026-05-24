@@ -221,7 +221,7 @@ function compareNode(path: string, previous: JsonValue | undefined, current: Jso
   }
 
   compareSimpleKeyword(path, "$ref", previous, current, changes);
-  compareSimpleKeyword(path, "type", previous, current, changes);
+  compareTypeKeyword(path, previous, current, changes);
   compareSimpleKeyword(path, "const", previous, current, changes);
   compareSimpleKeyword(path, "format", previous, current, changes);
   compareSimpleKeyword(path, "pattern", previous, current, changes);
@@ -251,6 +251,46 @@ function compareSimpleKeyword(
   if (!semanticEqual(previousValue, currentValue)) {
     changes.push({ kind: "breaking", path: `${path}/${keyword}`, reason: `${keyword} changed` });
   }
+}
+
+function compareTypeKeyword(
+  path: string,
+  previous: JsonObject,
+  current: JsonObject,
+  changes: SchemaChange[],
+): void {
+  const previousValue = previous.type;
+  const currentValue = current.type;
+  if (semanticEqual(previousValue, currentValue)) {
+    return;
+  }
+
+  const previousTypes = schemaTypes(previousValue);
+  const currentTypes = schemaTypes(currentValue);
+  if (previousTypes.length === 0 && currentTypes.length > 0) {
+    changes.push({ kind: "breaking", path: `${path}/type`, reason: "type was added" });
+    return;
+  }
+  if (previousTypes.length > 0 && currentTypes.length === 0) {
+    changes.push({ kind: "backward-compatible", path: `${path}/type`, reason: "type constraint was removed" });
+    return;
+  }
+  if (previousTypes.every((type) => currentTypes.includes(type))) {
+    changes.push({ kind: "backward-compatible", path: `${path}/type`, reason: "type constraint was widened" });
+    return;
+  }
+
+  changes.push({ kind: "breaking", path: `${path}/type`, reason: "type changed" });
+}
+
+function schemaTypes(value: JsonValue | undefined): readonly string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === "string");
+  }
+  return [];
 }
 
 function compareEnum(path: string, previous: JsonObject, current: JsonObject, changes: SchemaChange[]): void {

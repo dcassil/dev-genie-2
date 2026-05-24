@@ -9,7 +9,7 @@ import { displayPath, listSchemaFiles, readSchemaFile } from "./lib/paths.js";
 const require = createRequire(import.meta.url);
 const addFormats: FormatsPlugin = require("ajv-formats").default;
 const draft202012 = "https://json-schema.org/draft/2020-12/schema";
-const ajv = new Ajv2020({ allErrors: true, strict: true });
+const ajv = new Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
 addFormats(ajv);
 
 const schemaFiles = listSchemaFiles();

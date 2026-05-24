@@ -3,7 +3,7 @@ import type { DecisionRequestPayload, PolicyConfig, PolicyVerdict } from "protoc
 
 import { classifyDecision } from "./classifier.js";
 
-export const DECISION_POLICY_ENGINE_VERSION = "0.2.0";
+export const DECISION_POLICY_ENGINE_VERSION = "0.3.0";
 
 export type PolicyGovernanceConfig = Omit<PolicyConfig, "autonomy_profile"> & {
   readonly autonomy_profile: AutonomyProfile;

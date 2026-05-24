@@ -18,7 +18,7 @@ import {
 
 const require = createRequire(import.meta.url);
 const addFormats: FormatsPlugin = require("ajv-formats").default;
-const ajv = new Ajv2020({ allErrors: true, strict: true });
+const ajv = new Ajv2020({ allErrors: true, strict: true, allowUnionTypes: true });
 addFormats(ajv);
 
 const schemas = listSchemaFiles().map((schemaFile) => ({

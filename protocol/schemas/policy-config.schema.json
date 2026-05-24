@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://dev-genie.local/protocol/schemas/policy-config.schema.json",
   "title": "PolicyConfig",
-  "description": "Governance configuration consumed by the Decision Policy Engine. The static_rules member is intentionally permissive until DGOS-T-0039 finalizes detailed rule shape.",
+  "description": "Governance configuration consumed by the Decision Policy Engine.",
   "$comment": "PolicyConfig is standalone governance input, not an envelope artifact. Protocol wire fields use snake_case.",
   "type": "object",
   "additionalProperties": false,
@@ -48,9 +48,87 @@
     },
     "staticRules": {
       "title": "PolicyStaticRules",
-      "type": "object",
-      "description": "Reserved container for structured static allow/deny rules. DGOS-T-0039 narrows this shape.",
+      "type": ["array", "object"],
+      "description": "Ordered static allow/deny rule set for the permission surface. Array rules are evaluated in declared order, first match wins. Rule ids must be unique within a config and are reported as matched rule refs. Legacy placeholder objects remain accepted for additive compatibility during the policy-config v1 line.",
+      "items": {
+        "$ref": "#/$defs/staticRule"
+      },
       "additionalProperties": true
+    },
+    "staticRule": {
+      "title": "PolicyStaticRule",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "effect", "match"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique rule identifier used as the matched_rule_ref when this rule settles a permission decision.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "effect": {
+          "type": "string",
+          "description": "Static permission effect applied when the rule matches.",
+          "enum": ["allow", "deny"]
+        },
+        "match": {
+          "$ref": "#/$defs/staticRuleMatch"
+        }
+      }
+    },
+    "staticRuleMatch": {
+      "title": "PolicyStaticRuleMatch",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool_name"],
+      "properties": {
+        "tool_name": {
+          "type": "string",
+          "description": "Tool name matcher. Supports exact names and bounded '*' globs such as Bash or mcp__*.",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "arguments_contains": {
+          "type": "object",
+          "description": "Optional top-level argument predicates. Every listed argument key must exist as a string and contain the configured substring.",
+          "additionalProperties": {
+            "$ref": "#/$defs/stringContainsPredicate"
+          }
+        },
+        "ownership_scope_prefix": {
+          "type": "string",
+          "description": "Optional prefix matched against request.context.ownership_scope entries.",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "altitude": {
+          "type": "string",
+          "description": "Optional exact altitude match against request.context.altitude.",
+          "minLength": 1,
+          "maxLength": 80
+        }
+      }
+    },
+    "stringContainsPredicate": {
+      "title": "PolicyStringContainsPredicate",
+      "oneOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["contains"],
+          "properties": {
+            "contains": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
     }
   }
 }
