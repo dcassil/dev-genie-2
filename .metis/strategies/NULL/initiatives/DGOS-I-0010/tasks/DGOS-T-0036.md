@@ -4,14 +4,14 @@ level: task
 title: "End-to-end Roles harness and registry extensibility proof"
 short_code: "DGOS-T-0036"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:42:16.355675+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -31,12 +31,16 @@ Build an end-to-end harness in `roles/` that drives all three v1 Roles (Architec
 
 ## Acceptance Criteria
 
-- [ ] An e2e harness (`roles/src/harness/roles-harness.ts`, generalizing `protocol-proof/src/harness/proof-harness.ts`) builds a valid `RoleInvocation` for each v1 Role and runs it through the registry-resolved shared `RoleRunner`, asserting each produces a schema-valid `RoleResult` plus its produced artifact (`ArchitectureImpact` / `PlanProposal` / `ReviewJudgment`), all validated against the protocol schemas.
-- [ ] A test registers a fourth, minimal "extension" `RoleDefinition` (representing a deferred roster Role such as Designer) and invokes it through the **unchanged** shared runner, asserting `produced`/`skipped`/`needs_human` behavior — proving the registry is open for extension without runner edits. (This may use a stub output schema; it must go through the real registry + runner path.)
-- [ ] The harness covers the autonomy-signal surface: at least one Role result with `human_review_required: true` is produced and shown to be routable (a test that feeds it into daimyo's `evaluateAutonomyThreshold`, or an equivalent assertion if kept within `roles/`, to demonstrate the signals are consumable — without reimplementing the policy).
-- [ ] A `roles/ROLES-PROOF.md` (or `README.md` evidence section) records: which flows are proven in deterministic coverage (fake `StructuredModelCaller`), whether any live model run was attempted, and an honest verdict — explicitly NOT claiming live success if only deterministic coverage exists (matching `protocol-proof/PROOF.md`'s honesty standard).
-- [ ] If credentials are available, an opt-in live dogfood path (gated by an env flag like protocol-proof's `PROTOCOL_PROOF_LIVE_SDK_TESTS`) runs at least one Role live and captures the artifact under `roles/evidence/`; if unavailable, the harness records the credential-preflight outcome rather than failing dishonestly.
-- [ ] `roles/` (and `daimyo` if the autonomy assertion crosses into it) `npm run typecheck`/`lint`/`test`/`build` clean; no rule disabled; no escape hatches; `roles` version bumped.
+## Acceptance Criteria
+
+## Acceptance Criteria
+
+- [x] An e2e harness (`roles/src/harness/roles-harness.ts`, generalizing `protocol-proof/src/harness/proof-harness.ts`) builds a valid `RoleInvocation` for each v1 Role and runs it through the registry-resolved shared `RoleRunner`, asserting each produces a schema-valid `RoleResult` plus its produced artifact (`ArchitectureImpact` / `PlanProposal` / `ReviewJudgment`), all validated against the protocol schemas.
+- [x] A test registers a fourth, minimal "extension" `RoleDefinition` (representing a deferred roster Role such as Designer) and invokes it through the **unchanged** shared runner, asserting `produced`/`skipped`/`needs_human` behavior — proving the registry is open for extension without runner edits. (This may use a stub output schema; it must go through the real registry + runner path.)
+- [x] The harness covers the autonomy-signal surface: at least one Role result with `human_review_required: true` is produced and shown to be routable (a test that feeds it into daimyo's `evaluateAutonomyThreshold`, or an equivalent assertion if kept within `roles/`, to demonstrate the signals are consumable — without reimplementing the policy).
+- [x] A `roles/ROLES-PROOF.md` (or `README.md` evidence section) records: which flows are proven in deterministic coverage (fake `StructuredModelCaller`), whether any live model run was attempted, and an honest verdict — explicitly NOT claiming live success if only deterministic coverage exists (matching `protocol-proof/PROOF.md`'s honesty standard).
+- [x] If credentials are available, an opt-in live dogfood path (gated by an env flag like protocol-proof's `PROTOCOL_PROOF_LIVE_SDK_TESTS`) runs at least one Role live and captures the artifact under `roles/evidence/`; if unavailable, the harness records the credential-preflight outcome rather than failing dishonestly.
+- [x] `roles/` (and `daimyo` if the autonomy assertion crosses into it) `npm run typecheck`/`lint`/`test`/`build` clean; no rule disabled; no escape hatches; `roles` version bumped.
 
 ## Implementation Notes
 
@@ -65,3 +69,6 @@ Build an end-to-end harness in `roles/` that drives all three v1 Roles (Architec
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24: Implemented `roles/src/harness/roles-harness.ts` with deterministic shared-runner coverage for Architect, Planner, and Quality Governor. Added `roles/tests/roles-harness.test.ts` for v1 RoleResult/artifact schema validation, Designer-style registry extension (`produced`/`skipped`/`needs_human`), and daimyo `evaluateAutonomyThreshold` consumption of RoleResult review signals. Added `roles/ROLES-PROOF.md` plus `roles/evidence/dogfood/run-summary.json`; live dogfood was skipped honestly because `ROLES_LIVE_SDK_TESTS` was not set and `ANTHROPIC_API_KEY` was absent. Bumped `roles` to `0.6.0`.
+- 2026-05-24 (orchestrator verification): re-ran roles typecheck/lint/test/build — green (32 tests). **Extensibility proof passes:** a `dev-genie.designer-role@1.0.0` registered ONLY inside the test runs produced/skipped/needs_human through the real `RoleRegistry` + **unchanged** `RoleRunner`/assembler — confirming "add a Role = register a definition." Harness exercises all three v1 Roles e2e with schema-valid RoleResults; a test routes Role-emitted review signals through daimyo's `evaluateAutonomyThreshold`. Live dogfood opt-in (`ROLES_LIVE_SDK_TESTS=1`) — honestly skipped (no creds), `ROLES-PROOF.md` + evidence stub in place (same credential follow-up as protocol-proof). roles 0.5.0 → 0.6.0. **Incidental daimyo/dist re-bundle churn from the roles bump was reverted** — T-0036 is roles-scoped; daimyo source unchanged. No escape hatches. **exit_criteria_met: true.** Completed.

@@ -1,6 +1,6 @@
 {
   "name": "roles",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "main": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -15,6 +15,7 @@
   },
   "scripts": {
     "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.mjs && esbuild src/cli/role-invoke.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/role-invoke.mjs && tsc -p tsconfig.build.json",
+    "dogfood:live": "npm run build && esbuild src/dogfood/live-dogfood.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/live-dogfood.mjs && node dist/live-dogfood.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0"

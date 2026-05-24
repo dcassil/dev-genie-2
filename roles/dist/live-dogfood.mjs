@@ -7138,9 +7138,9 @@ var require__2 = __commonJS({
   }
 });
 
-// src/cli/role-invoke.ts
-import { readFile, writeFile } from "node:fs/promises";
-import { resolve as resolve3 } from "node:path";
+// src/dogfood/live-dogfood.ts
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve as resolve3 } from "node:path";
 
 // ../daimyo/dist/index.mjs
 import { createRequire as d_ } from "node:module";
@@ -50439,6 +50439,113 @@ var ARCHITECT_ROLE_PROMPT2 = {
   ].join(" ")
 };
 
+// src/prompts/planner-role.ts
+var PLANNER_ROLE_ID2 = "dev-genie.planner-role";
+var PLANNER_ROLE_VERSION2 = "1.0.0";
+var PLANNER_ROLE_PROMPT_REF2 = `${PLANNER_ROLE_ID2}@${PLANNER_ROLE_VERSION2}`;
+var PLANNER_ROLE_PROMPT2 = {
+  id: PLANNER_ROLE_ID2,
+  version: PLANNER_ROLE_VERSION2,
+  ref: PLANNER_ROLE_PROMPT_REF2,
+  text: [
+    "You are Dev-Genie's bounded Planner Role for engineering planning.",
+    "Given exactly {context, rules, request}, produce one PlanProposal JSON artifact.",
+    "Use only the supplied goal or initiative artifact references, bounded context refs, decision scope objective, constraints, and expected output contract.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Represent proposed execution work only inside PlanProposal.payload.tasks, in dependency order when possible.",
+    "Represent decisions the caller must route inside PlanProposal.payload.decision_requests; do not resolve those decisions autonomously.",
+    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope and payload."
+  ].join(" ")
+};
+
+// src/prompts/quality-governor-role.ts
+var QUALITY_GOVERNOR_ROLE_ID2 = "dev-genie.quality-governor-role";
+var QUALITY_GOVERNOR_ROLE_VERSION2 = "1.0.0";
+var QUALITY_GOVERNOR_ROLE_PROMPT_REF2 = `${QUALITY_GOVERNOR_ROLE_ID2}@${QUALITY_GOVERNOR_ROLE_VERSION2}`;
+var QUALITY_GOVERNOR_ROLE_PROMPT2 = {
+  id: QUALITY_GOVERNOR_ROLE_ID2,
+  version: QUALITY_GOVERNOR_ROLE_VERSION2,
+  ref: QUALITY_GOVERNOR_ROLE_PROMPT_REF2,
+  text: [
+    "You are Dev-Genie's bounded Quality Governor Role for engineering review.",
+    "Given exactly {context, rules, request}, produce one ReviewJudgment JSON artifact.",
+    "Judge the supplied target artifact against the supplied acceptance criteria and bounded review context.",
+    "Use verdict pass only when every criterion is satisfied with enough evidence.",
+    "Use verdict fail when one or more criteria are not satisfied, and populate completion_decision.blocking_reason_codes and payload.blocking_reason_codes with stable machine-readable reason codes.",
+    "Use verdict needs_human when you cannot confidently judge because required context, evidence, authority, or policy is missing.",
+    "When you use needs_human, set envelope review_required.required, payload.review_required.required, and payload.human_review_required to true and include missing_context entries.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state."
+  ].join(" ")
+};
+
+// src/registry/role-registry.ts
+var RoleRegistry = class {
+  definitionsByRoleId = /* @__PURE__ */ new Map();
+  register(definition) {
+    const definitionsByVersion = this.definitionsByRoleId.get(definition.role_id) ?? /* @__PURE__ */ new Map();
+    if (definitionsByVersion.has(definition.role_version)) {
+      throw new Error(
+        `Role ${definition.role_id}@${definition.role_version} is already registered`
+      );
+    }
+    definitionsByVersion.set(definition.role_version, definition);
+    this.definitionsByRoleId.set(definition.role_id, definitionsByVersion);
+    return this;
+  }
+  resolve(roleId, roleVersion) {
+    const definitionsByVersion = this.definitionsByRoleId.get(roleId);
+    if (definitionsByVersion === void 0) {
+      return {
+        kind: "miss",
+        reason: {
+          code: "role:not_registered",
+          category: "not_applicable",
+          details: {
+            requested_role_id: roleId
+          }
+        }
+      };
+    }
+    if (roleVersion === void 0) {
+      const firstDefinition = firstRegisteredDefinition(definitionsByVersion);
+      if (firstDefinition !== void 0) {
+        return { kind: "hit", definition: firstDefinition };
+      }
+    }
+    const definition = roleVersion === void 0 ? void 0 : definitionsByVersion.get(roleVersion);
+    if (definition !== void 0) {
+      return { kind: "hit", definition };
+    }
+    return {
+      kind: "miss",
+      reason: {
+        code: "role:unsupported_version",
+        category: "policy",
+        details: {
+          requested_role_id: roleId,
+          requested_role_version: roleVersion ?? "",
+          supported_role_versions: [...definitionsByVersion.keys()]
+        }
+      }
+    };
+  }
+  list() {
+    const definitions = [];
+    for (const definitionsByVersion of this.definitionsByRoleId.values()) {
+      definitions.push(...definitionsByVersion.values());
+    }
+    return definitions;
+  }
+};
+function firstRegisteredDefinition(definitionsByVersion) {
+  for (const definition of definitionsByVersion.values()) {
+    return definition;
+  }
+  return void 0;
+}
+
 // src/schemas/protocol-schemas.ts
 var import__2 = __toESM(require__2(), 1);
 import { existsSync as existsSync4, readFileSync as readFileSync4, readdirSync as readdirSync4 } from "node:fs";
@@ -51045,72 +51152,6 @@ function invocationRoleIdentity(invocation) {
   };
 }
 
-// src/registry/role-registry.ts
-var RoleRegistry = class {
-  definitionsByRoleId = /* @__PURE__ */ new Map();
-  register(definition) {
-    const definitionsByVersion = this.definitionsByRoleId.get(definition.role_id) ?? /* @__PURE__ */ new Map();
-    if (definitionsByVersion.has(definition.role_version)) {
-      throw new Error(
-        `Role ${definition.role_id}@${definition.role_version} is already registered`
-      );
-    }
-    definitionsByVersion.set(definition.role_version, definition);
-    this.definitionsByRoleId.set(definition.role_id, definitionsByVersion);
-    return this;
-  }
-  resolve(roleId, roleVersion) {
-    const definitionsByVersion = this.definitionsByRoleId.get(roleId);
-    if (definitionsByVersion === void 0) {
-      return {
-        kind: "miss",
-        reason: {
-          code: "role:not_registered",
-          category: "not_applicable",
-          details: {
-            requested_role_id: roleId
-          }
-        }
-      };
-    }
-    if (roleVersion === void 0) {
-      const firstDefinition = firstRegisteredDefinition(definitionsByVersion);
-      if (firstDefinition !== void 0) {
-        return { kind: "hit", definition: firstDefinition };
-      }
-    }
-    const definition = roleVersion === void 0 ? void 0 : definitionsByVersion.get(roleVersion);
-    if (definition !== void 0) {
-      return { kind: "hit", definition };
-    }
-    return {
-      kind: "miss",
-      reason: {
-        code: "role:unsupported_version",
-        category: "policy",
-        details: {
-          requested_role_id: roleId,
-          requested_role_version: roleVersion ?? "",
-          supported_role_versions: [...definitionsByVersion.keys()]
-        }
-      }
-    };
-  }
-  list() {
-    const definitions = [];
-    for (const definitionsByVersion of this.definitionsByRoleId.values()) {
-      definitions.push(...definitionsByVersion.values());
-    }
-    return definitions;
-  }
-};
-function firstRegisteredDefinition(definitionsByVersion) {
-  for (const definition of definitionsByVersion.values()) {
-    return definition;
-  }
-  return void 0;
-}
-
 // src/roles/architect.ts
 var ARCHITECTURE_IMPACT_SCHEMA_VERSION = "1.0.0";
 var SUPPORTED_OPERATIONS = ["assess_architecture_impact", "architecture_impact"];
@@ -51174,26 +51215,6 @@ function normalizeArchitectureImpact(modelImpact, invocation, createdAt, definit
     ]
   };
 }
-
-// src/prompts/planner-role.ts
-var PLANNER_ROLE_ID2 = "dev-genie.planner-role";
-var PLANNER_ROLE_VERSION2 = "1.0.0";
-var PLANNER_ROLE_PROMPT_REF2 = `${PLANNER_ROLE_ID2}@${PLANNER_ROLE_VERSION2}`;
-var PLANNER_ROLE_PROMPT2 = {
-  id: PLANNER_ROLE_ID2,
-  version: PLANNER_ROLE_VERSION2,
-  ref: PLANNER_ROLE_PROMPT_REF2,
-  text: [
-    "You are Dev-Genie's bounded Planner Role for engineering planning.",
-    "Given exactly {context, rules, request}, produce one PlanProposal JSON artifact.",
-    "Use only the supplied goal or initiative artifact references, bounded context refs, decision scope objective, constraints, and expected output contract.",
-    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state.",
-    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
-    "Represent proposed execution work only inside PlanProposal.payload.tasks, in dependency order when possible.",
-    "Represent decisions the caller must route inside PlanProposal.payload.decision_requests; do not resolve those decisions autonomously.",
-    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope and payload."
-  ].join(" ")
-};
 
 // src/roles/planner.ts
 var PLAN_PROPOSAL_SCHEMA_VERSION = "1.0.0";
@@ -51262,27 +51283,6 @@ function normalizePlanProposal(modelProposal, invocation, createdAt, definition)
     ]
   };
 }
-
-// src/prompts/quality-governor-role.ts
-var QUALITY_GOVERNOR_ROLE_ID2 = "dev-genie.quality-governor-role";
-var QUALITY_GOVERNOR_ROLE_VERSION2 = "1.0.0";
-var QUALITY_GOVERNOR_ROLE_PROMPT_REF2 = `${QUALITY_GOVERNOR_ROLE_ID2}@${QUALITY_GOVERNOR_ROLE_VERSION2}`;
-var QUALITY_GOVERNOR_ROLE_PROMPT2 = {
-  id: QUALITY_GOVERNOR_ROLE_ID2,
-  version: QUALITY_GOVERNOR_ROLE_VERSION2,
-  ref: QUALITY_GOVERNOR_ROLE_PROMPT_REF2,
-  text: [
-    "You are Dev-Genie's bounded Quality Governor Role for engineering review.",
-    "Given exactly {context, rules, request}, produce one ReviewJudgment JSON artifact.",
-    "Judge the supplied target artifact against the supplied acceptance criteria and bounded review context.",
-    "Use verdict pass only when every criterion is satisfied with enough evidence.",
-    "Use verdict fail when one or more criteria are not satisfied, and populate completion_decision.blocking_reason_codes and payload.blocking_reason_codes with stable machine-readable reason codes.",
-    "Use verdict needs_human when you cannot confidently judge because required context, evidence, authority, or policy is missing.",
-    "When you use needs_human, set envelope review_required.required, payload.review_required.required, and payload.human_review_required to true and include missing_context entries.",
-    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
-    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state."
-  ].join(" ")
-};
 
 // src/roles/quality-governor.ts
 var REVIEW_JUDGMENT_SCHEMA_VERSION = "1.0.0";
@@ -51377,336 +51377,615 @@ function isString(value) {
   return typeof value === "string";
 }
 
-// src/cli/role-invoke.ts
-var ROLE_INVOKE_EXIT_CODES = {
-  ok: 0,
-  invalidInput: 2,
-  blocked: 10,
-  needsHuman: 11,
-  failed: 12,
-  usage: 64,
-  ioError: 66
-};
-var ERROR_ENVELOPE_SCHEMA_VERSION = "1.0.0";
-var DEFAULT_MODEL = "claude-sonnet-4-5";
-var CliUsageError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "CliUsageError";
+// src/harness/roles-harness.ts
+var ROLE_INVOCATION_SCHEMA_VERSION = "1.0.0";
+var PROTOCOL_VERSION = "1.2.0";
+var HARNESS_CREATED_AT = "2026-05-24T00:40:00.000Z";
+var DeterministicRolesHarnessModelClient = class _DeterministicRolesHarnessModelClient {
+  constructor(responsesByOutputName) {
+    this.responsesByOutputName = responsesByOutputName;
+  }
+  responsesByOutputName;
+  outputNames = [];
+  static forCases(cases) {
+    return new _DeterministicRolesHarnessModelClient(
+      new Map(cases.map((harnessCase) => [harnessCase.definition.output.name, harnessCase.modelArtifact]))
+    );
+  }
+  async call(request) {
+    this.outputNames.push(request.output.name);
+    const response = this.responsesByOutputName.get(request.output.name);
+    if (response === void 0) {
+      throw new Error(`No deterministic Roles harness response for ${request.output.name}`);
+    }
+    return request.output.parse(response);
   }
 };
-var CliInputError = class extends Error {
-  constructor(code, entries) {
-    super(code);
-    this.code = code;
-    this.entries = entries;
-    this.name = "CliInputError";
-  }
-  code;
-  entries;
-};
-var CliIoError = class extends Error {
-  constructor(code, message) {
-    super(message);
-    this.code = code;
-    this.name = "CliIoError";
-  }
-  code;
-};
-async function runCli(argv, deps = {}) {
-  const now = deps.now ?? (() => /* @__PURE__ */ new Date());
-  const stderr = deps.writeStderr ?? defaultWriteStderr;
-  let command;
-  try {
-    command = parseArgv(argv);
-  } catch (error) {
-    await stderr(`${errorMessage2(error)}
-`);
-    return ROLE_INVOKE_EXIT_CODES.usage;
-  }
-  try {
-    const invocationText = await readInput(command.inputPath, deps);
-    const invocationJson = parseJson2(invocationText, "role_invocation_json");
-    if (!isRoleInvocation(invocationJson)) {
-      throw new CliInputError(
-        "role_invocation_schema_invalid",
-        roleInvocationValidationErrors().map((message) => ({
-          code: "schema:role_invocation_invalid",
-          details: { message }
-        }))
+async function runRolesHarness(options = {}) {
+  const cases = options.cases ?? createRegisteredV1RoleHarnessCases();
+  const registry = options.registry ?? createV1RoleRegistry();
+  const modelClient = options.modelClient ?? DeterministicRolesHarnessModelClient.forCases(cases);
+  const now = options.now ?? (() => new Date(HARNESS_CREATED_AT));
+  const producedArtifacts = [];
+  const runner = new RoleRunner({
+    registry,
+    modelClient,
+    now,
+    artifactSink: (artifact) => {
+      producedArtifacts.push(artifact);
+    }
+  });
+  const flows = [];
+  for (const harnessCase of cases) {
+    assertValidInvocation(harnessCase.invocation, harnessCase.case_name);
+    const artifactStart = producedArtifacts.length;
+    const roleResult = await runner.run(harnessCase.invocation, harnessCase.roleContext);
+    assertValidRoleResult(roleResult, harnessCase.case_name);
+    if (roleResult.payload.status !== "produced") {
+      throw new Error(
+        `${harnessCase.case_name} expected status=produced but got ${roleResult.payload.status}`
       );
     }
-    if (invocationJson.payload.role_id !== command.roleId) {
-      throw new CliInputError("role_id_mismatch", [
-        {
-          code: "role:argv_input_mismatch",
-          details: {
-            argv_role_id: command.roleId,
-            invocation_role_id: invocationJson.payload.role_id
-          }
-        }
-      ]);
+    const producedArtifact = producedArtifacts[artifactStart];
+    if (producedArtifact === void 0) {
+      throw new Error(`${harnessCase.case_name} did not emit a produced artifact`);
     }
-    const roleContext = await readRoleContext(command.contextPath, deps);
-    const runner = new RoleRunner({
-      registry: deps.registry ?? createDefaultRoleRegistry(),
-      modelClient: deps.modelClient ?? createDefaultModelClient(deps),
-      now
+    assertProducedArtifact(harnessCase, roleResult, producedArtifact);
+    flows.push({
+      case_name: harnessCase.case_name,
+      invocation: harnessCase.invocation,
+      roleResult,
+      producedArtifact
     });
-    const result = await runner.run(invocationJson, roleContext);
-    await writeOutput(command.outputPath, stableJson(result), deps);
-    return exitCodeForRoleResult(result);
-  } catch (error) {
-    const failure = errorEnvelopeFor(error, now());
-    try {
-      await writeOutput(command.outputPath, stableJson(failure), deps);
-    } catch (writeError) {
-      await stderr(`${errorMessage2(writeError)}
-`);
-      return ROLE_INVOKE_EXIT_CODES.ioError;
-    }
-    await stderr(`${failure.code}
-`);
-    if (error instanceof CliInputError) {
-      return ROLE_INVOKE_EXIT_CODES.invalidInput;
-    }
-    if (error instanceof CliIoError) {
-      return ROLE_INVOKE_EXIT_CODES.ioError;
-    }
-    return ROLE_INVOKE_EXIT_CODES.failed;
   }
+  return { flows };
 }
-function createDefaultRoleRegistry() {
+async function runRoleHarnessCase(harnessCase, options = {}) {
+  const result = await runRolesHarness({
+    cases: [harnessCase],
+    registry: options.registry ?? new RoleRegistry().register(harnessCase.definition),
+    ...options.modelClient === void 0 ? {} : { modelClient: options.modelClient },
+    ...options.now === void 0 ? {} : { now: options.now }
+  });
+  const flow = result.flows[0];
+  if (flow === void 0) {
+    throw new Error(`${harnessCase.case_name} did not produce a harness flow`);
+  }
+  return flow;
+}
+function createV1RoleRegistry() {
   return new RoleRegistry().register(architectRoleDefinition).register(plannerRoleDefinition).register(qualityGovernorRoleDefinition);
 }
-function exitCodeForRoleResult(result) {
-  switch (result.payload.status) {
-    case "produced":
-    case "skipped":
-      return ROLE_INVOKE_EXIT_CODES.ok;
-    case "blocked":
-      return ROLE_INVOKE_EXIT_CODES.blocked;
-    case "needs_human":
-      return ROLE_INVOKE_EXIT_CODES.needsHuman;
-  }
-}
-function parseArgv(argv) {
-  const args = [...argv];
-  const command = args.shift();
-  if (command === "role") {
-    const nestedCommand = args.shift();
-    if (nestedCommand !== "invoke") {
-      throw new CliUsageError(usage());
-    }
-  } else if (command !== "invoke") {
-    throw new CliUsageError(usage());
-  }
-  const roleId = args.shift();
-  if (roleId === void 0 || roleId.startsWith("--")) {
-    throw new CliUsageError(usage());
-  }
-  let inputPath;
-  let outputPath;
-  let contextPath;
-  while (args.length > 0) {
-    const flag = args.shift();
-    const value = args.shift();
-    if (flag === void 0 || value === void 0 || value.startsWith("--")) {
-      throw new CliUsageError(usage());
-    }
-    if (flag === "--input") {
-      inputPath = value;
-    } else if (flag === "--output") {
-      outputPath = value;
-    } else if (flag === "--context") {
-      contextPath = value;
-    } else {
-      throw new CliUsageError(usage());
-    }
-  }
-  if (inputPath === void 0 || outputPath === void 0) {
-    throw new CliUsageError(usage());
-  }
-  return {
-    roleId,
-    inputPath,
-    outputPath,
-    ...contextPath === void 0 ? {} : { contextPath }
-  };
-}
-function usage() {
-  return "Usage: roles invoke <role-id> --input <RoleInvocation.json|-> --output <RoleResult.json|-> [--context <Context.json>]";
-}
-async function readInput(path, deps) {
-  if (path === "-") {
-    const readStdin = deps.readStdin ?? defaultReadStdin;
-    return readStdin();
-  }
-  return readText(path, deps);
-}
-async function readRoleContext(contextPath, deps) {
-  if (contextPath === void 0) {
-    return {};
-  }
-  const contextJson = parseJson2(await readText(contextPath, deps), "role_context_json");
-  if (!isJsonObject3(contextJson)) {
-    throw new CliInputError("role_context_not_object", [
-      {
-        code: "schema:role_context_not_object"
-      }
-    ]);
-  }
-  return roleContextFromJson(contextJson);
-}
-async function readText(path, deps) {
-  const reader = deps.readText ?? defaultReadText;
-  try {
-    return await reader(resolvePath(path, deps));
-  } catch (error) {
-    throw new CliIoError("input_read_failed", errorMessage2(error));
-  }
-}
-async function writeOutput(path, content, deps) {
-  if (path === "-") {
-    const writeStdout = deps.writeStdout ?? defaultWriteStdout;
-    await writeStdout(content);
-    return;
-  }
-  const writer = deps.writeText ?? defaultWriteText;
-  await writer(resolvePath(path, deps), content);
-}
-function resolvePath(path, deps) {
-  if (path.startsWith("/")) {
-    return path;
-  }
-  return resolve3(deps.cwd ?? process.cwd(), path);
-}
-function roleContextFromJson(value) {
-  const story = objectProperty(value, "story");
-  const context = objectProperty(value, "context") ?? value;
-  return {
-    ...story === void 0 ? {} : { story },
-    context
-  };
-}
-function objectProperty(value, key) {
-  const candidate = value[key];
-  if (candidate !== void 0 && isJsonObject3(candidate)) {
-    return candidate;
-  }
-  return void 0;
-}
-function createDefaultModelClient(deps) {
-  const env = deps.env ?? process.env;
-  const envName = env.ROLES_ANTHROPIC_API_KEY_ENV ?? "ANTHROPIC_API_KEY";
-  const apiKey = env[envName];
-  if (apiKey === void 0 || apiKey.length === 0) {
-    return new UnavailableStructuredModelClient(envName);
-  }
-  const endpoint = env.ROLES_MODEL_ENDPOINT ?? env.DAIMYO_MODEL_ENDPOINT;
-  return new AnthropicStructuredModelClient({
-    apiKey,
-    model: env.ROLES_MODEL ?? env.DAIMYO_MODEL ?? DEFAULT_MODEL,
-    ...endpoint === void 0 ? {} : { endpoint }
-  });
-}
-var UnavailableStructuredModelClient = class {
-  constructor(envName) {
-    this.envName = envName;
-  }
-  envName;
-  async call() {
-    throw new StructuredModelUnavailableError(this.envName);
-  }
-};
-function parseJson2(text, label) {
-  try {
-    const parsed = JSON.parse(text);
-    return parsed;
-  } catch (error) {
-    throw new CliInputError(`${label}_invalid`, [
-      {
-        code: "json:parse_failed",
-        details: { message: errorMessage2(error) }
-      }
-    ]);
-  }
-}
-function errorEnvelopeFor(error, createdAt) {
-  if (error instanceof CliInputError) {
-    return {
-      artifact_type: "RoleInvokeError",
-      schema_version: ERROR_ENVELOPE_SCHEMA_VERSION,
-      created_at: createdAt.toISOString(),
-      status: "failed",
-      code: error.code,
-      errors: error.entries
-    };
-  }
-  if (error instanceof CliIoError) {
-    return {
-      artifact_type: "RoleInvokeError",
-      schema_version: ERROR_ENVELOPE_SCHEMA_VERSION,
-      created_at: createdAt.toISOString(),
-      status: "failed",
-      code: error.code,
-      errors: [
-        {
-          code: "io:read_failed",
-          details: { message: error.message }
+function createRegisteredV1RoleHarnessCases() {
+  return [
+    {
+      case_name: "architect-architecture-impact",
+      definition: architectRoleDefinition,
+      invocation: createHarnessRoleInvocation({
+        invocationId: "roles-harness-architect-001",
+        roleId: ARCHITECT_ROLE_ID2,
+        roleVersion: ARCHITECT_ROLE_VERSION2,
+        operation: "assess_architecture_impact",
+        scopeType: "task",
+        scopeId: "DGOS-T-0036",
+        objective: "Assess the architecture impact of the generalized Roles e2e harness.",
+        constraints: ["roles:shared_runner", "roles:schema_valid_artifact"],
+        inputArtifact: artifactReference(
+          "task:DGOS-T-0036",
+          "Task",
+          "read"
+        ),
+        contextBundleId: "context:roles-harness-architect",
+        expectedArtifactType: "ArchitectureImpact"
+      }),
+      roleContext: {
+        story: {
+          title: "End-to-end Roles harness",
+          body: "Prove the v1 Architect Role through the shared registry-resolved runner."
+        },
+        context: {
+          package: "roles",
+          runner: "RoleRunner",
+          registry: "RoleRegistry"
         }
-      ]
-    };
-  }
-  return {
-    artifact_type: "RoleInvokeError",
-    schema_version: ERROR_ENVELOPE_SCHEMA_VERSION,
-    created_at: createdAt.toISOString(),
-    status: "failed",
-    code: "role_invoke_failed",
-    errors: [
+      },
+      modelArtifact: architectureImpactArtifact("roles-harness-architect-001")
+    },
+    {
+      case_name: "planner-plan-proposal",
+      definition: plannerRoleDefinition,
+      invocation: createHarnessRoleInvocation({
+        invocationId: "roles-harness-planner-001",
+        roleId: PLANNER_ROLE_ID2,
+        roleVersion: PLANNER_ROLE_VERSION2,
+        operation: "propose_plan",
+        scopeType: "initiative",
+        scopeId: "DGOS-I-0010",
+        objective: "Plan the final evidence steps for closing Role Contracts & Autonomy.",
+        constraints: ["roles:deterministic_harness", "roles:no_runner_edits"],
+        inputArtifact: artifactReference(
+          "initiative:DGOS-I-0010",
+          "Initiative",
+          "read"
+        ),
+        contextBundleId: "context:roles-harness-planner",
+        expectedArtifactType: "PlanProposal"
+      }),
+      roleContext: {
+        context: {
+          initiative: {
+            id: "DGOS-I-0010",
+            title: "Role Contracts & Autonomy"
+          },
+          goal: {
+            objective: "Close the Roles layer capstone with deterministic proof."
+          }
+        }
+      },
+      modelArtifact: planProposalArtifact("roles-harness-planner-001")
+    },
+    {
+      case_name: "quality-governor-review-judgment",
+      definition: qualityGovernorRoleDefinition,
+      invocation: createHarnessRoleInvocation({
+        invocationId: "roles-harness-quality-governor-001",
+        roleId: QUALITY_GOVERNOR_ROLE_ID2,
+        roleVersion: QUALITY_GOVERNOR_ROLE_VERSION2,
+        operation: "review_artifact",
+        scopeType: "review",
+        scopeId: "review:roles-harness-proof",
+        objective: "Review whether the Roles harness evidence is sufficient to close the initiative.",
+        constraints: ["roles:human_review_signal", "roles:consumable_autonomy_signal"],
+        inputArtifact: artifactReference(
+          "artifact:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "PlanProposal",
+          "validates"
+        ),
+        contextBundleId: "context:roles-harness-quality-governor",
+        expectedArtifactType: "ReviewJudgment"
+      }),
+      roleContext: {
+        context: {
+          target_artifact: {
+            artifact_type: "PlanProposal",
+            artifact_id: "artifact:sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          },
+          acceptance_criteria: [
+            "The harness validates RoleResult envelopes.",
+            "The produced artifact validates against its protocol schema."
+          ],
+          review_context: {
+            evidence: "deterministic fake StructuredModelCaller"
+          }
+        }
+      },
+      modelArtifact: reviewJudgmentArtifact("roles-harness-quality-governor-001")
+    }
+  ];
+}
+function createHarnessRoleInvocation(args) {
+  const inputArtifacts = [args.inputArtifact];
+  const contextBundleRefs = [
+    artifactReference(args.contextBundleId, "ContextBundle", "read")
+  ];
+  const payload = {
+    invocation_id: args.invocationId,
+    role_id: args.roleId,
+    role_version: args.roleVersion,
+    operation: args.operation,
+    decision_scope: {
+      scope_type: args.scopeType,
+      scope_id: args.scopeId,
+      objective: args.objective,
+      constraints: [...args.constraints]
+    },
+    input_artifacts: inputArtifacts,
+    context_bundle_refs: contextBundleRefs,
+    policy_decision_refs: [],
+    budget: {
+      max_input_tokens: 8e3,
+      max_output_tokens: 4e3
+    },
+    model_tier_policy: {
+      allowed_tiers: ["standard", "frontier"],
+      preferred_tier: "frontier",
+      fallback_allowed: true
+    },
+    timeout_ms: 6e4,
+    allowed_engines: [],
+    allowed_tools: [],
+    expected_output_artifacts: [
       {
-        code: "cli:unhandled_failure",
-        details: { message: errorMessage2(error) }
+        artifact_type: args.expectedArtifactType,
+        schema_version: "1.0.0",
+        required: true,
+        relation: "produces"
+      }
+    ],
+    trace: {
+      destination: {
+        ref_type: "file",
+        id: `roles/evidence/harness/${args.invocationId}.jsonl`,
+        relation: "produces"
+      },
+      trace_id: `trace-${args.invocationId}`
+    }
+  };
+  return {
+    artifact_id: artifactIdFor("RoleInvocation", HARNESS_CREATED_AT, payload),
+    artifact_type: "RoleInvocation",
+    schema_version: ROLE_INVOCATION_SCHEMA_VERSION,
+    protocol_version: PROTOCOL_VERSION,
+    producer: {
+      primitive: "loop",
+      name: "roles-harness",
+      invocation_id: args.invocationId
+    },
+    created_at: HARNESS_CREATED_AT,
+    source_refs: inputArtifacts,
+    output_refs: [],
+    ownership: emptyOwnership(),
+    confidence: {
+      score: 1,
+      level: "high",
+      reason_codes: ["roles:harness_fixture"]
+    },
+    review_required: {
+      required: false,
+      reason_codes: []
+    },
+    diagnostics: {
+      status: "produced",
+      warnings: [],
+      errors: [],
+      missing_context: []
+    },
+    payload
+  };
+}
+function architectureImpactArtifact(invocationId) {
+  const payload = {
+    summary: {
+      impact_level: "medium",
+      primary_change: "add_new_surface",
+      affected_primitive: "role",
+      reason_codes: ["roles:e2e_harness"]
+    },
+    affected_surfaces: ownershipJson(["file:roles/src/harness/roles-harness.ts"]),
+    owned_surfaces: ownershipJson(),
+    proposed_changes: [
+      {
+        change_id: "add_roles_harness",
+        change_type: "add",
+        component: {
+          name: "RolesHarness",
+          kind: "test"
+        },
+        target_surfaces: ownershipJson(),
+        rationale_codes: ["roles:registry_resolved_runner"]
+      }
+    ],
+    risks: [
+      {
+        risk_id: "fake_live_confusion",
+        category: "validation",
+        severity: "low",
+        affected_surfaces: ownershipJson(["file:roles/ROLES-PROOF.md"]),
+        mitigation_codes: ["proof:separate_deterministic_from_live"]
+      }
+    ],
+    tradeoffs: [
+      {
+        tradeoff_id: "deterministic_client",
+        chosen_option: "fake StructuredModelCaller for repeatable contract coverage",
+        rejected_options: ["live-only proof"],
+        reason_codes: ["proof:repeatable_schema_gate"]
+      }
+    ],
+    decisions: [
+      {
+        decision_id: "shared_runner_path",
+        status: "accepted",
+        decision: "Drive registered v1 Roles through one RoleRunner and RoleRegistry.",
+        applies_to_surfaces: ownershipJson(),
+        reason_codes: ["adr:role_invocation_convention"]
+      }
+    ],
+    assumptions: [
+      {
+        assumption_id: "schemas_source_of_truth",
+        subject: "Protocol schemas remain the source of truth for produced Role artifacts.",
+        confidence: "high",
+        validation_needed: false
       }
     ]
   };
+  return artifactEnvelope("ArchitectureImpact", invocationId, payload, {
+    confidence: {
+      score: 0.91,
+      level: "high",
+      reason_codes: ["roles:deterministic_fixture"]
+    },
+    reviewRequired: {
+      required: false,
+      reason_codes: []
+    },
+    diagnosticsMissingContext: [],
+    ownership: ownershipJson()
+  });
 }
-function stableJson(value) {
-  return `${JSON.stringify(value, null, 2)}
-`;
+function planProposalArtifact(invocationId) {
+  const confidence = {
+    score: 0.86,
+    level: "high",
+    reason_codes: ["planner:bounded_context"]
+  };
+  const reviewRequired = {
+    required: false,
+    reason_codes: []
+  };
+  const payload = {
+    planning_goal: "Plan the final evidence steps for closing Role Contracts & Autonomy.",
+    tasks: [
+      {
+        task_ref: "roles-proof",
+        title: "Capture Roles proof evidence",
+        body: "Record deterministic v1 Role coverage and the live dogfood preflight result.",
+        acceptance_criteria: [
+          "ROLES-PROOF separates deterministic coverage from live coverage.",
+          "The harness covers all registered v1 Roles through the shared runner."
+        ],
+        depends_on: [],
+        ordering: {
+          priority: 0
+        },
+        metadata: {
+          package: "roles",
+          artifact_type: "PlanProposal"
+        }
+      }
+    ],
+    decision_requests: [],
+    confidence,
+    missing_context: [],
+    review_required: reviewRequired,
+    reason_codes: ["planner:evidence_plan"]
+  };
+  return artifactEnvelope("PlanProposal", invocationId, payload, {
+    confidence,
+    reviewRequired,
+    diagnosticsMissingContext: [],
+    ownership: ownershipJson(["interface:roles-planning"])
+  });
 }
-function isJsonObject3(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+function reviewJudgmentArtifact(invocationId) {
+  const missingContext = [
+    {
+      code: "context:live_model_evidence_not_available",
+      ref_type: "config",
+      id: "ROLES_LIVE_SDK_TESTS"
+    }
+  ];
+  const reviewSubjectRef = artifactReference(
+    "artifact:sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "PlanProposal",
+    "validates"
+  );
+  const reviewSubject = artifactReferenceJson(reviewSubjectRef);
+  const confidence = {
+    score: 0.64,
+    level: "medium",
+    reason_codes: ["review:deterministic_only"]
+  };
+  const reviewRequired = {
+    required: true,
+    reason_codes: ["review:live_evidence_missing"]
+  };
+  const payload = {
+    review_subject: reviewSubject,
+    verdict: "needs_human",
+    criteria: [
+      {
+        criterion_id: "live_evidence",
+        criterion: "Live model success must not be claimed unless a live artifact exists.",
+        status: "needs_human",
+        findings: [
+          "Deterministic contract coverage is sufficient for schema proof but not for a live-success claim."
+        ],
+        blocking_reason_codes: ["context:live_model_evidence_not_available"],
+        evidence_refs: [reviewSubject],
+        confidence: {
+          score: 0.64,
+          level: "medium",
+          reason_codes: ["review:deterministic_only"]
+        }
+      }
+    ],
+    completion_decision: {
+      can_mark_complete: false,
+      authority: "parent_authoritative",
+      blocking_reason_codes: ["context:live_model_evidence_not_available"]
+    },
+    blocking_reason_codes: ["context:live_model_evidence_not_available"],
+    confidence,
+    missing_context: missingContext,
+    review_required: reviewRequired,
+    human_review_required: true,
+    reason_codes: ["review:needs_human"]
+  };
+  return artifactEnvelope("ReviewJudgment", invocationId, payload, {
+    confidence,
+    reviewRequired,
+    diagnosticsMissingContext: missingContext,
+    ownership: ownershipJson(["interface:quality-governor-review"])
+  });
+}
+function artifactEnvelope(artifactType, invocationId, payload, options) {
+  return {
+    artifact_id: artifactIdFor(artifactType, HARNESS_CREATED_AT, payload),
+    artifact_type: artifactType,
+    schema_version: "1.0.0",
+    protocol_version: PROTOCOL_VERSION,
+    producer: {
+      primitive: "role",
+      name: "roles-harness-model-fixture",
+      invocation_id: invocationId
+    },
+    created_at: HARNESS_CREATED_AT,
+    source_refs: [
+      artifactReferenceJson(artifactReference(`invocation:${invocationId}`, "RoleInvocation", "derived_from"))
+    ],
+    output_refs: [],
+    ownership: options.ownership,
+    confidence: options.confidence,
+    review_required: options.reviewRequired,
+    diagnostics: {
+      status: "produced",
+      warnings: [],
+      errors: [],
+      missing_context: [...options.diagnosticsMissingContext]
+    },
+    payload
+  };
+}
+function artifactReference(id, artifactType, relation) {
+  return {
+    ref_type: "artifact",
+    id,
+    artifact_type: artifactType,
+    schema_version: "1.0.0",
+    protocol_version: PROTOCOL_VERSION,
+    ...relation === void 0 ? {} : { relation }
+  };
+}
+function ownershipJson(dependsOn = []) {
+  return {
+    owns_files: ["roles/src/harness/roles-harness.ts"],
+    owns_interfaces: ["interface:role-runner"],
+    owns_data: [],
+    owns_workflow_steps: ["workflow:roles-e2e-harness"],
+    ...dependsOn.length === 0 ? {} : { depends_on: [...dependsOn] }
+  };
+}
+function emptyOwnership() {
+  return {
+    owns_files: [],
+    owns_interfaces: [],
+    owns_data: [],
+    owns_workflow_steps: []
+  };
+}
+function assertValidInvocation(invocation, caseName) {
+  if (!isRoleInvocation(invocation)) {
+    throw new Error(
+      `${caseName} RoleInvocation failed protocol schema validation: ${roleInvocationValidationErrors().join("; ")}`
+    );
+  }
+}
+function assertValidRoleResult(result, caseName) {
+  if (!isRoleResult(result)) {
+    throw new Error(
+      `${caseName} RoleResult failed protocol schema validation: ${roleResultValidationErrors().join("; ")}`
+    );
+  }
+}
+function assertProducedArtifact(harnessCase, roleResult, producedArtifact) {
+  const expectedType = harnessCase.definition.expected_output_artifact_type;
+  const outputReference2 = roleResult.payload.output_artifacts[0];
+  if (outputReference2?.artifact_type !== expectedType) {
+    throw new Error(`${harnessCase.case_name} did not reference a ${expectedType} output artifact`);
+  }
+  if (outputReference2.id !== producedArtifact.artifact_id) {
+    throw new Error(`${harnessCase.case_name} RoleResult output ref does not match the artifact sink`);
+  }
+  const validate = validatorFor2(expectedType);
+  if (!validate(producedArtifact)) {
+    const errors = (validate.errors ?? []).map((error) => error.message ?? "schema error");
+    throw new Error(`${harnessCase.case_name} produced invalid ${expectedType}: ${errors.join("; ")}`);
+  }
+}
+
+// src/dogfood/live-dogfood.ts
+var LIVE_FLAG = "ROLES_LIVE_SDK_TESTS";
+var API_KEY_ENV = "ANTHROPIC_API_KEY";
+var EVIDENCE_DIR = resolve3(process.cwd(), "evidence/dogfood");
+async function main() {
+  await mkdir(EVIDENCE_DIR, { recursive: true });
+  const liveFlagEnabled = process.env[LIVE_FLAG] === "1";
+  const apiKey = process.env[API_KEY_ENV];
+  const credentialPresent = apiKey !== void 0 && apiKey.length > 0;
+  if (!liveFlagEnabled || !credentialPresent) {
+    await writeJson("run-summary.json", {
+      status: "skipped",
+      live_flag: {
+        name: LIVE_FLAG,
+        enabled: liveFlagEnabled
+      },
+      credential_preflight: {
+        required_env: API_KEY_ENV,
+        present: credentialPresent
+      },
+      finding: liveFlagEnabled ? `Missing ${API_KEY_ENV}; live Roles dogfood call was not attempted.` : `${LIVE_FLAG}=1 was not set; live Roles dogfood call was not attempted.`
+    });
+    return;
+  }
+  const architectCase = createRegisteredV1RoleHarnessCases()[0];
+  if (architectCase === void 0) {
+    throw new Error("Roles live dogfood could not find an Architect harness case");
+  }
+  try {
+    const flow = await runRoleHarnessCase(architectCase, {
+      modelClient: new AnthropicStructuredModelClient({
+        apiKey,
+        model: process.env.ROLES_LIVE_MODEL ?? process.env.DAIMYO_MODEL ?? "claude-sonnet-4-5",
+        ...process.env.DAIMYO_MODEL_ENDPOINT === void 0 ? {} : { endpoint: process.env.DAIMYO_MODEL_ENDPOINT },
+        maxTokens: 4e3
+      })
+    });
+    await writeJson("role-invocation.json", flow.invocation);
+    await writeJson("role-result.json", flow.roleResult);
+    await writeJson("produced-artifact.json", flow.producedArtifact);
+    await writeJson("run-summary.json", {
+      status: "completed",
+      live_flag: {
+        name: LIVE_FLAG,
+        enabled: true
+      },
+      credential_preflight: {
+        required_env: API_KEY_ENV,
+        present: true
+      },
+      case_name: flow.case_name,
+      role_result_status: flow.roleResult.payload.status,
+      produced_artifact_type: flow.producedArtifact.artifact_type,
+      produced_artifact_ref: flow.producedArtifact.artifact_id
+    });
+  } catch (error) {
+    await writeJson("run-summary.json", {
+      status: "failed",
+      live_flag: {
+        name: LIVE_FLAG,
+        enabled: true
+      },
+      credential_preflight: {
+        required_env: API_KEY_ENV,
+        present: true
+      },
+      finding: errorMessage2(error)
+    });
+    throw error;
+  }
+}
+async function writeJson(fileName, value) {
+  const target = resolve3(EVIDENCE_DIR, fileName);
+  await mkdir(dirname(target), { recursive: true });
+  await writeFile(target, `${JSON.stringify(value, null, 2)}
+`);
 }
 function errorMessage2(error) {
   if (error instanceof Error) {
     return error.message;
   }
-  return "Unknown error";
+  return "Unknown Roles live dogfood failure";
 }
-async function defaultReadText(path) {
-  return readFile(path, "utf8");
-}
-async function defaultWriteText(path, content) {
-  await writeFile(path, content, "utf8");
-}
-async function defaultReadStdin() {
-  const chunks = [];
-  for await (const chunk of process.stdin) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
-function defaultWriteStdout(content) {
-  process.stdout.write(content);
-}
-function defaultWriteStderr(content) {
-  process.stderr.write(content);
-}
-export {
-  ROLE_INVOKE_EXIT_CODES,
-  createDefaultRoleRegistry,
-  exitCodeForRoleResult,
-  runCli
-};
+await main();

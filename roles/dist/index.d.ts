@@ -9,6 +9,8 @@ export type { PlannerRoleContext, PlannerRoleRunnerOptions } from "./roles/plann
 export { QualityGovernorRoleRunner, qualityGovernorRoleDefinition, runQualityGovernorRole, } from "./roles/quality-governor.js";
 export type { QualityGovernorRoleContext, QualityGovernorRoleRunnerOptions, } from "./roles/quality-governor.js";
 export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
+export { DeterministicRolesHarnessModelClient, createRegisteredV1RoleHarnessCases, createV1RoleRegistry, runRoleHarnessCase, runRolesHarness, } from "./harness/roles-harness.js";
+export type { RolesHarnessCase, RolesHarnessFlow, RolesHarnessOptions, RolesHarnessResult, V1RoleHarnessArtifact, } from "./harness/roles-harness.js";
 export { RoleRegistry } from "./registry/role-registry.js";
 export type { RoleRegistryResolveResult } from "./registry/role-registry.js";
 export { architectureImpactJsonSchema, architectureImpactStructuredSchema, architectureImpactValidationErrors, isArchitectureImpact, isPlanProposal, isReviewJudgment, isRoleInvocation, isRoleResult, isValidationReport, planProposalJsonSchema, planProposalStructuredSchema, planProposalValidationErrors, reviewJudgmentJsonSchema, reviewJudgmentStructuredSchema, reviewJudgmentValidationErrors, roleInvocationJsonSchema, roleInvocationValidationErrors, roleResultJsonSchema, roleResultValidationErrors, schemaFor, validationReportJsonSchema, validationReportValidationErrors, validatorFor, } from "./schemas/protocol-schemas.js";

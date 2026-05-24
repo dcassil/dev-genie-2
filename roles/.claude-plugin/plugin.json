@@ -1,6 +1,6 @@
 {
   "name": "roles",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Dev-Genie Roles layer: shared RoleRunner contract, versioned role definitions, protocol-schema validation, and ADR-2 subprocess Role invocation CLI.",
   "author": {
     "name": "Daniel Cassil",

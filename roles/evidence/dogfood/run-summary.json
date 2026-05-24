@@ -1,0 +1,12 @@
+{
+  "status": "skipped",
+  "live_flag": {
+    "name": "ROLES_LIVE_SDK_TESTS",
+    "enabled": false
+  },
+  "credential_preflight": {
+    "required_env": "ANTHROPIC_API_KEY",
+    "present": false
+  },
+  "finding": "ROLES_LIVE_SDK_TESTS=1 was not set; live Roles dogfood call was not attempted."
+}

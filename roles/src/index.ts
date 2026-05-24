@@ -38,6 +38,21 @@ export type {
 
 export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
 
+export {
+  DeterministicRolesHarnessModelClient,
+  createRegisteredV1RoleHarnessCases,
+  createV1RoleRegistry,
+  runRoleHarnessCase,
+  runRolesHarness,
+} from "./harness/roles-harness.js";
+export type {
+  RolesHarnessCase,
+  RolesHarnessFlow,
+  RolesHarnessOptions,
+  RolesHarnessResult,
+  V1RoleHarnessArtifact,
+} from "./harness/roles-harness.js";
+
 export { RoleRegistry } from "./registry/role-registry.js";
 export type { RoleRegistryResolveResult } from "./registry/role-registry.js";
 
