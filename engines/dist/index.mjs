@@ -7139,6 +7139,7 @@ var require__3 = __commonJS({
 });
 
 // ../daimyo/dist/index.mjs
+import { createHash } from "node:crypto";
 import { createRequire as d_ } from "node:module";
 import { homedir as Ok } from "os";
 import { join as Dk } from "path";
@@ -7207,6 +7208,70 @@ import { join as rs22 } from "path";
 import { readdir as ND$22, readFile as ns22 } from "fs/promises";
 import { release as zE22 } from "os";
 import { isAbsolute as NE22 } from "path";
+var PROTOCOL_VERSION = "1.0.0";
+var PROTOCOL_SCHEMA_VERSION = "1.0.0";
+function asNodeId(value) {
+  if (value.length === 0) throw new Error("NodeId cannot be empty");
+  return value;
+}
+function asTaskId(value) {
+  if (value.length === 0) throw new Error("TaskId cannot be empty");
+  return value;
+}
+function asDecisionId(value) {
+  if (value.length === 0) throw new Error("DecisionId cannot be empty");
+  return value;
+}
+function makeDecisionRecord(input) {
+  const payload = {
+    decision_id: input.decision_id,
+    request: input.request,
+    verdict: input.verdict,
+    tier: input.tier,
+    rationale: input.rationale
+  };
+  return {
+    ...makeEnvelope("DecisionRecord", payload, input.created_at, input.producer, input.source_refs, input.output_refs, input.artifact_id),
+    artifact_type: "DecisionRecord",
+    payload
+  };
+}
+function decisionRequestNodeId(request) {
+  return asNodeId(request.node_id);
+}
+function decisionRequestTaskId(request) {
+  return asTaskId(request.task_id);
+}
+function makeEnvelope(artifactType, payload, createdAt, producer, sourceRefs, outputRefs, artifactId) {
+  const envelope = {
+    artifact_id: artifactId ?? artifactIdFor(artifactType, createdAt, payload),
+    artifact_type: artifactType,
+    schema_version: PROTOCOL_SCHEMA_VERSION,
+    protocol_version: PROTOCOL_VERSION,
+    producer: producer ?? { primitive: "loop", name: "daimyo" },
+    created_at: createdAt,
+    source_refs: [...sourceRefs ?? []],
+    output_refs: [...outputRefs ?? []],
+    ownership: emptyOwnershipSurface(),
+    confidence: { score: 1, level: "high" },
+    review_required: { required: false, reason_codes: [] },
+    diagnostics: { status: "produced", warnings: [], errors: [], missing_context: [] },
+    payload
+  };
+  return envelope;
+}
+function emptyOwnershipSurface() {
+  return {
+    owns_files: [],
+    owns_interfaces: [],
+    owns_data: [],
+    owns_workflow_steps: []
+  };
+}
+function artifactIdFor(artifactType, createdAt, payload) {
+  const digest = createHash("sha256").update(JSON.stringify({ artifact_type: artifactType, created_at: createdAt, payload })).digest("hex");
+  return `artifact:sha256:${digest}`;
+}
 var y_ = Object.create;
 var { getPrototypeOf: f_, defineProperty: OG, getOwnPropertyNames: g_ } = Object;
 var h_ = Object.prototype.hasOwnProperty;
@@ -75543,6 +75608,24 @@ function isAutonomyDomain(value) {
 function isDecisionScope(value) {
   return value === "local" || value === "moderate" || value === "major";
 }
+var ConsoleHumanDecisionNotifier = class {
+  write;
+  constructor(options = {}) {
+    this.write = options.write ?? ((message) => process.stderr.write(message));
+  }
+  async notify(record) {
+    this.write(
+      [
+        `Daimyo awaiting human decision ${record.payload.decision_id}`,
+        `node=${record.payload.request.node_id}`,
+        `task=${record.payload.request.task_id}`,
+        `tier=${record.payload.tier}`,
+        `reason=${record.payload.rationale}`,
+        ""
+      ].join("\n")
+    );
+  }
+};
 
 // src/decision-policy/conflict.ts
 var SURFACE_PREFIXES = [
@@ -76240,7 +76323,7 @@ function noMatch(rationale2) {
 }
 
 // src/decision-policy/engine.ts
-var DECISION_POLICY_ENGINE_VERSION = "0.6.0";
+var DECISION_POLICY_ENGINE_VERSION = "0.7.0";
 var DETERMINISTIC_POLICY_CONFIDENCE = 10;
 var DecisionPolicyEngine = class {
   evaluate(input) {
@@ -76381,6 +76464,236 @@ function rationale(parts) {
   return parts.filter((part) => part.length > 0).join(" ");
 }
 
+// src/decision-policy/adapter/policy-decision-provider.ts
+var DETERMINISTIC_CONFIDENCE = 10;
+var PolicyDecisionProvider = class {
+  engine;
+  config;
+  inner;
+  executionStore;
+  clock;
+  notifier;
+  constructor(options) {
+    this.engine = options.engine;
+    this.config = {
+      autonomy_profile: options.config.autonomy_profile,
+      product_baseline_approved: options.config.product_baseline_approved,
+      static_rules: options.config.static_rules
+    };
+    this.inner = options.inner;
+    this.executionStore = options.executionStore;
+    this.clock = options.clock ?? (() => (/* @__PURE__ */ new Date()).toISOString());
+    this.notifier = options.notifier ?? new ConsoleHumanDecisionNotifier();
+  }
+  async decidePermission(request, dependencies) {
+    const verdict = this.engine.evaluate({
+      request,
+      config: this.config,
+      ...siblingOwnershipInput(request.context)
+    });
+    const enrichedRequest = enrichRequest(request, verdict, this.config.product_baseline_approved);
+    if (verdict.outcome === "route") {
+      return await this.inner.decidePermission(enrichedRequest, dependencies);
+    }
+    return await this.resolve(enrichedRequest, settledPermissionOutcome(enrichedRequest, verdict));
+  }
+  async decideRouting(request, dependencies) {
+    const verdict = this.engine.evaluate({
+      request,
+      config: this.config,
+      ...siblingOwnershipInput(request.context)
+    });
+    const enrichedRequest = enrichRequest(request, verdict, this.config.product_baseline_approved);
+    if (verdict.outcome === "route") {
+      return await this.inner.decideRouting(enrichedRequest, dependencies);
+    }
+    return await this.resolve(enrichedRequest, settledRoutingOutcome(enrichedRequest, verdict));
+  }
+  async resolve(request, outcome) {
+    const record = makeDecisionRecord({
+      decision_id: asDecisionId(request.decision_id),
+      request,
+      verdict: outcome.verdict,
+      tier: outcome.tier,
+      rationale: outcome.rationale,
+      created_at: this.clock()
+    });
+    if (outcome.tier === 3) {
+      await this.parkAwaitingHuman(request);
+    }
+    await this.executionStore.recordDecision(decisionRequestTaskId(request), decisionRequestNodeId(request), record);
+    if (outcome.tier === 3) {
+      await this.notifier.notify(record);
+    }
+    return record;
+  }
+  async parkAwaitingHuman(request) {
+    const taskId = decisionRequestTaskId(request);
+    const nodeId = decisionRequestNodeId(request);
+    const snapshot = await this.executionStore.load(taskId);
+    const node = snapshot.nodes.find((candidate) => candidate.id === nodeId);
+    if (node === void 0) {
+      throw new Error(`Cannot park unknown node awaiting human: ${request.node_id}`);
+    }
+    const input = {
+      id: node.id,
+      taskId: node.taskId,
+      type: node.type,
+      status: "awaiting-human",
+      retryCount: node.retryCount,
+      ...node.parentId === void 0 ? {} : { parentId: node.parentId },
+      ...node.session === void 0 ? {} : { session: node.session }
+    };
+    await this.executionStore.upsertNode(taskId, input);
+  }
+};
+function settledPermissionOutcome(request, policyVerdict) {
+  if (policyVerdict.outcome === "permit") {
+    return {
+      tier: 0,
+      rationale: tier0Rationale(policyVerdict),
+      verdict: {
+        type: "access",
+        suggested_choice: "allow",
+        suggested_response: `Allowed ${request.tool_name} by Decision Policy Engine.`,
+        confidence: DETERMINISTIC_CONFIDENCE,
+        risk: riskFromPolicyVerdict(policyVerdict),
+        block_trigger: false
+      }
+    };
+  }
+  if (policyVerdict.matched_rule_refs.length > 0) {
+    return {
+      tier: 0,
+      rationale: tier0Rationale(policyVerdict),
+      verdict: {
+        type: "access",
+        suggested_choice: "deny",
+        suggested_response: `Denied ${request.tool_name} by Decision Policy Engine static policy.`,
+        confidence: DETERMINISTIC_CONFIDENCE,
+        risk: riskFromPolicyVerdict(policyVerdict),
+        block_trigger: false
+      }
+    };
+  }
+  return humanOutcome(policyVerdict);
+}
+function settledRoutingOutcome(request, policyVerdict) {
+  if (policyVerdict.outcome === "permit") {
+    return {
+      tier: 0,
+      rationale: tier0Rationale(policyVerdict),
+      verdict: {
+        type: "decision",
+        suggested_choice: firstOption(request) ?? "proceed",
+        suggested_response: "Proceed under deterministic Decision Policy Engine policy.",
+        confidence: DETERMINISTIC_CONFIDENCE,
+        risk: riskFromPolicyVerdict(policyVerdict),
+        block_trigger: false
+      }
+    };
+  }
+  return humanOutcome(policyVerdict);
+}
+function humanOutcome(policyVerdict) {
+  return {
+    tier: 3,
+    rationale: `Tier 3 policy escalation from Decision Policy Engine: ${policyVerdict.rationale}`,
+    verdict: {
+      type: "human",
+      suggested_choice: null,
+      suggested_response: policyVerdict.rationale,
+      confidence: 0,
+      risk: 10,
+      block_trigger: true
+    }
+  };
+}
+function tier0Rationale(policyVerdict) {
+  return `Tier 0 Decision Policy Engine ${policyVerdict.outcome}: ${policyVerdict.rationale}`;
+}
+function enrichRequest(request, policyVerdict, productBaselineApproved) {
+  const risk = riskFromPolicyVerdict(policyVerdict);
+  const context = {
+    ...request.context ?? {},
+    domain: policyVerdict.classified_domain,
+    decision_domain: policyVerdict.classified_domain,
+    scope: policyVerdict.classified_scope,
+    decision_scope: policyVerdict.classified_scope,
+    risk,
+    declared_risk: risk,
+    product_baseline_approved: productBaselineApproved,
+    policy_outcome: policyVerdict.outcome,
+    policy_conflict_class: policyVerdict.conflict_class,
+    policy_review_required: policyVerdict.review_required,
+    policy_engine_version: policyVerdict.engine_version
+  };
+  return {
+    ...request,
+    context
+  };
+}
+function riskFromPolicyVerdict(policyVerdict) {
+  if (policyVerdict.outcome === "stop" || policyVerdict.review_required) return 10;
+  if (policyVerdict.conflict_class === "hard_conflict") return 9;
+  if (policyVerdict.conflict_class === "soft_conflict") return 6;
+  switch (policyVerdict.classified_scope) {
+    case "local":
+      return 2;
+    case "moderate":
+      return 5;
+    case "major":
+      return 8;
+  }
+}
+function firstOption(request) {
+  return request.options?.[0];
+}
+function siblingOwnershipFromContext(context) {
+  const entries = readObjectArray(context, "sibling_ownership").map(readSiblingOwnership);
+  const siblings = entries.filter(isSiblingOwnership);
+  return siblings.length === 0 ? void 0 : siblings;
+}
+function siblingOwnershipInput(context) {
+  const siblingOwnership = siblingOwnershipFromContext(context);
+  return siblingOwnership === void 0 ? {} : { sibling_ownership: siblingOwnership };
+}
+function readSiblingOwnership(source) {
+  const siblingId = readString4(source, "sibling_id");
+  if (siblingId === void 0) return void 0;
+  return {
+    sibling_id: siblingId,
+    owns_files: [...readStringArray4(source, "owns_files")],
+    owns_interfaces: [...readStringArray4(source, "owns_interfaces")],
+    owns_data: [...readStringArray4(source, "owns_data")],
+    owns_workflow_steps: [...readStringArray4(source, "owns_workflow_steps")],
+    depends_on: [...readStringArray4(source, "depends_on")]
+  };
+}
+function isSiblingOwnership(value) {
+  return value !== void 0;
+}
+function readObjectArray(context, key) {
+  const value = context?.[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isJsonObject2);
+}
+function readStringArray4(source, key) {
+  const value = source[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isString3);
+}
+function readString4(source, key) {
+  const value = source[key];
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function isJsonObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isString3(value) {
+  return typeof value === "string";
+}
+
 // src/decision-policy/config-loader.ts
 import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
 import { join } from "node:path";
@@ -76459,12 +76772,12 @@ function findProtocolSchemaDir3() {
 }
 function readJsonObject3(filePath) {
   const parsed = JSON.parse(readFileSync5(filePath, "utf8"));
-  if (!isJsonObject2(parsed)) {
+  if (!isJsonObject3(parsed)) {
     throw new Error(`${filePath} must contain a JSON object`);
   }
   return parsed;
 }
-function isJsonObject2(value) {
+function isJsonObject3(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 function schemaId3(schema, fileName) {
@@ -76622,6 +76935,7 @@ export {
   DecisionPolicyEngine,
   GOVERNANCE_CONFIG_DIR,
   PolicyConfigError,
+  PolicyDecisionProvider,
   assessConflict,
   classifyDecision,
   defaultPolicyConfig,

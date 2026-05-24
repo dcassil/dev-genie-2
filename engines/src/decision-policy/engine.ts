@@ -23,7 +23,7 @@ import type { ConflictAssessment, SiblingOwnership } from "./conflict.js";
 import { evaluateStaticRules } from "./static-rules.js";
 import type { RuleMatch } from "./static-rules.js";
 
-export const DECISION_POLICY_ENGINE_VERSION = "0.6.0";
+export const DECISION_POLICY_ENGINE_VERSION = "0.7.0";
 
 const DETERMINISTIC_POLICY_CONFIDENCE: Score0To10 = 10;
 

@@ -4,14 +4,14 @@ level: task
 title: "PolicyDecisionProvider adapter: inject the Engine into daimyo's DecisionProvider port"
 short_code: "DGOS-T-0043"
 created_at: 2026-05-24T19:02:51.631028+00:00
-updated_at: 2026-05-24T19:02:51.631028+00:00
+updated_at: 2026-05-24T20:09:47.196239+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement `PolicyDecisionProvider` in `engines/src/decision-policy/adapter/` that implements daimyo's `DecisionProvider` port (`decidePermission`/`decideRouting` → `Promise<DecisionRecord>`, `daimyo/src/core/ports/decision-provider.ts`). Its Tier-0 calls `DecisionPolicyEngine.evaluate`; it maps the resulting `PolicyVerdict` into a daimyo `DecisionVerdict` + tier-0 `DecisionRecord` (via daimyo's `makeDecisionRecord`) and persists it through the same `ExecutionStore.recordDecision` path. On Engine `route`/fall-through for routing decisions it **delegates to a wrapped `TieredDecisionProvider`** so daimyo retains ownership of Tier 1 (bounded model call), Tier 2 (read-only investigation), Tier 3 (human parking + notifier), and `DecisionRecord` persistence. The adapter is the only module in `engines/` that imports daimyo's port; the Engine core stays daimyo-independent.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,3 +71,6 @@ Implement `PolicyDecisionProvider` in `engines/src/decision-policy/adapter/` tha
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24T20:04:15Z: Implemented `PolicyDecisionProvider` in `engines/src/decision-policy/adapter/`. It implements daimyo's `DecisionProvider` port, runs `DecisionPolicyEngine.evaluate`, emits Engine-settled tier-0/tier-3 records through daimyo `makeDecisionRecord` + `ExecutionStore.recordDecision`, parks/notifies tier-3 human records, and delegates all Engine `route` fall-throughs to the wrapped provider unchanged. Sibling ownership is sourced from `request.context.sibling_ownership`; the save soft-conflict example is documented/tested as delegated. Added tests for permit, static deny without model call, human stop, delegation with enriched context, the three initiative examples, schema-valid DecisionRecord output, standalone `createStandaloneDaimyo({ decisionProvider })` injection, and the adapter boundary. No daimyo source change was required. Verification passed: engines typecheck/lint/test/build; daimyo typecheck/lint/test/build (69 passed / 5 skipped). Bumped `engines` to 0.7.0 and rebuilt dist.
+- 2026-05-24 (orchestrator verification): re-ran engines (58 tests) + daimyo (69/5) — both green; **daimyo source untouched** (adapter is engines-only, imports daimyo's DecisionProvider/TieredDecisionProvider/makeDecisionRecord). Confirmed: Engine permit→tier-0 permit without calling the wrapped provider; static-deny→tier-0 deny (no model call); Engine stop→tier-3 human (parks node + notifies + records via daimyo store); Engine route→delegates to wrapped TieredDecisionProvider unchanged, with Engine-classified domain/scope/risk added to the delegated context; DecisionRecord schema-valid; `createStandaloneDaimyo({ decisionProvider })` injection covered; import-boundaries test keeps daimyo usage in the adapter (zero tier-orchestration rewritten). engines 0.6.0 → 0.7.0. No escape hatches. **exit_criteria_met: true.** Completed.

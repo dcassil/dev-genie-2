@@ -15,6 +15,9 @@ export {
   assessConflict,
 } from "./conflict.js";
 export {
+  PolicyDecisionProvider,
+} from "./adapter/index.js";
+export {
   DEFAULT_GOVERNANCE_FILE_NAME,
   DEFAULT_POLICY_CONFIG,
   GOVERNANCE_CONFIG_DIR,
@@ -42,6 +45,9 @@ export type {
   ConflictClass,
   SiblingOwnership,
 } from "./conflict.js";
+export type {
+  PolicyDecisionProviderOptions,
+} from "./adapter/index.js";
 export type {
   LoadPolicyConfigOptions,
   PolicyConfigErrorCode,
