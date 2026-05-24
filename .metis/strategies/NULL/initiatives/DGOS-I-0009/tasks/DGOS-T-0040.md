@@ -4,14 +4,14 @@ level: task
 title: "Conflict-class and ownership-surface evaluator for sibling impact"
 short_code: "DGOS-T-0040"
 created_at: 2026-05-24T19:02:47.986724+00:00
-updated_at: 2026-05-24T19:02:47.986724+00:00
+updated_at: 2026-05-24T19:48:52.890253+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement a deterministic, pure conflict evaluator in `engines/src/decision-policy/` that, given a `PolicyDecisionInput` (the deciding node's `ownership_scope`, `touched_surfaces`, optional `matched_dependencies`) plus the declared ownership surfaces of sibling work items, returns a `ConflictAssessment` (`{ conflict_class: "no_conflict" | "soft_conflict" | "hard_conflict"; affected_siblings: string[]; rationale: string }`). This maps onto the ADR-3 ownership-surface fields (`owns_files`, `owns_interfaces`, `owns_data`, `owns_workflow_steps`, `depends_on`) and the protocol `ownership-surface.schema.json` / `touch-report.schema.json` artifacts. No model call, no I/O.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -66,3 +70,6 @@ Implement a deterministic, pure conflict evaluator in `engines/src/decision-poli
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24: Implemented the pure `engines/src/decision-policy/conflict.ts` evaluator. It accepts explicit sibling ownership surfaces as input, reuses protocol `OwnershipSurface`/`TouchReport` types, normalizes prefixed surface identifiers before comparison, treats direct ownership and shared contract overlap as `hard_conflict`, dependency intersection and caller-provided `matched_dependencies` as `soft_conflict`, degrades absent siblings to scope-only `no_conflict`, and treats present but incomplete sibling data conservatively as `hard_conflict`. DGOS-T-0043 should source sibling ownership from the Supervisor `WorkSource`/execution context where ADR-5 says ownership surfaces are declared at decomposition time; when that context has no siblings available, the adapter can pass no siblings and let this evaluator return the explicit no-sibling-data rationale.
+- 2026-05-24 (orchestrator verification): re-ran engines typecheck/lint/test/build — green (36 tests). Pure conflict evaluator: hard (direct ownership / shared-contract / config-wildcard overlap, or incomplete sibling data — conservative), soft (depends_on overlap + caller matched_dependencies), no_conflict (disjoint or absent siblings → scope-only). Reuses protocol OwnershipSurface/TouchReport + prefix conventions; no model/IO. engines-only. engines 0.3.0 → 0.4.0. No escape hatches. **exit_criteria_met: true.** Completed.

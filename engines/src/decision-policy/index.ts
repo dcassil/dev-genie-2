@@ -11,6 +11,9 @@ export {
   evaluateStaticRules,
   fromDaimyoStaticRules,
 } from "./static-rules.js";
+export {
+  assessConflict,
+} from "./conflict.js";
 export type {
   Engine,
   PolicyDecisionInput,
@@ -26,6 +29,11 @@ export type {
   StaticRuleEffect,
 } from "./static-rules.js";
 export type {
+  ConflictAssessment,
+  ConflictClass,
+  SiblingOwnership,
+} from "./conflict.js";
+export type {
   AutonomyDomain,
   AutonomyLevel,
   AutonomyProfile,
@@ -39,10 +47,12 @@ export {
 export type {
   DecisionRequestPayload,
   JsonObject,
+  OwnershipSurface,
   PolicyConfig,
   PolicyStaticRule,
   PolicyStaticRuleMatch,
   PolicyStaticRules,
   PolicyStringContainsPredicate,
   PolicyVerdict,
+  TouchReport,
 } from "protocol";
