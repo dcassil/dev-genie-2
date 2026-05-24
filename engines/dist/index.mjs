@@ -7138,723 +7138,6 @@ var require__3 = __commonJS({
   }
 });
 
-// src/decision-policy/classifier.ts
-var DEFAULT_DOMAIN = "engineering";
-var DEFAULT_SCOPE = "moderate";
-var DEFAULT_RISK = 5;
-var TASK_OWNED_SURFACE_PREFIXES = ["file:", "workflow:"];
-var SHARED_CONTRACT_SURFACE_PREFIXES = ["interface:", "config:", "schema:"];
-var MAJOR_ALTITUDES = ["initiative", "epic", "strategy", "vision", "root"];
-var MODERATE_ALTITUDES = ["story"];
-var DEFAULT_DOMAIN_CLASSIFICATION_RULES = [
-  {
-    id: "domain:design:exact-actions",
-    domain: "design",
-    match: "exact",
-    values: ["ui_text_update"],
-    rationale: "UI copy updates are design decisions."
-  },
-  {
-    id: "domain:design:action-prefixes",
-    domain: "design",
-    match: "prefix",
-    values: ["ux_", "visual_", "interaction_"],
-    rationale: "UX, visual, and interaction action families are design decisions."
-  },
-  {
-    id: "domain:product:exact-actions",
-    domain: "product",
-    match: "exact",
-    values: ["policy_change", "product_behavior_change", "product_behavior_update"],
-    rationale: "Policy and product-behavior actions change product behavior."
-  },
-  {
-    id: "domain:product:action-prefixes",
-    domain: "product",
-    match: "prefix",
-    values: ["capability_", "workflow_", "scope_", "product_behavior_"],
-    rationale: "Capability, workflow, scope, and product-behavior action families are product decisions."
-  },
-  {
-    id: "domain:engineering:exact-actions",
-    domain: "engineering",
-    match: "exact",
-    values: ["api_response_change"],
-    rationale: "API response changes are engineering contract decisions."
-  },
-  {
-    id: "domain:engineering:action-prefixes",
-    domain: "engineering",
-    match: "prefix",
-    values: ["schema_", "tech_", "code_", "architecture_"],
-    rationale: "Schema, technical, code, and architecture action families are engineering decisions."
-  }
-];
-var DEFAULT_SCOPE_CLASSIFICATION_RULES = [
-  {
-    id: "scope:major:initiative-plus-altitude",
-    scope: "major",
-    rationale: "Initiative, epic, strategy, vision, and root altitude decisions cross a strategic review boundary.",
-    matches: (signals) => isOneOf(signals.altitude, MAJOR_ALTITUDES)
-  },
-  {
-    id: "scope:major:governance-or-config-wildcard",
-    scope: "major",
-    rationale: "Governance surfaces and wildcard config changes can affect multiple children or policy boundaries.",
-    matches: (signals) => signals.surfaces.some((surface) => surface.startsWith("governance:") || isWildcardConfigSurface(surface))
-  },
-  {
-    id: "scope:moderate:shared-contract-task-altitude",
-    scope: "moderate",
-    rationale: "Task-altitude shared interface, config, or schema surfaces affect contracts outside a local task.",
-    matches: (signals) => signals.altitude === "task" && signals.surfaces.some(isSharedContractSurface)
-  },
-  {
-    id: "scope:moderate:story-altitude",
-    scope: "moderate",
-    rationale: "Story altitude is above a task-local implementation detail but below initiative scope.",
-    matches: (signals) => isOneOf(signals.altitude, MODERATE_ALTITUDES)
-  },
-  {
-    id: "scope:local:task-owned-surfaces",
-    scope: "local",
-    rationale: "Task altitude with only file or workflow surfaces stays within task-owned execution scope.",
-    matches: (signals) => signals.altitude === "task" && signals.surfaces.length > 0 && signals.surfaces.every(isTaskOwnedSurface)
-  }
-];
-function classifyDecision(input) {
-  const signals = classificationSignals(input.request.context);
-  const domainResult = classifyDomain(signals);
-  const scopeResult = classifyScope(signals);
-  const riskResult = classifyRisk(signals.context);
-  return {
-    domain: domainResult.value,
-    scope: scopeResult.value,
-    risk: riskResult.value,
-    rationale: [
-      domainResult.rationale,
-      scopeResult.rationale,
-      riskResult.rationale
-    ].join(" ")
-  };
-}
-function classifyDomain(signals) {
-  const explicitDomain = readDomain(signals.context, "domain") ?? readDomain(signals.context, "decision_domain");
-  if (explicitDomain !== void 0) {
-    return {
-      value: explicitDomain,
-      rationale: `Domain ${explicitDomain} was caller-supplied in request context.`
-    };
-  }
-  if (signals.actionType !== void 0) {
-    const actionType = signals.actionType;
-    const matchedRule = DEFAULT_DOMAIN_CLASSIFICATION_RULES.find((rule) => domainRuleMatches(rule, actionType));
-    if (matchedRule !== void 0) {
-      return {
-        value: matchedRule.domain,
-        rationale: `Domain ${matchedRule.domain} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
-      };
-    }
-  }
-  return {
-    value: DEFAULT_DOMAIN,
-    rationale: "Domain defaulted to engineering because no explicit domain or action_type rule matched."
-  };
-}
-function classifyScope(signals) {
-  const explicitScope = readScope(signals.context, "scope") ?? readScope(signals.context, "decision_scope");
-  if (explicitScope !== void 0) {
-    return {
-      value: explicitScope,
-      rationale: `Scope ${explicitScope} was caller-supplied in request context.`
-    };
-  }
-  const scopeSignals = {
-    ...signals.altitude === void 0 ? {} : { altitude: signals.altitude },
-    surfaces: [...signals.ownershipScope, ...signals.touchedSurfaces]
-  };
-  const matchedRule = DEFAULT_SCOPE_CLASSIFICATION_RULES.find((rule) => rule.matches(scopeSignals));
-  if (matchedRule !== void 0) {
-    return {
-      value: matchedRule.scope,
-      rationale: `Scope ${matchedRule.scope} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
-    };
-  }
-  return {
-    value: DEFAULT_SCOPE,
-    rationale: "Scope defaulted to moderate because ownership and altitude signals were absent or insufficient for local scope."
-  };
-}
-function classifyRisk(context) {
-  const explicitRisk = readScore(context, "risk") ?? readScore(context, "declared_risk");
-  if (explicitRisk !== void 0) {
-    return {
-      value: explicitRisk,
-      rationale: `Risk ${explicitRisk} was caller-supplied in request context.`
-    };
-  }
-  const riskLevel = readString(context, "risk_level") ?? readString(context, "declared_risk_level");
-  if (riskLevel !== void 0) {
-    const mappedRisk = riskForLevel(riskLevel);
-    if (mappedRisk !== void 0) {
-      return {
-        value: mappedRisk,
-        rationale: `Risk ${mappedRisk} inferred from risk_level ${riskLevel}.`
-      };
-    }
-  }
-  return {
-    value: DEFAULT_RISK,
-    rationale: "Risk defaulted to 5 to match daimyo's declared-risk default."
-  };
-}
-function classificationSignals(context) {
-  const safeContext = context ?? {};
-  const altitude = readString(safeContext, "altitude");
-  const actionType = readString(safeContext, "action_type");
-  const ownershipScope = readStringArray(safeContext, "ownership_scope");
-  const touchedSurfaces = readStringArray(safeContext, "touched_surfaces");
-  return {
-    ...actionType === void 0 ? {} : { actionType },
-    ...altitude === void 0 ? {} : { altitude },
-    ownershipScope,
-    touchedSurfaces,
-    context: safeContext
-  };
-}
-function domainRuleMatches(rule, actionType) {
-  if (rule.match === "exact") {
-    return rule.values.includes(actionType);
-  }
-  return rule.values.some((value) => actionType.startsWith(value));
-}
-function readDomain(context, key) {
-  const value = context[key];
-  if (value === "engineering" || value === "product" || value === "design") return value;
-  return void 0;
-}
-function readScope(context, key) {
-  const value = context[key];
-  if (value === "local" || value === "moderate" || value === "major") return value;
-  return void 0;
-}
-function readScore(context, key) {
-  const value = context[key];
-  if (typeof value !== "number" || !Number.isInteger(value)) return void 0;
-  if (value === 0 || value === 1 || value === 2 || value === 3 || value === 4) return value;
-  if (value === 5 || value === 6 || value === 7 || value === 8 || value === 9 || value === 10) return value;
-  return void 0;
-}
-function readString(context, key) {
-  const value = context[key];
-  return typeof value === "string" && value.length > 0 ? value : void 0;
-}
-function readStringArray(context, key) {
-  const value = context[key];
-  if (!Array.isArray(value)) return [];
-  return value.filter(isString);
-}
-function riskForLevel(riskLevel) {
-  switch (riskLevel) {
-    case "low":
-      return 2;
-    case "medium":
-      return 5;
-    case "high":
-      return 8;
-    case "critical":
-      return 10;
-    default:
-      return void 0;
-  }
-}
-function isWildcardConfigSurface(surface) {
-  return surface.startsWith("config:") && surface.includes("*");
-}
-function isSharedContractSurface(surface) {
-  return SHARED_CONTRACT_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
-}
-function isTaskOwnedSurface(surface) {
-  return TASK_OWNED_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
-}
-function isString(value) {
-  return typeof value === "string";
-}
-function isOneOf(value, options) {
-  return value !== void 0 && options.some((option) => option === value);
-}
-
-// src/decision-policy/engine.ts
-var DECISION_POLICY_ENGINE_VERSION = "0.4.0";
-var DecisionPolicyEngine = class {
-  evaluate(input) {
-    return scaffoldFallbackVerdict(input);
-  }
-};
-function scaffoldFallbackVerdict(input) {
-  const classification = classifyDecision(input);
-  return {
-    outcome: "route",
-    conflict_class: "soft_conflict",
-    review_required: false,
-    route_to: "parent_loop",
-    classified_domain: classification.domain,
-    classified_scope: classification.scope,
-    rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators. ${classification.rationale}`,
-    matched_rule_refs: [],
-    engine_version: DECISION_POLICY_ENGINE_VERSION
-  };
-}
-
-// src/decision-policy/static-rules.ts
-function evaluateStaticRules(input, staticRules) {
-  if (input.request.surface !== "permission") {
-    return noMatch(`Static rules apply only to the permission surface, not ${input.request.surface}.`);
-  }
-  if (!Array.isArray(staticRules)) {
-    return noMatch("Static rules config is a legacy placeholder object with no ordered permission rules.");
-  }
-  for (const rule of staticRules) {
-    if (permissionRuleMatches(input.request, rule)) {
-      return {
-        effect: rule.effect,
-        matched_rule_ref: rule.id,
-        matched_rule_refs: [rule.id],
-        rationale: `Static ${rule.effect} rule ${rule.id} matched permission tool ${input.request.tool_name}. Rules are first-match-wins.`
-      };
-    }
-  }
-  return noMatch(`No static permission rule matched tool ${input.request.tool_name}.`);
-}
-function fromDaimyoStaticRules(allowTools = [], denyTools = []) {
-  return [
-    ...denyTools.map((toolName, index) => daimyoRule("deny", toolName, index)),
-    ...allowTools.map((toolName, index) => daimyoRule("allow", toolName, index))
-  ];
-}
-function permissionRuleMatches(request, rule) {
-  return toolNameMatches(rule.match.tool_name, request.tool_name) && argumentsContain(request.arguments, rule.match.arguments_contains) && ownershipScopeMatches(request.context, rule.match.ownership_scope_prefix) && altitudeMatches(request.context, rule.match.altitude);
-}
-function toolNameMatches(pattern, toolName) {
-  if (!pattern.includes("*")) {
-    return pattern === toolName;
-  }
-  const segments = pattern.split("*");
-  let searchIndex = 0;
-  for (let index = 0; index < segments.length; index += 1) {
-    const segment = segments[index];
-    if (segment === void 0 || segment.length === 0) {
-      continue;
-    }
-    if (index === 0 && !pattern.startsWith("*")) {
-      if (!toolName.startsWith(segment)) return false;
-      searchIndex = segment.length;
-      continue;
-    }
-    const foundIndex = toolName.indexOf(segment, searchIndex);
-    if (foundIndex === -1) {
-      return false;
-    }
-    searchIndex = foundIndex + segment.length;
-  }
-  const finalSegment = segments[segments.length - 1];
-  if (!pattern.endsWith("*") && finalSegment !== void 0 && finalSegment.length > 0) {
-    return toolName.endsWith(finalSegment);
-  }
-  return true;
-}
-function argumentsContain(args, predicates) {
-  if (predicates === void 0) {
-    return true;
-  }
-  return Object.entries(predicates).every(([key, predicate]) => argumentContains(args[key], predicate));
-}
-function argumentContains(value, predicate) {
-  return typeof value === "string" && value.includes(containsText(predicate));
-}
-function containsText(predicate) {
-  if (typeof predicate === "string") {
-    return predicate;
-  }
-  return predicate.contains;
-}
-function ownershipScopeMatches(context, prefix) {
-  if (prefix === void 0) {
-    return true;
-  }
-  return readStringArray2(context, "ownership_scope").some((surface) => surface.startsWith(prefix));
-}
-function altitudeMatches(context, altitude) {
-  if (altitude === void 0) {
-    return true;
-  }
-  return readString2(context, "altitude") === altitude;
-}
-function readString2(context, key) {
-  const value = context?.[key];
-  return typeof value === "string" ? value : void 0;
-}
-function readStringArray2(context, key) {
-  const value = context?.[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry) => typeof entry === "string");
-}
-function daimyoRule(effect, toolName, index) {
-  return {
-    id: `daimyo:${effect}:${index}:${toolName}`,
-    effect,
-    match: {
-      tool_name: toolName
-    }
-  };
-}
-function noMatch(rationale) {
-  return {
-    effect: "no_match",
-    matched_rule_ref: null,
-    matched_rule_refs: [],
-    rationale
-  };
-}
-
-// src/decision-policy/conflict.ts
-var SURFACE_PREFIXES = [
-  "file",
-  "interface",
-  "workflow",
-  "config",
-  "table",
-  "collection",
-  "bucket",
-  "queue",
-  "topic",
-  "secret",
-  "data",
-  "schema",
-  "governance"
-];
-function assessConflict(input, siblings) {
-  if (siblings === void 0 || siblings.length === 0) {
-    return {
-      conflict_class: "no_conflict",
-      affected_siblings: [],
-      rationale: "No sibling ownership data was supplied; conflict assessment degrades to scope-only no_conflict."
-    };
-  }
-  const signals = conflictSignals(input);
-  const missingChangedSurfaceSiblingIds = signals.changedSurfaces.length === 0 ? siblings.map((sibling) => sibling.sibling_id) : [];
-  const incompleteSiblingIds = affectedIncompleteSiblings(siblings);
-  const missingMatchedDependencyIds = signals.matchedDependencyIds.filter(
-    (siblingId) => !siblings.some((sibling) => sibling.sibling_id === siblingId)
-  );
-  const directOverlapSiblingIds = siblings.filter((sibling) => siblingHasOwnedOverlap(signals.changedSurfaces, sibling)).map((sibling) => sibling.sibling_id);
-  const hardSiblingIds = unique([
-    ...missingChangedSurfaceSiblingIds,
-    ...incompleteSiblingIds,
-    ...missingMatchedDependencyIds,
-    ...directOverlapSiblingIds
-  ]);
-  if (hardSiblingIds.length > 0) {
-    return {
-      conflict_class: "hard_conflict",
-      affected_siblings: hardSiblingIds,
-      rationale: hardRationale(
-        missingChangedSurfaceSiblingIds,
-        incompleteSiblingIds,
-        missingMatchedDependencyIds,
-        directOverlapSiblingIds,
-        hardSiblingIds
-      )
-    };
-  }
-  const softSiblingIds = unique([
-    ...siblings.filter((sibling) => siblingHasDependencyOverlap(signals.changedSurfaces, sibling)).map((sibling) => sibling.sibling_id),
-    ...siblings.filter((sibling) => signals.matchedDependencyIds.includes(sibling.sibling_id)).map((sibling) => sibling.sibling_id)
-  ]);
-  if (softSiblingIds.length > 0) {
-    return {
-      conflict_class: "soft_conflict",
-      affected_siblings: softSiblingIds,
-      rationale: `Touched or requested surfaces intersect sibling depends_on declarations or caller-matched dependencies for ${softSiblingIds.join(", ")}.`
-    };
-  }
-  return {
-    conflict_class: "no_conflict",
-    affected_siblings: [],
-    rationale: "No changed surface overlaps sibling ownership or dependency surfaces."
-  };
-}
-function conflictSignals(input) {
-  const context = input.request.context ?? {};
-  const ownershipSurfaces = [
-    ...ownershipSurfaceStrings(input.ownership_scope),
-    ...readStringArray3(context, "ownership_scope"),
-    ...ownershipSurfaceStrings(readOwnershipSurface(context, "ownership_surface"))
-  ];
-  const touchSurfaces = [
-    ...touchReportSurfaceStrings(input.touch_report),
-    ...readStringArray3(context, "touched_surfaces"),
-    ...touchReportSurfaceStrings(readTouchReport(context, "touch_report")),
-    ...touchReportFieldSurfaceStrings(context)
-  ];
-  return {
-    changedSurfaces: uniqueSurfaces([
-      ...touchSurfaces.flatMap((surface) => normalizeGeneralSurface(surface)),
-      ...ownershipSurfaces.flatMap((surface) => normalizeGeneralSurface(surface))
-    ]),
-    matchedDependencyIds: unique([
-      ...input.matched_dependencies ?? [],
-      ...readStringArray3(context, "matched_dependencies")
-    ])
-  };
-}
-function ownershipSurfaceStrings(surface) {
-  if (surface === void 0) {
-    return [];
-  }
-  return [
-    ...surface.owns_files.map((value) => asSurfaceString("file", value)),
-    ...surface.owns_interfaces.map((value) => asSurfaceString("interface", value)),
-    ...surface.owns_data,
-    ...surface.owns_workflow_steps.map((value) => asSurfaceString("workflow", value))
-  ];
-}
-function touchReportSurfaceStrings(report) {
-  if (report === void 0) {
-    return [];
-  }
-  return [
-    ...report.touched_files.map((value) => asSurfaceString("file", value)),
-    ...report.touched_interfaces.map((value) => asSurfaceString("interface", value)),
-    ...report.touched_data,
-    ...report.touched_workflow_steps.map((value) => asSurfaceString("workflow", value))
-  ];
-}
-function touchReportFieldSurfaceStrings(context) {
-  return [
-    ...readStringArray3(context, "touched_files").map((value) => asSurfaceString("file", value)),
-    ...readStringArray3(context, "touched_interfaces").map((value) => asSurfaceString("interface", value)),
-    ...readStringArray3(context, "touched_data"),
-    ...readStringArray3(context, "touched_workflow_steps").map((value) => asSurfaceString("workflow", value))
-  ];
-}
-function siblingHasOwnedOverlap(changedSurfaces, sibling) {
-  const ownedSurfaces = [
-    ...normalizeOwnedSurfaces("file", sibling.owns_files),
-    ...normalizeOwnedSurfaces("interface", sibling.owns_interfaces),
-    ...normalizeOwnedSurfaces("data", sibling.owns_data),
-    ...normalizeOwnedSurfaces("workflow", sibling.owns_workflow_steps)
-  ];
-  return surfacesIntersect(changedSurfaces, ownedSurfaces);
-}
-function siblingHasDependencyOverlap(changedSurfaces, sibling) {
-  return surfacesIntersect(changedSurfaces, normalizeOwnedSurfaces("data", sibling.depends_on));
-}
-function normalizeOwnedSurfaces(defaultKind, values) {
-  if (values === void 0) {
-    return [];
-  }
-  return values.flatMap((value) => normalizeSurface(value, defaultKind));
-}
-function normalizeGeneralSurface(surface) {
-  return normalizeSurface(surface, void 0);
-}
-function normalizeSurface(surface, defaultKind) {
-  const trimmed = surface.trim();
-  if (trimmed.length === 0) {
-    return [];
-  }
-  const explicitKind = explicitKindFor(trimmed);
-  if (explicitKind !== void 0) {
-    return [{
-      kind: explicitKind,
-      identifier: trimmed.slice(explicitKind.length + 1),
-      original: surface
-    }];
-  }
-  if (defaultKind !== void 0) {
-    return [{
-      kind: defaultKind,
-      identifier: trimmed,
-      original: surface
-    }];
-  }
-  return [];
-}
-function explicitKindFor(surface) {
-  const separatorIndex = surface.indexOf(":");
-  if (separatorIndex < 1) {
-    return void 0;
-  }
-  const prefix = surface.slice(0, separatorIndex);
-  return SURFACE_PREFIXES.find((candidate) => candidate === prefix);
-}
-function surfacesIntersect(left, right) {
-  return left.some(
-    (leftSurface) => right.some((rightSurface) => surfacesOverlap(leftSurface, rightSurface))
-  );
-}
-function surfacesOverlap(left, right) {
-  return left.kind === right.kind && identifiersOverlap(left.identifier, right.identifier);
-}
-function identifiersOverlap(left, right) {
-  if (left === right) {
-    return true;
-  }
-  if (!left.includes("*") && !right.includes("*")) {
-    return false;
-  }
-  if (wildcardMatches(left, right) || wildcardMatches(right, left)) {
-    return true;
-  }
-  const leftPrefix = literalPrefix(left);
-  const rightPrefix = literalPrefix(right);
-  return leftPrefix.length === 0 || rightPrefix.length === 0 || leftPrefix.startsWith(rightPrefix) || rightPrefix.startsWith(leftPrefix);
-}
-function wildcardMatches(pattern, value) {
-  if (!pattern.includes("*")) {
-    return pattern === value;
-  }
-  const segments = pattern.split("*");
-  let searchIndex = 0;
-  for (let index = 0; index < segments.length; index += 1) {
-    const segment = segments[index];
-    if (segment === void 0 || segment.length === 0) {
-      continue;
-    }
-    if (index === 0 && !pattern.startsWith("*")) {
-      if (!value.startsWith(segment)) {
-        return false;
-      }
-      searchIndex = segment.length;
-      continue;
-    }
-    const foundIndex = value.indexOf(segment, searchIndex);
-    if (foundIndex === -1) {
-      return false;
-    }
-    searchIndex = foundIndex + segment.length;
-  }
-  const finalSegment = segments[segments.length - 1];
-  return pattern.endsWith("*") || finalSegment === void 0 || finalSegment.length === 0 || value.endsWith(finalSegment);
-}
-function literalPrefix(value) {
-  const wildcardIndex = value.indexOf("*");
-  return wildcardIndex === -1 ? value : value.slice(0, wildcardIndex);
-}
-function affectedIncompleteSiblings(siblings) {
-  return siblings.filter((sibling) => siblingOwnershipIsIncomplete(sibling)).map((sibling) => sibling.sibling_id);
-}
-function siblingOwnershipIsIncomplete(sibling) {
-  const requiredArrays = [
-    sibling.owns_files,
-    sibling.owns_interfaces,
-    sibling.owns_data,
-    sibling.owns_workflow_steps
-  ];
-  if (!requiredArrays.every(Array.isArray)) {
-    return true;
-  }
-  const declaredSurfaceCount = [
-    ...requiredArrays,
-    sibling.depends_on ?? []
-  ].reduce((count, entries) => count + entries.length, 0);
-  return declaredSurfaceCount === 0;
-}
-function readOwnershipSurface(context, key) {
-  const value = context[key];
-  if (!isJsonObject(value)) {
-    return void 0;
-  }
-  const ownsFiles = readStringArray3(value, "owns_files");
-  const ownsInterfaces = readStringArray3(value, "owns_interfaces");
-  const ownsData = readStringArray3(value, "owns_data");
-  const ownsWorkflowSteps = readStringArray3(value, "owns_workflow_steps");
-  if (ownsFiles.length === 0 && ownsInterfaces.length === 0 && ownsData.length === 0 && ownsWorkflowSteps.length === 0) {
-    return void 0;
-  }
-  const dependsOn = readStringArray3(value, "depends_on");
-  return {
-    owns_files: ownsFiles,
-    owns_interfaces: ownsInterfaces,
-    owns_data: ownsData,
-    owns_workflow_steps: ownsWorkflowSteps,
-    ...dependsOn.length === 0 ? {} : { depends_on: dependsOn }
-  };
-}
-function readTouchReport(context, key) {
-  const value = context[key];
-  if (!isJsonObject(value)) {
-    return void 0;
-  }
-  const taskId = readString3(value, "task_id");
-  if (taskId === void 0 || value.report_type !== "touch_report") {
-    return void 0;
-  }
-  return {
-    task_id: taskId,
-    report_type: "touch_report",
-    touched_files: readStringArray3(value, "touched_files"),
-    touched_interfaces: readStringArray3(value, "touched_interfaces"),
-    touched_data: readStringArray3(value, "touched_data"),
-    touched_workflow_steps: readStringArray3(value, "touched_workflow_steps")
-  };
-}
-function readString3(context, key) {
-  const value = context[key];
-  return typeof value === "string" && value.length > 0 ? value : void 0;
-}
-function readStringArray3(context, key) {
-  const value = context[key];
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter(isString2);
-}
-function isString2(value) {
-  return typeof value === "string";
-}
-function isJsonObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function asSurfaceString(kind, value) {
-  return explicitKindFor(value) === void 0 ? `${kind}:${value}` : value;
-}
-function unique(values) {
-  return [...new Set(values)];
-}
-function uniqueSurfaces(surfaces) {
-  const seen = /* @__PURE__ */ new Set();
-  const uniqueValues = [];
-  for (const surface of surfaces) {
-    const key = `${surface.kind}:${surface.identifier}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      uniqueValues.push(surface);
-    }
-  }
-  return uniqueValues;
-}
-function hardRationale(missingChangedSurfaceSiblingIds, incompleteSiblingIds, missingMatchedDependencyIds, directOverlapSiblingIds, hardSiblingIds) {
-  const details = [];
-  if (missingChangedSurfaceSiblingIds.length > 0) {
-    details.push(`missing deciding ownership or touch surfaces while sibling data is present for ${missingChangedSurfaceSiblingIds.join(", ")}`);
-  }
-  if (incompleteSiblingIds.length > 0) {
-    details.push(`incomplete sibling ownership data for ${incompleteSiblingIds.join(", ")}`);
-  }
-  if (missingMatchedDependencyIds.length > 0) {
-    details.push(`matched dependencies without supplied sibling surfaces for ${missingMatchedDependencyIds.join(", ")}`);
-  }
-  if (directOverlapSiblingIds.length > 0) {
-    details.push(`direct ownership overlap or shared-contract surface ownership for ${directOverlapSiblingIds.join(", ")}`);
-  }
-  details.push(`affected siblings: ${hardSiblingIds.join(", ")}`);
-  return `Hard conflict: ${details.join("; ")}.`;
-}
-
 // ../daimyo/dist/index.mjs
 import { createRequire as d_ } from "node:module";
 import { homedir as Ok } from "os";
@@ -76178,11 +75461,11 @@ var DEFAULT_AUTONOMY_PROFILE = {
 };
 function decisionPolicyContext(request, profile) {
   const context = request.context ?? {};
-  const domain = readDomain2(context, "domain") ?? readDomain2(context, "decision_domain") ?? "engineering";
+  const domain = readDomain(context, "domain") ?? readDomain(context, "decision_domain") ?? "engineering";
   return {
     domain,
     level: profile[domain],
-    scope: readScope2(context, "scope") ?? readScope2(context, "decision_scope") ?? "moderate",
+    scope: readScope(context, "scope") ?? readScope(context, "decision_scope") ?? "moderate",
     productBaselineApproved: readBoolean2(context, "product_baseline_approved") ?? true,
     declaredRisk: readScore3(context, "risk") ?? readScore3(context, "declared_risk") ?? 5
   };
@@ -76231,12 +75514,12 @@ function evaluateAutonomyThreshold(request, verdict, profile) {
       return { action: "proceed", reason: "decision is within delegated bounds" };
   }
 }
-function readDomain2(source, key) {
+function readDomain(source, key) {
   const value = source[key];
   if (typeof value === "string" && isAutonomyDomain(value)) return value;
   return void 0;
 }
-function readScope2(source, key) {
+function readScope(source, key) {
   const value = source[key];
   if (typeof value === "string" && isDecisionScope(value)) return value;
   return void 0;
@@ -76259,6 +75542,843 @@ function isAutonomyDomain(value) {
 }
 function isDecisionScope(value) {
   return value === "local" || value === "moderate" || value === "major";
+}
+
+// src/decision-policy/conflict.ts
+var SURFACE_PREFIXES = [
+  "file",
+  "interface",
+  "workflow",
+  "config",
+  "table",
+  "collection",
+  "bucket",
+  "queue",
+  "topic",
+  "secret",
+  "data",
+  "schema",
+  "governance"
+];
+function assessConflict(input, siblings) {
+  if (siblings === void 0 || siblings.length === 0) {
+    return {
+      conflict_class: "no_conflict",
+      affected_siblings: [],
+      rationale: "No sibling ownership data was supplied; conflict assessment degrades to scope-only no_conflict."
+    };
+  }
+  const signals = conflictSignals(input);
+  const missingChangedSurfaceSiblingIds = signals.changedSurfaces.length === 0 ? siblings.map((sibling) => sibling.sibling_id) : [];
+  const incompleteSiblingIds = affectedIncompleteSiblings(siblings);
+  const missingMatchedDependencyIds = signals.matchedDependencyIds.filter(
+    (siblingId) => !siblings.some((sibling) => sibling.sibling_id === siblingId)
+  );
+  const directOverlapSiblingIds = siblings.filter((sibling) => siblingHasOwnedOverlap(signals.changedSurfaces, sibling)).map((sibling) => sibling.sibling_id);
+  const hardSiblingIds = unique([
+    ...missingChangedSurfaceSiblingIds,
+    ...incompleteSiblingIds,
+    ...missingMatchedDependencyIds,
+    ...directOverlapSiblingIds
+  ]);
+  if (hardSiblingIds.length > 0) {
+    return {
+      conflict_class: "hard_conflict",
+      affected_siblings: hardSiblingIds,
+      rationale: hardRationale(
+        missingChangedSurfaceSiblingIds,
+        incompleteSiblingIds,
+        missingMatchedDependencyIds,
+        directOverlapSiblingIds,
+        hardSiblingIds
+      )
+    };
+  }
+  const softSiblingIds = unique([
+    ...siblings.filter((sibling) => siblingHasDependencyOverlap(signals.changedSurfaces, sibling)).map((sibling) => sibling.sibling_id),
+    ...siblings.filter((sibling) => signals.matchedDependencyIds.includes(sibling.sibling_id)).map((sibling) => sibling.sibling_id)
+  ]);
+  if (softSiblingIds.length > 0) {
+    return {
+      conflict_class: "soft_conflict",
+      affected_siblings: softSiblingIds,
+      rationale: `Touched or requested surfaces intersect sibling depends_on declarations or caller-matched dependencies for ${softSiblingIds.join(", ")}.`
+    };
+  }
+  return {
+    conflict_class: "no_conflict",
+    affected_siblings: [],
+    rationale: "No changed surface overlaps sibling ownership or dependency surfaces."
+  };
+}
+function conflictSignals(input) {
+  const context = input.request.context ?? {};
+  const ownershipSurfaces = [
+    ...ownershipSurfaceStrings(input.ownership_scope),
+    ...readStringArray(context, "ownership_scope"),
+    ...ownershipSurfaceStrings(readOwnershipSurface(context, "ownership_surface"))
+  ];
+  const touchSurfaces = [
+    ...touchReportSurfaceStrings(input.touch_report),
+    ...readStringArray(context, "touched_surfaces"),
+    ...touchReportSurfaceStrings(readTouchReport(context, "touch_report")),
+    ...touchReportFieldSurfaceStrings(context)
+  ];
+  return {
+    changedSurfaces: uniqueSurfaces([
+      ...touchSurfaces.flatMap((surface) => normalizeGeneralSurface(surface)),
+      ...ownershipSurfaces.flatMap((surface) => normalizeGeneralSurface(surface))
+    ]),
+    matchedDependencyIds: unique([
+      ...input.matched_dependencies ?? [],
+      ...readStringArray(context, "matched_dependencies")
+    ])
+  };
+}
+function ownershipSurfaceStrings(surface) {
+  if (surface === void 0) {
+    return [];
+  }
+  return [
+    ...surface.owns_files.map((value) => asSurfaceString("file", value)),
+    ...surface.owns_interfaces.map((value) => asSurfaceString("interface", value)),
+    ...surface.owns_data,
+    ...surface.owns_workflow_steps.map((value) => asSurfaceString("workflow", value))
+  ];
+}
+function touchReportSurfaceStrings(report) {
+  if (report === void 0) {
+    return [];
+  }
+  return [
+    ...report.touched_files.map((value) => asSurfaceString("file", value)),
+    ...report.touched_interfaces.map((value) => asSurfaceString("interface", value)),
+    ...report.touched_data,
+    ...report.touched_workflow_steps.map((value) => asSurfaceString("workflow", value))
+  ];
+}
+function touchReportFieldSurfaceStrings(context) {
+  return [
+    ...readStringArray(context, "touched_files").map((value) => asSurfaceString("file", value)),
+    ...readStringArray(context, "touched_interfaces").map((value) => asSurfaceString("interface", value)),
+    ...readStringArray(context, "touched_data"),
+    ...readStringArray(context, "touched_workflow_steps").map((value) => asSurfaceString("workflow", value))
+  ];
+}
+function siblingHasOwnedOverlap(changedSurfaces, sibling) {
+  const ownedSurfaces = [
+    ...normalizeOwnedSurfaces("file", sibling.owns_files),
+    ...normalizeOwnedSurfaces("interface", sibling.owns_interfaces),
+    ...normalizeOwnedSurfaces("data", sibling.owns_data),
+    ...normalizeOwnedSurfaces("workflow", sibling.owns_workflow_steps)
+  ];
+  return surfacesIntersect(changedSurfaces, ownedSurfaces);
+}
+function siblingHasDependencyOverlap(changedSurfaces, sibling) {
+  return surfacesIntersect(changedSurfaces, normalizeOwnedSurfaces("data", sibling.depends_on));
+}
+function normalizeOwnedSurfaces(defaultKind, values) {
+  if (values === void 0) {
+    return [];
+  }
+  return values.flatMap((value) => normalizeSurface(value, defaultKind));
+}
+function normalizeGeneralSurface(surface) {
+  return normalizeSurface(surface, void 0);
+}
+function normalizeSurface(surface, defaultKind) {
+  const trimmed = surface.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+  const explicitKind = explicitKindFor(trimmed);
+  if (explicitKind !== void 0) {
+    return [{
+      kind: explicitKind,
+      identifier: trimmed.slice(explicitKind.length + 1),
+      original: surface
+    }];
+  }
+  if (defaultKind !== void 0) {
+    return [{
+      kind: defaultKind,
+      identifier: trimmed,
+      original: surface
+    }];
+  }
+  return [];
+}
+function explicitKindFor(surface) {
+  const separatorIndex = surface.indexOf(":");
+  if (separatorIndex < 1) {
+    return void 0;
+  }
+  const prefix = surface.slice(0, separatorIndex);
+  return SURFACE_PREFIXES.find((candidate) => candidate === prefix);
+}
+function surfacesIntersect(left, right) {
+  return left.some(
+    (leftSurface) => right.some((rightSurface) => surfacesOverlap(leftSurface, rightSurface))
+  );
+}
+function surfacesOverlap(left, right) {
+  return left.kind === right.kind && identifiersOverlap(left.identifier, right.identifier);
+}
+function identifiersOverlap(left, right) {
+  if (left === right) {
+    return true;
+  }
+  if (!left.includes("*") && !right.includes("*")) {
+    return false;
+  }
+  if (wildcardMatches(left, right) || wildcardMatches(right, left)) {
+    return true;
+  }
+  const leftPrefix = literalPrefix(left);
+  const rightPrefix = literalPrefix(right);
+  return leftPrefix.length === 0 || rightPrefix.length === 0 || leftPrefix.startsWith(rightPrefix) || rightPrefix.startsWith(leftPrefix);
+}
+function wildcardMatches(pattern, value) {
+  if (!pattern.includes("*")) {
+    return pattern === value;
+  }
+  const segments = pattern.split("*");
+  let searchIndex = 0;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment === void 0 || segment.length === 0) {
+      continue;
+    }
+    if (index === 0 && !pattern.startsWith("*")) {
+      if (!value.startsWith(segment)) {
+        return false;
+      }
+      searchIndex = segment.length;
+      continue;
+    }
+    const foundIndex = value.indexOf(segment, searchIndex);
+    if (foundIndex === -1) {
+      return false;
+    }
+    searchIndex = foundIndex + segment.length;
+  }
+  const finalSegment = segments[segments.length - 1];
+  return pattern.endsWith("*") || finalSegment === void 0 || finalSegment.length === 0 || value.endsWith(finalSegment);
+}
+function literalPrefix(value) {
+  const wildcardIndex = value.indexOf("*");
+  return wildcardIndex === -1 ? value : value.slice(0, wildcardIndex);
+}
+function affectedIncompleteSiblings(siblings) {
+  return siblings.filter((sibling) => siblingOwnershipIsIncomplete(sibling)).map((sibling) => sibling.sibling_id);
+}
+function siblingOwnershipIsIncomplete(sibling) {
+  const requiredArrays = [
+    sibling.owns_files,
+    sibling.owns_interfaces,
+    sibling.owns_data,
+    sibling.owns_workflow_steps
+  ];
+  if (!requiredArrays.every(Array.isArray)) {
+    return true;
+  }
+  const declaredSurfaceCount = [
+    ...requiredArrays,
+    sibling.depends_on ?? []
+  ].reduce((count, entries) => count + entries.length, 0);
+  return declaredSurfaceCount === 0;
+}
+function readOwnershipSurface(context, key) {
+  const value = context[key];
+  if (!isJsonObject(value)) {
+    return void 0;
+  }
+  const ownsFiles = readStringArray(value, "owns_files");
+  const ownsInterfaces = readStringArray(value, "owns_interfaces");
+  const ownsData = readStringArray(value, "owns_data");
+  const ownsWorkflowSteps = readStringArray(value, "owns_workflow_steps");
+  if (ownsFiles.length === 0 && ownsInterfaces.length === 0 && ownsData.length === 0 && ownsWorkflowSteps.length === 0) {
+    return void 0;
+  }
+  const dependsOn = readStringArray(value, "depends_on");
+  return {
+    owns_files: ownsFiles,
+    owns_interfaces: ownsInterfaces,
+    owns_data: ownsData,
+    owns_workflow_steps: ownsWorkflowSteps,
+    ...dependsOn.length === 0 ? {} : { depends_on: dependsOn }
+  };
+}
+function readTouchReport(context, key) {
+  const value = context[key];
+  if (!isJsonObject(value)) {
+    return void 0;
+  }
+  const taskId = readString(value, "task_id");
+  if (taskId === void 0 || value.report_type !== "touch_report") {
+    return void 0;
+  }
+  return {
+    task_id: taskId,
+    report_type: "touch_report",
+    touched_files: readStringArray(value, "touched_files"),
+    touched_interfaces: readStringArray(value, "touched_interfaces"),
+    touched_data: readStringArray(value, "touched_data"),
+    touched_workflow_steps: readStringArray(value, "touched_workflow_steps")
+  };
+}
+function readString(context, key) {
+  const value = context[key];
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function readStringArray(context, key) {
+  const value = context[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(isString);
+}
+function isString(value) {
+  return typeof value === "string";
+}
+function isJsonObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function asSurfaceString(kind, value) {
+  return explicitKindFor(value) === void 0 ? `${kind}:${value}` : value;
+}
+function unique(values) {
+  return [...new Set(values)];
+}
+function uniqueSurfaces(surfaces) {
+  const seen = /* @__PURE__ */ new Set();
+  const uniqueValues = [];
+  for (const surface of surfaces) {
+    const key = `${surface.kind}:${surface.identifier}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueValues.push(surface);
+    }
+  }
+  return uniqueValues;
+}
+function hardRationale(missingChangedSurfaceSiblingIds, incompleteSiblingIds, missingMatchedDependencyIds, directOverlapSiblingIds, hardSiblingIds) {
+  const details = [];
+  if (missingChangedSurfaceSiblingIds.length > 0) {
+    details.push(`missing deciding ownership or touch surfaces while sibling data is present for ${missingChangedSurfaceSiblingIds.join(", ")}`);
+  }
+  if (incompleteSiblingIds.length > 0) {
+    details.push(`incomplete sibling ownership data for ${incompleteSiblingIds.join(", ")}`);
+  }
+  if (missingMatchedDependencyIds.length > 0) {
+    details.push(`matched dependencies without supplied sibling surfaces for ${missingMatchedDependencyIds.join(", ")}`);
+  }
+  if (directOverlapSiblingIds.length > 0) {
+    details.push(`direct ownership overlap or shared-contract surface ownership for ${directOverlapSiblingIds.join(", ")}`);
+  }
+  details.push(`affected siblings: ${hardSiblingIds.join(", ")}`);
+  return `Hard conflict: ${details.join("; ")}.`;
+}
+
+// src/decision-policy/classifier.ts
+var DEFAULT_DOMAIN = "engineering";
+var DEFAULT_SCOPE = "moderate";
+var DEFAULT_RISK = 5;
+var TASK_OWNED_SURFACE_PREFIXES = ["file:", "workflow:"];
+var SHARED_CONTRACT_SURFACE_PREFIXES = ["interface:", "config:", "schema:"];
+var MAJOR_ALTITUDES = ["initiative", "epic", "strategy", "vision", "root"];
+var MODERATE_ALTITUDES = ["story"];
+var DEFAULT_DOMAIN_CLASSIFICATION_RULES = [
+  {
+    id: "domain:design:exact-actions",
+    domain: "design",
+    match: "exact",
+    values: ["ui_text_update"],
+    rationale: "UI copy updates are design decisions."
+  },
+  {
+    id: "domain:design:action-prefixes",
+    domain: "design",
+    match: "prefix",
+    values: ["ux_", "visual_", "interaction_"],
+    rationale: "UX, visual, and interaction action families are design decisions."
+  },
+  {
+    id: "domain:product:exact-actions",
+    domain: "product",
+    match: "exact",
+    values: ["policy_change", "product_behavior_change", "product_behavior_update"],
+    rationale: "Policy and product-behavior actions change product behavior."
+  },
+  {
+    id: "domain:product:action-prefixes",
+    domain: "product",
+    match: "prefix",
+    values: ["capability_", "workflow_", "scope_", "product_behavior_"],
+    rationale: "Capability, workflow, scope, and product-behavior action families are product decisions."
+  },
+  {
+    id: "domain:engineering:exact-actions",
+    domain: "engineering",
+    match: "exact",
+    values: ["api_response_change"],
+    rationale: "API response changes are engineering contract decisions."
+  },
+  {
+    id: "domain:engineering:action-prefixes",
+    domain: "engineering",
+    match: "prefix",
+    values: ["schema_", "tech_", "code_", "architecture_"],
+    rationale: "Schema, technical, code, and architecture action families are engineering decisions."
+  }
+];
+var DEFAULT_SCOPE_CLASSIFICATION_RULES = [
+  {
+    id: "scope:major:initiative-plus-altitude",
+    scope: "major",
+    rationale: "Initiative, epic, strategy, vision, and root altitude decisions cross a strategic review boundary.",
+    matches: (signals) => isOneOf(signals.altitude, MAJOR_ALTITUDES)
+  },
+  {
+    id: "scope:major:governance-or-config-wildcard",
+    scope: "major",
+    rationale: "Governance surfaces and wildcard config changes can affect multiple children or policy boundaries.",
+    matches: (signals) => signals.surfaces.some((surface) => surface.startsWith("governance:") || isWildcardConfigSurface(surface))
+  },
+  {
+    id: "scope:moderate:shared-contract-task-altitude",
+    scope: "moderate",
+    rationale: "Task-altitude shared interface, config, or schema surfaces affect contracts outside a local task.",
+    matches: (signals) => signals.altitude === "task" && signals.surfaces.some(isSharedContractSurface)
+  },
+  {
+    id: "scope:moderate:story-altitude",
+    scope: "moderate",
+    rationale: "Story altitude is above a task-local implementation detail but below initiative scope.",
+    matches: (signals) => isOneOf(signals.altitude, MODERATE_ALTITUDES)
+  },
+  {
+    id: "scope:local:task-owned-surfaces",
+    scope: "local",
+    rationale: "Task altitude with only file or workflow surfaces stays within task-owned execution scope.",
+    matches: (signals) => signals.altitude === "task" && signals.surfaces.length > 0 && signals.surfaces.every(isTaskOwnedSurface)
+  }
+];
+function classifyDecision(input) {
+  const signals = classificationSignals(input.request.context);
+  const domainResult = classifyDomain(signals);
+  const scopeResult = classifyScope(signals);
+  const riskResult = classifyRisk(signals.context);
+  return {
+    domain: domainResult.value,
+    scope: scopeResult.value,
+    risk: riskResult.value,
+    rationale: [
+      domainResult.rationale,
+      scopeResult.rationale,
+      riskResult.rationale
+    ].join(" ")
+  };
+}
+function classifyDomain(signals) {
+  const explicitDomain = readDomain2(signals.context, "domain") ?? readDomain2(signals.context, "decision_domain");
+  if (explicitDomain !== void 0) {
+    return {
+      value: explicitDomain,
+      rationale: `Domain ${explicitDomain} was caller-supplied in request context.`
+    };
+  }
+  if (signals.actionType !== void 0) {
+    const actionType = signals.actionType;
+    const matchedRule = DEFAULT_DOMAIN_CLASSIFICATION_RULES.find((rule) => domainRuleMatches(rule, actionType));
+    if (matchedRule !== void 0) {
+      return {
+        value: matchedRule.domain,
+        rationale: `Domain ${matchedRule.domain} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
+      };
+    }
+  }
+  return {
+    value: DEFAULT_DOMAIN,
+    rationale: "Domain defaulted to engineering because no explicit domain or action_type rule matched."
+  };
+}
+function classifyScope(signals) {
+  const explicitScope = readScope2(signals.context, "scope") ?? readScope2(signals.context, "decision_scope");
+  if (explicitScope !== void 0) {
+    return {
+      value: explicitScope,
+      rationale: `Scope ${explicitScope} was caller-supplied in request context.`
+    };
+  }
+  const scopeSignals = {
+    ...signals.altitude === void 0 ? {} : { altitude: signals.altitude },
+    surfaces: [...signals.ownershipScope, ...signals.touchedSurfaces]
+  };
+  const matchedRule = DEFAULT_SCOPE_CLASSIFICATION_RULES.find((rule) => rule.matches(scopeSignals));
+  if (matchedRule !== void 0) {
+    return {
+      value: matchedRule.scope,
+      rationale: `Scope ${matchedRule.scope} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
+    };
+  }
+  return {
+    value: DEFAULT_SCOPE,
+    rationale: "Scope defaulted to moderate because ownership and altitude signals were absent or insufficient for local scope."
+  };
+}
+function classifyRisk(context) {
+  const explicitRisk = readScore(context, "risk") ?? readScore(context, "declared_risk");
+  if (explicitRisk !== void 0) {
+    return {
+      value: explicitRisk,
+      rationale: `Risk ${explicitRisk} was caller-supplied in request context.`
+    };
+  }
+  const riskLevel = readString2(context, "risk_level") ?? readString2(context, "declared_risk_level");
+  if (riskLevel !== void 0) {
+    const mappedRisk = riskForLevel(riskLevel);
+    if (mappedRisk !== void 0) {
+      return {
+        value: mappedRisk,
+        rationale: `Risk ${mappedRisk} inferred from risk_level ${riskLevel}.`
+      };
+    }
+  }
+  return {
+    value: DEFAULT_RISK,
+    rationale: "Risk defaulted to 5 to match daimyo's declared-risk default."
+  };
+}
+function classificationSignals(context) {
+  const safeContext = context ?? {};
+  const altitude = readString2(safeContext, "altitude");
+  const actionType = readString2(safeContext, "action_type");
+  const ownershipScope = readStringArray2(safeContext, "ownership_scope");
+  const touchedSurfaces = readStringArray2(safeContext, "touched_surfaces");
+  return {
+    ...actionType === void 0 ? {} : { actionType },
+    ...altitude === void 0 ? {} : { altitude },
+    ownershipScope,
+    touchedSurfaces,
+    context: safeContext
+  };
+}
+function domainRuleMatches(rule, actionType) {
+  if (rule.match === "exact") {
+    return rule.values.includes(actionType);
+  }
+  return rule.values.some((value) => actionType.startsWith(value));
+}
+function readDomain2(context, key) {
+  const value = context[key];
+  if (value === "engineering" || value === "product" || value === "design") return value;
+  return void 0;
+}
+function readScope2(context, key) {
+  const value = context[key];
+  if (value === "local" || value === "moderate" || value === "major") return value;
+  return void 0;
+}
+function readScore(context, key) {
+  const value = context[key];
+  if (typeof value !== "number" || !Number.isInteger(value)) return void 0;
+  if (value === 0 || value === 1 || value === 2 || value === 3 || value === 4) return value;
+  if (value === 5 || value === 6 || value === 7 || value === 8 || value === 9 || value === 10) return value;
+  return void 0;
+}
+function readString2(context, key) {
+  const value = context[key];
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function readStringArray2(context, key) {
+  const value = context[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isString2);
+}
+function riskForLevel(riskLevel) {
+  switch (riskLevel) {
+    case "low":
+      return 2;
+    case "medium":
+      return 5;
+    case "high":
+      return 8;
+    case "critical":
+      return 10;
+    default:
+      return void 0;
+  }
+}
+function isWildcardConfigSurface(surface) {
+  return surface.startsWith("config:") && surface.includes("*");
+}
+function isSharedContractSurface(surface) {
+  return SHARED_CONTRACT_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
+}
+function isTaskOwnedSurface(surface) {
+  return TASK_OWNED_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
+}
+function isString2(value) {
+  return typeof value === "string";
+}
+function isOneOf(value, options) {
+  return value !== void 0 && options.some((option) => option === value);
+}
+
+// src/decision-policy/static-rules.ts
+function evaluateStaticRules(input, staticRules) {
+  if (input.request.surface !== "permission") {
+    return noMatch(`Static rules apply only to the permission surface, not ${input.request.surface}.`);
+  }
+  if (!Array.isArray(staticRules)) {
+    return noMatch("Static rules config is a legacy placeholder object with no ordered permission rules.");
+  }
+  for (const rule of staticRules) {
+    if (permissionRuleMatches(input.request, rule)) {
+      return {
+        effect: rule.effect,
+        matched_rule_ref: rule.id,
+        matched_rule_refs: [rule.id],
+        rationale: `Static ${rule.effect} rule ${rule.id} matched permission tool ${input.request.tool_name}. Rules are first-match-wins.`
+      };
+    }
+  }
+  return noMatch(`No static permission rule matched tool ${input.request.tool_name}.`);
+}
+function fromDaimyoStaticRules(allowTools = [], denyTools = []) {
+  return [
+    ...denyTools.map((toolName, index) => daimyoRule("deny", toolName, index)),
+    ...allowTools.map((toolName, index) => daimyoRule("allow", toolName, index))
+  ];
+}
+function permissionRuleMatches(request, rule) {
+  return toolNameMatches(rule.match.tool_name, request.tool_name) && argumentsContain(request.arguments, rule.match.arguments_contains) && ownershipScopeMatches(request.context, rule.match.ownership_scope_prefix) && altitudeMatches(request.context, rule.match.altitude);
+}
+function toolNameMatches(pattern, toolName) {
+  if (!pattern.includes("*")) {
+    return pattern === toolName;
+  }
+  const segments = pattern.split("*");
+  let searchIndex = 0;
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (segment === void 0 || segment.length === 0) {
+      continue;
+    }
+    if (index === 0 && !pattern.startsWith("*")) {
+      if (!toolName.startsWith(segment)) return false;
+      searchIndex = segment.length;
+      continue;
+    }
+    const foundIndex = toolName.indexOf(segment, searchIndex);
+    if (foundIndex === -1) {
+      return false;
+    }
+    searchIndex = foundIndex + segment.length;
+  }
+  const finalSegment = segments[segments.length - 1];
+  if (!pattern.endsWith("*") && finalSegment !== void 0 && finalSegment.length > 0) {
+    return toolName.endsWith(finalSegment);
+  }
+  return true;
+}
+function argumentsContain(args, predicates) {
+  if (predicates === void 0) {
+    return true;
+  }
+  return Object.entries(predicates).every(([key, predicate]) => argumentContains(args[key], predicate));
+}
+function argumentContains(value, predicate) {
+  return typeof value === "string" && value.includes(containsText(predicate));
+}
+function containsText(predicate) {
+  if (typeof predicate === "string") {
+    return predicate;
+  }
+  return predicate.contains;
+}
+function ownershipScopeMatches(context, prefix) {
+  if (prefix === void 0) {
+    return true;
+  }
+  return readStringArray3(context, "ownership_scope").some((surface) => surface.startsWith(prefix));
+}
+function altitudeMatches(context, altitude) {
+  if (altitude === void 0) {
+    return true;
+  }
+  return readString3(context, "altitude") === altitude;
+}
+function readString3(context, key) {
+  const value = context?.[key];
+  return typeof value === "string" ? value : void 0;
+}
+function readStringArray3(context, key) {
+  const value = context?.[key];
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry) => typeof entry === "string");
+}
+function daimyoRule(effect, toolName, index) {
+  return {
+    id: `daimyo:${effect}:${index}:${toolName}`,
+    effect,
+    match: {
+      tool_name: toolName
+    }
+  };
+}
+function noMatch(rationale2) {
+  return {
+    effect: "no_match",
+    matched_rule_ref: null,
+    matched_rule_refs: [],
+    rationale: rationale2
+  };
+}
+
+// src/decision-policy/engine.ts
+var DECISION_POLICY_ENGINE_VERSION = "0.5.0";
+var DETERMINISTIC_POLICY_CONFIDENCE = 10;
+var DecisionPolicyEngine = class {
+  evaluate(input) {
+    if (input.request.surface === "permission") {
+      return evaluatePermission(input);
+    }
+    return evaluateRouting(input);
+  }
+};
+function evaluatePermission(input) {
+  const staticRule = evaluateStaticRules(input, input.config.static_rules);
+  const classification = classifyDecision(input);
+  if (staticRule.effect === "allow") {
+    return permissionVerdict("permit", false, null, input, classification, staticRule);
+  }
+  if (staticRule.effect === "deny") {
+    return permissionVerdict("stop", true, "human", input, classification, staticRule);
+  }
+  return {
+    outcome: "route",
+    conflict_class: "no_conflict",
+    review_required: true,
+    route_to: "human",
+    classified_domain: classification.domain,
+    classified_scope: classification.scope,
+    rationale: rationale([
+      `Permission request ${input.request.decision_id} did not match a deterministic static allow/deny rule, so it falls through for human review.`,
+      staticRule.rationale,
+      classification.rationale
+    ]),
+    matched_rule_refs: [],
+    engine_version: DECISION_POLICY_ENGINE_VERSION
+  };
+}
+function evaluateRouting(input) {
+  const classification = classifyDecision(input);
+  const conflict = assessConflict(input, input.sibling_ownership);
+  const autonomy = evaluateAutonomyThreshold(
+    requestWithClassifiedPolicyContext(input.request, input.config.product_baseline_approved, classification),
+    provisionalDecisionVerdict(classification),
+    input.config.autonomy_profile
+  );
+  if (autonomy.action === "escalate") {
+    return routingVerdict("stop", true, "human", classification, conflict, [
+      `Daimyo autonomy threshold escalated: ${autonomy.reason}.`,
+      conflictRationale(conflict),
+      classification.rationale
+    ]);
+  }
+  if (conflict.conflict_class === "hard_conflict") {
+    return routingVerdict("route", false, "parent_loop", classification, conflict, [
+      "Daimyo autonomy threshold allowed proceed, but a hard conflict requires parent-loop routing and sibling quiesce before work continues.",
+      conflictRationale(conflict),
+      classification.rationale,
+      `Daimyo autonomy threshold reason: ${autonomy.reason}.`
+    ]);
+  }
+  if (conflict.conflict_class === "soft_conflict") {
+    return routingVerdict("route", false, "parent_loop", classification, conflict, [
+      "Daimyo autonomy threshold allowed proceed, but a soft conflict requires loading sibling context and patching child instructions through the parent loop.",
+      conflictRationale(conflict),
+      classification.rationale,
+      `Daimyo autonomy threshold reason: ${autonomy.reason}.`
+    ]);
+  }
+  return routingVerdict("permit", false, null, classification, conflict, [
+    `Daimyo autonomy threshold allowed proceed: ${autonomy.reason}.`,
+    conflictRationale(conflict),
+    classification.rationale
+  ]);
+}
+function permissionVerdict(outcome, reviewRequired, routeTo, input, classification, staticRule) {
+  return {
+    outcome,
+    conflict_class: "no_conflict",
+    review_required: reviewRequired,
+    route_to: routeTo,
+    classified_domain: classification.domain,
+    classified_scope: classification.scope,
+    rationale: rationale([
+      `Permission request ${input.request.decision_id} was settled by static rules before routing policy.`,
+      staticRule.rationale,
+      classification.rationale
+    ]),
+    matched_rule_refs: [...staticRule.matched_rule_refs],
+    engine_version: DECISION_POLICY_ENGINE_VERSION
+  };
+}
+function routingVerdict(outcome, reviewRequired, routeTo, classification, conflict, rationaleParts) {
+  return {
+    outcome,
+    conflict_class: conflict.conflict_class,
+    review_required: reviewRequired,
+    route_to: routeTo,
+    classified_domain: classification.domain,
+    classified_scope: classification.scope,
+    rationale: rationale(rationaleParts),
+    matched_rule_refs: [],
+    engine_version: DECISION_POLICY_ENGINE_VERSION
+  };
+}
+function requestWithClassifiedPolicyContext(request, productBaselineApproved, classification) {
+  const context = {
+    ...request.context ?? {},
+    domain: classification.domain,
+    decision_domain: classification.domain,
+    scope: classification.scope,
+    decision_scope: classification.scope,
+    product_baseline_approved: productBaselineApproved,
+    risk: classification.risk,
+    declared_risk: classification.risk
+  };
+  if (request.surface === "permission") {
+    return {
+      ...request,
+      context
+    };
+  }
+  return {
+    ...request,
+    context
+  };
+}
+function provisionalDecisionVerdict(classification) {
+  return {
+    type: "decision",
+    suggested_choice: "proceed",
+    suggested_response: "Deterministic policy classification produced the autonomy threshold inputs.",
+    confidence: DETERMINISTIC_POLICY_CONFIDENCE,
+    risk: classification.risk,
+    block_trigger: false
+  };
+}
+function conflictRationale(conflict) {
+  return `Conflict ${conflict.conflict_class}: ${conflict.rationale}`;
+}
+function rationale(parts) {
+  return parts.filter((part) => part.length > 0).join(" ");
 }
 
 // src/schemas/protocol-schemas.ts

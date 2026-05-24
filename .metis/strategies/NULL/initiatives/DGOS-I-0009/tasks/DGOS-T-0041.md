@@ -4,14 +4,14 @@ level: task
 title: "Policy verdict assembler: ask/proceed/stop core reusing the autonomy threshold"
 short_code: "DGOS-T-0041"
 created_at: 2026-05-24T19:02:49.687042+00:00
-updated_at: 2026-05-24T19:02:49.687042+00:00
+updated_at: 2026-05-24T19:54:29.899255+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement `DecisionPolicyEngine.evaluate(input: PolicyDecisionInput): PolicyVerdict` in `engines/src/decision-policy/`, the deterministic composition that produces the final `PolicyVerdict` (`outcome: permit|route|stop`, `conflict_class`, `review_required`, `route_to`, `classified_domain`, `classified_scope`, `rationale`, `matched_rule_refs`, `engine_version`). It is a pure Engine (ADR-1): no model call, no I/O, same inputs → same verdict. Routing/permission surfaces are handled per their `surface`. The autonomy ask/proceed/stop decision **delegates to daimyo's `evaluateAutonomyThreshold`** (reused, never copied).
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -66,3 +70,6 @@ Implement `DecisionPolicyEngine.evaluate(input: PolicyDecisionInput): PolicyVerd
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24: Implemented the `DecisionPolicyEngine.evaluate` assembler in `engines/`: permission requests now settle via static rules first; routing requests compose classifier, conflict evaluator, and daimyo `evaluateAutonomyThreshold`; verdicts include rationale, classified domain/scope, matched static rule refs, and engine version. Added fixture/matrix coverage and bumped `engines` to 0.5.0. No daimyo code change was needed.
+- 2026-05-24 (orchestrator verification): re-ran engines typecheck/lint/test/build — green (42 tests, incl. domain×level autonomy matrix + initiative examples copy→permit / save→route / audit→stop). `evaluate` is synchronous/pure; permission surface runs static rules first (allow→permit, deny→stop, no-match→human route); routing composes classify+conflict+`evaluateAutonomyThreshold` (reused directly — **no daimyo code touched**, the anticipated overload fork was unnecessary); product-baseline guardrail inherited through the threshold call; verdicts carry rationale/domain/scope/matched_rule_refs/engine_version. engines-only. engines 0.4.0 → 0.5.0. No escape hatches. **exit_criteria_met: true.** Completed.
