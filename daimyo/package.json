@@ -1,17 +1,21 @@
 {
   "name": "daimyo",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "type": "module",
   "main": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.mjs"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    }
   },
   "bin": {
     "daimyo": "bin/daimyo.js",
     "daimyo-mcp": "bin/daimyo-mcp.js"
   },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.mjs && esbuild src/mcp/server-entry.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/daimyo-mcp.mjs && esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/daimyo-cli.mjs",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/index.mjs && esbuild src/mcp/server-entry.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/daimyo-mcp.mjs && esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node18 --outfile=dist/daimyo-cli.mjs && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings=0"

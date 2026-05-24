@@ -4,14 +4,14 @@ level: task
 title: "Scaffold the engines package and Decision Policy Engine types + protocol schemas"
 short_code: "DGOS-T-0037"
 created_at: 2026-05-24T19:02:37.889198+00:00
-updated_at: 2026-05-24T19:02:37.889198+00:00
+updated_at: 2026-05-24T19:23:05.809741+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -30,6 +30,10 @@ initiative_id: DGOS-I-0009
 Create a new sibling package `engines/` (peer of `protocol/`, `daimyo/`, `roles/`, `protocol-proof/`) following the proven `roles/` layout, and within it scaffold the Decision Policy Engine at `engines/src/decision-policy/` with: (1) the JSON Schema source-of-truth additions to `protocol/` for the Engine's typed I/O, (2) the in-code domain types that re-use rather than re-declare daimyo's autonomy substrate, and (3) the package's Ajv protocol-validation plumbing. No policy *logic* is implemented here beyond stubs that the downstream tasks fill in — this task delivers the package, the contracts, and the compile/test/lint substrate.
 
 The Engine's typed contract per ADR-1 (deterministic Engine, typed I/O, no model call): given a `PolicyDecisionInput` (a protocol `DecisionRequest` payload plus the loaded `PolicyConfig`), it returns a `PolicyVerdict` — `{ outcome: "permit" | "route" | "stop", conflict_class: "no_conflict" | "soft_conflict" | "hard_conflict", review_required: boolean, route_to: "parent_loop" | "role" | "human" | null, classified_domain, classified_scope, rationale, matched_rule_refs, engine_version }`.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -70,3 +74,7 @@ The Engine's typed contract per ADR-1 (deterministic Engine, typed I/O, no model
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24: Added protocol source schemas for standalone `PolicyVerdict` and `PolicyConfig`, valid/invalid fixtures, compatibility baseline entries, regenerated bindings, and started the new library-only `engines/` package scaffold. `engines/` intentionally has no `.claude-plugin/marketplace.json` because it exposes no command or MCP server in this task.
+- 2026-05-24: Completed `engines/` scaffold with strict roles-style package config, schema validation plumbing, synchronous `DecisionPolicyEngine.evaluate(input)` contract, daimyo autonomy imports/re-exports, and tests. Added daimyo declaration output so `engines` can consume autonomy types from the `daimyo` package entry instead of redeclaring them.
+- 2026-05-24 (orchestrator verification): re-ran all three packages — green. engines: typecheck/lint/test/build (5 tests), v0.1.0, `engine.ts` does `import type { AutonomyDomain, AutonomyProfile } from "daimyo"` (reuses the shape, no redeclaration). protocol: unified gate 73 tests + check:codegen + check:compatibility (15 schemas, additive) — PolicyVerdict + PolicyConfig as standalone contracts; protocol 0.3.0 → 0.4.0. daimyo: typecheck/lint/test (69/5) + build; added `tsconfig.build.json` to emit `dist/**/*.d.ts` + `types`/`exports` in package.json so consumers get types; daimyo 0.13.0 → 0.13.1 (the dist `.mjs` re-bundle churn is the committed-dist consequence of the rebuild — expected). No escape hatches. **exit_criteria_met: true.** Completed.

@@ -867,6 +867,84 @@ export interface PlanTaskOrdering {
    */
   priority?: number;
 }
+// Source: schemas/policy-config.schema.json
+/**
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "autonomyLevel".
+ */
+export type PolicyAutonomyLevel = "always_in_loop" | "big_questions_only" | "delegate";
+
+/**
+ * Governance configuration consumed by the Decision Policy Engine. The static_rules member is intentionally permissive until DGOS-T-0039 finalizes detailed rule shape.
+ */
+export interface PolicyConfig {
+  autonomy_profile: PolicyAutonomyProfile;
+  /**
+   * REQUIRED boolean. False keeps delegated product decisions guarded until the product baseline is approved.
+   */
+  product_baseline_approved: boolean;
+  static_rules: PolicyStaticRules;
+}
+/**
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "autonomyProfile".
+ */
+export interface PolicyAutonomyProfile {
+  engineering: PolicyAutonomyLevel;
+  product: PolicyAutonomyLevel;
+  design: PolicyAutonomyLevel;
+}
+/**
+ * Reserved container for structured static allow/deny rules. DGOS-T-0039 narrows this shape.
+ *
+ * This interface was referenced by `PolicyConfig`'s JSON-Schema
+ * via the `definition` "staticRules".
+ */
+export interface PolicyStaticRules {
+  [k: string]: unknown;
+}
+// Source: schemas/policy-verdict.schema.json
+/**
+ * Deterministic Decision Policy Engine output. This is the ADR-1 Engine verdict returned by evaluate(input), distinct from daimyo's DecisionVerdict wire payload.
+ */
+export interface PolicyVerdict {
+  /**
+   * REQUIRED string. Deterministic policy outcome for the caller.
+   */
+  outcome: "permit" | "route" | "stop";
+  /**
+   * REQUIRED string. Sibling or shared-contract conflict classification.
+   */
+  conflict_class: "no_conflict" | "soft_conflict" | "hard_conflict";
+  /**
+   * REQUIRED boolean. True when the verdict requires explicit human review before proceeding.
+   */
+  review_required: boolean;
+  /**
+   * REQUIRED string or null. Target for routed or stopped decisions.
+   */
+  route_to: "parent_loop" | "role" | "human" | null;
+  /**
+   * REQUIRED string. Deterministically classified ADR-4 autonomy domain.
+   */
+  classified_domain: "engineering" | "product" | "design";
+  /**
+   * REQUIRED string. Deterministically classified decision scope.
+   */
+  classified_scope: "local" | "moderate" | "major";
+  /**
+   * REQUIRED string. Human-readable deterministic rationale for replay and audit.
+   */
+  rationale: string;
+  /**
+   * REQUIRED array. Static rule identifiers that materially affected the verdict.
+   */
+  matched_rule_refs: string[];
+  /**
+   * REQUIRED string. Decision Policy Engine implementation version.
+   */
+  engine_version: string;
+}
 // Source: schemas/review-judgment.schema.json
 /**
  * Envelope-composed Quality Governor Role artifact. The payload captures a structured review verdict and reuses ValidationReport completion-decision vocabulary for completion authority and blockers.

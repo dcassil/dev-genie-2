@@ -17,6 +17,8 @@ coverage/
 !protocol/dist/**
 !roles/dist/
 !roles/dist/**
+!engines/dist/
+!engines/dist/**
 
 # Local databases and logs
 *.db

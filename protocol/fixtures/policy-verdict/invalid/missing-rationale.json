@@ -1,0 +1,10 @@
+{
+  "outcome": "route",
+  "conflict_class": "soft_conflict",
+  "review_required": false,
+  "route_to": "parent_loop",
+  "classified_domain": "engineering",
+  "classified_scope": "moderate",
+  "matched_rule_refs": [],
+  "engine_version": "0.1.0"
+}

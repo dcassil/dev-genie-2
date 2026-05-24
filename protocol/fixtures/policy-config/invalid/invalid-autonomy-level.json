@@ -1,0 +1,9 @@
+{
+  "autonomy_profile": {
+    "engineering": "big_questions_only",
+    "product": "ask_first",
+    "design": "delegate"
+  },
+  "product_baseline_approved": true,
+  "static_rules": {}
+}

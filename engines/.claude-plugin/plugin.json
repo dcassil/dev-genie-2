@@ -1,0 +1,19 @@
+{
+  "name": "engines",
+  "version": "0.1.0",
+  "description": "Dev-Genie deterministic Engines package: shared Engine contracts and Decision Policy Engine scaffolding.",
+  "author": {
+    "name": "Daniel Cassil",
+    "email": "me@danielcassil.com"
+  },
+  "homepage": "https://github.com/dcassil/dev-genie-2",
+  "repository": "https://github.com/dcassil/dev-genie-2",
+  "license": "MIT",
+  "keywords": [
+    "engines",
+    "decision-policy",
+    "protocol",
+    "governance",
+    "dev-genie"
+  ]
+}

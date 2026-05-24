@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/policy-verdict.schema.json",
+  "title": "PolicyVerdict",
+  "description": "Deterministic Decision Policy Engine output. This is the ADR-1 Engine verdict returned by evaluate(input), distinct from daimyo's DecisionVerdict wire payload.",
+  "$comment": "PolicyVerdict is a direct Engine output contract, not an envelope artifact. Protocol wire fields use snake_case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "outcome",
+    "conflict_class",
+    "review_required",
+    "route_to",
+    "classified_domain",
+    "classified_scope",
+    "rationale",
+    "matched_rule_refs",
+    "engine_version"
+  ],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "description": "REQUIRED string. Deterministic policy outcome for the caller.",
+      "enum": ["permit", "route", "stop"]
+    },
+    "conflict_class": {
+      "type": "string",
+      "description": "REQUIRED string. Sibling or shared-contract conflict classification.",
+      "enum": ["no_conflict", "soft_conflict", "hard_conflict"]
+    },
+    "review_required": {
+      "type": "boolean",
+      "description": "REQUIRED boolean. True when the verdict requires explicit human review before proceeding."
+    },
+    "route_to": {
+      "type": ["string", "null"],
+      "description": "REQUIRED string or null. Target for routed or stopped decisions.",
+      "enum": ["parent_loop", "role", "human", null]
+    },
+    "classified_domain": {
+      "type": "string",
+      "description": "REQUIRED string. Deterministically classified ADR-4 autonomy domain.",
+      "enum": ["engineering", "product", "design"]
+    },
+    "classified_scope": {
+      "type": "string",
+      "description": "REQUIRED string. Deterministically classified decision scope.",
+      "enum": ["local", "moderate", "major"]
+    },
+    "rationale": {
+      "type": "string",
+      "description": "REQUIRED string. Human-readable deterministic rationale for replay and audit.",
+      "minLength": 1
+    },
+    "matched_rule_refs": {
+      "type": "array",
+      "description": "REQUIRED array. Static rule identifiers that materially affected the verdict.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "REQUIRED string. Decision Policy Engine implementation version.",
+      "minLength": 1
+    }
+  }
+}

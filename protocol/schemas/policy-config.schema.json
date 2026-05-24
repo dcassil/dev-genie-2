@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/policy-config.schema.json",
+  "title": "PolicyConfig",
+  "description": "Governance configuration consumed by the Decision Policy Engine. The static_rules member is intentionally permissive until DGOS-T-0039 finalizes detailed rule shape.",
+  "$comment": "PolicyConfig is standalone governance input, not an envelope artifact. Protocol wire fields use snake_case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "autonomy_profile",
+    "product_baseline_approved",
+    "static_rules"
+  ],
+  "properties": {
+    "autonomy_profile": {
+      "$ref": "#/$defs/autonomyProfile"
+    },
+    "product_baseline_approved": {
+      "type": "boolean",
+      "description": "REQUIRED boolean. False keeps delegated product decisions guarded until the product baseline is approved."
+    },
+    "static_rules": {
+      "$ref": "#/$defs/staticRules"
+    }
+  },
+  "$defs": {
+    "autonomyProfile": {
+      "title": "PolicyAutonomyProfile",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engineering", "product", "design"],
+      "properties": {
+        "engineering": {
+          "$ref": "#/$defs/autonomyLevel"
+        },
+        "product": {
+          "$ref": "#/$defs/autonomyLevel"
+        },
+        "design": {
+          "$ref": "#/$defs/autonomyLevel"
+        }
+      }
+    },
+    "autonomyLevel": {
+      "title": "PolicyAutonomyLevel",
+      "type": "string",
+      "enum": ["always_in_loop", "big_questions_only", "delegate"]
+    },
+    "staticRules": {
+      "title": "PolicyStaticRules",
+      "type": "object",
+      "description": "Reserved container for structured static allow/deny rules. DGOS-T-0039 narrows this shape.",
+      "additionalProperties": true
+    }
+  }
+}
