@@ -4,14 +4,14 @@ level: initiative
 title: "Role Contracts & Autonomy"
 short_code: "DGOS-I-0010"
 created_at: 2026-05-21T17:45:11.520611+00:00
-updated_at: 2026-05-23T23:39:45.825248+00:00
+updated_at: 2026-05-24T00:42:46.330044+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#initiative"
-  - "#phase/decompose"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -179,3 +179,12 @@ Roles emit autonomy-relevant signals (`confidence`, `missing_context`, `human_re
 ### Load-bearing tasks
 
 `T-0029` (package + shared runner), `T-0030` (registry + context-profile abstraction), and `T-0031` (protocol artifact schemas) are the load-bearing tasks — a wrong abstraction in the `RoleDefinition`/`RoleRunner`/`context_profile` seam or a poorly-shaped `PlanProposal`/`ReviewJudgment` schema cascades into every later Role and into the daimyo integration. `T-0035` is load-bearing for the autonomy thesis (Roles + ADR-4 policy) and carries the explicit ADR-4-still-draft dependency.
+
+## Outcome (2026-05-24)
+
+**Completed — all 8 tasks (DGOS-T-0029…0036) done, verified, committed.** New `roles/` package (v0.6.0) generalizes protocol-proof's direct Architect runner into a reusable Roles layer: shared `RoleRunner` + `RoleRegistry` + `ContextProfileAssembler`, driven by `RoleDefinition`s. v1 Role set shipped — **Architect, Planner, Quality Governor** — each an additive registration with **no runner edits** (extensibility proven by a test-only Designer Role running through the unchanged runner). New protocol artifacts `PlanProposal` + `ReviewJudgment` (protocol → 0.3.0). ADR-2 subprocess CLI (`roles invoke`). daimyo (→ 0.13.0) consumes the Roles layer via an injected `RolesPlanning` adapter at the composition layer (core stays import-pure); Roles emit autonomy signals only, ask/proceed/stop stays in daimyo's `TieredDecisionProvider`. Suites green throughout (roles 32, daimyo 69/5, protocol 67).
+
+**Follow-ups (recorded, not blocking):**
+1. **Finalize ADR-4** — DGOS-A-0004 (Human Involvement Autonomy Profile) is still `draft`; the autonomy wiring consumes the three-domain/three-level shape daimyo already encodes. Move it `draft → decided` to close the autonomy contract.
+2. **Live Roles dogfood** — opt-in (`ROLES_LIVE_SDK_TESTS=1`) skipped for lack of a direct `ANTHROPIC_API_KEY` (same environment gap as protocol-proof); `roles/ROLES-PROOF.md` + evidence stub are in place to run it when a key is available.
+3. **Committed-dist ↔ `file:`-dep coupling** — daimyo's committed `dist` inlines its `file:../roles` (and `file:../protocol`) deps, so a sibling version bump makes daimyo's dist drift until rebuilt+rebumped. A packaging concern for DGOS-I-0004 (Platform Packaging).
