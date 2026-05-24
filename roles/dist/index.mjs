@@ -7177,6 +7177,27 @@ var PLANNER_ROLE_PROMPT = {
   ].join(" ")
 };
 
+// src/prompts/quality-governor-role.ts
+var QUALITY_GOVERNOR_ROLE_ID = "dev-genie.quality-governor-role";
+var QUALITY_GOVERNOR_ROLE_VERSION = "1.0.0";
+var QUALITY_GOVERNOR_ROLE_PROMPT_REF = `${QUALITY_GOVERNOR_ROLE_ID}@${QUALITY_GOVERNOR_ROLE_VERSION}`;
+var QUALITY_GOVERNOR_ROLE_PROMPT = {
+  id: QUALITY_GOVERNOR_ROLE_ID,
+  version: QUALITY_GOVERNOR_ROLE_VERSION,
+  ref: QUALITY_GOVERNOR_ROLE_PROMPT_REF,
+  text: [
+    "You are Dev-Genie's bounded Quality Governor Role for engineering review.",
+    "Given exactly {context, rules, request}, produce one ReviewJudgment JSON artifact.",
+    "Judge the supplied target artifact against the supplied acceptance criteria and bounded review context.",
+    "Use verdict pass only when every criterion is satisfied with enough evidence.",
+    "Use verdict fail when one or more criteria are not satisfied, and populate completion_decision.blocking_reason_codes and payload.blocking_reason_codes with stable machine-readable reason codes.",
+    "Use verdict needs_human when you cannot confidently judge because required context, evidence, authority, or policy is missing.",
+    "When you use needs_human, set envelope review_required.required, payload.review_required.required, and payload.human_review_required to true and include missing_context entries.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state."
+  ].join(" ")
+};
+
 // src/schemas/protocol-schemas.ts
 var import__ = __toESM(require__(), 1);
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -7203,10 +7224,12 @@ for (const loadedSchema of loadedSchemas) {
 }
 var architectureImpactValidator = validatorFor("ArchitectureImpact");
 var planProposalValidator = validatorFor("PlanProposal");
+var reviewJudgmentValidator = validatorFor("ReviewJudgment");
 var roleResultValidator = validatorFor("RoleResult");
 var validationReportValidator = validatorFor("ValidationReport");
 var architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
 var planProposalJsonSchema = schemaFor("PlanProposal");
+var reviewJudgmentJsonSchema = schemaFor("ReviewJudgment");
 var roleResultJsonSchema = schemaFor("RoleResult");
 var validationReportJsonSchema = schemaFor("ValidationReport");
 var architectureImpactStructuredSchema = {
@@ -7221,6 +7244,13 @@ var planProposalStructuredSchema = {
   schema: planProposalJsonSchema,
   parse(value) {
     return parsePlanProposal(value);
+  }
+};
+var reviewJudgmentStructuredSchema = {
+  name: "dev-genie.review-judgment.v1",
+  schema: reviewJudgmentJsonSchema,
+  parse(value) {
+    return parseReviewJudgment(value);
   }
 };
 function parseArchitectureImpact(value) {
@@ -7239,11 +7269,22 @@ function parsePlanProposal(value) {
     `PlanProposal failed protocol schema validation: ${formatValidationErrors(planProposalValidator).join("; ")}`
   );
 }
+function parseReviewJudgment(value) {
+  if (isReviewJudgment(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError(
+    `ReviewJudgment failed protocol schema validation: ${formatValidationErrors(reviewJudgmentValidator).join("; ")}`
+  );
+}
 function isArchitectureImpact(value) {
   return architectureImpactValidator(value);
 }
 function isPlanProposal(value) {
   return planProposalValidator(value);
+}
+function isReviewJudgment(value) {
+  return reviewJudgmentValidator(value);
 }
 function isRoleResult(value) {
   return roleResultValidator(value);
@@ -7259,6 +7300,9 @@ function architectureImpactValidationErrors() {
 }
 function planProposalValidationErrors() {
   return formatValidationErrors(planProposalValidator);
+}
+function reviewJudgmentValidationErrors() {
+  return formatValidationErrors(reviewJudgmentValidator);
 }
 function validationReportValidationErrors() {
   return formatValidationErrors(validationReportValidator);
@@ -8010,6 +8054,141 @@ function roleContextForPlanner(roleContext) {
     context
   };
 }
+
+// src/roles/quality-governor.ts
+var REVIEW_JUDGMENT_SCHEMA_VERSION = "1.0.0";
+var SUPPORTED_OPERATIONS3 = ["review_artifact", "govern_quality"];
+var qualityGovernorRoleDefinition = {
+  role_id: QUALITY_GOVERNOR_ROLE_ID,
+  role_version: QUALITY_GOVERNOR_ROLE_VERSION,
+  prompt: QUALITY_GOVERNOR_ROLE_PROMPT,
+  supported_operations: SUPPORTED_OPERATIONS3,
+  expected_output_artifact_type: "ReviewJudgment",
+  expected_output_schema_version: REVIEW_JUDGMENT_SCHEMA_VERSION,
+  output: reviewJudgmentStructuredSchema,
+  validate_output: isReviewJudgment,
+  validation_errors: reviewJudgmentValidationErrors,
+  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeReviewJudgment(modelArtifact, invocation, createdAt, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one ReviewJudgment artifact. Judge the target against the acceptance criteria with no prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access",
+        "no_long_running_state"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ invocation, roleContext }) => ({
+        review_scope_type: "review",
+        target_artifact: targetArtifactFor(invocation, roleContext),
+        acceptance_criteria: acceptanceCriteriaFor(roleContext),
+        review_context: roleContext.context?.review_context ?? {},
+        bounded_context: roleContext.context ?? {}
+      })
+    }
+  },
+  autonomy: {
+    domain: "engineering"
+  },
+  skip_codes: {
+    missing_required_output: "role:no_required_review_judgment"
+  }
+};
+var QualityGovernorRoleRunner = class {
+  runner;
+  constructor(options) {
+    const registry = new RoleRegistry().register(qualityGovernorRoleDefinition);
+    this.runner = new RoleRunner({
+      registry,
+      modelClient: options.modelClient,
+      ...options.now === void 0 ? {} : { now: options.now },
+      ...options.artifactSink === void 0 ? {} : { artifactSink: reviewJudgmentSink(options.artifactSink) }
+    });
+  }
+  async run(invocation, roleContext = {}) {
+    return this.runner.run(invocation, roleContextForQualityGovernor(roleContext));
+  }
+};
+async function runQualityGovernorRole(invocation, options, roleContext = {}) {
+  return new QualityGovernorRoleRunner(options).run(invocation, roleContext);
+}
+function normalizeReviewJudgment(modelJudgment, invocation, createdAt, definition) {
+  const artifactId = artifactIdFor("ReviewJudgment", createdAt, modelJudgment.payload);
+  return {
+    ...modelJudgment,
+    artifact_id: artifactId,
+    schema_version: definition.expected_output_schema_version,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [
+      artifactReferenceFor(
+        definition.expected_output_artifact_type,
+        definition.expected_output_schema_version,
+        artifactId,
+        invocation.protocol_version
+      )
+    ]
+  };
+}
+function reviewJudgmentSink(sink) {
+  return (artifact) => {
+    if (!isReviewJudgment(artifact)) {
+      throw new Error("Quality Governor artifact sink received a non-ReviewJudgment artifact");
+    }
+    return sink(artifact);
+  };
+}
+function roleContextForQualityGovernor(roleContext) {
+  const context = { ...roleContext.context ?? {} };
+  if (roleContext.target_artifact !== void 0) {
+    context.target_artifact = roleContext.target_artifact;
+  }
+  if (roleContext.acceptance_criteria !== void 0) {
+    context.acceptance_criteria = [...roleContext.acceptance_criteria];
+  }
+  if (roleContext.review_context !== void 0) {
+    context.review_context = roleContext.review_context;
+  }
+  return {
+    ...roleContext.story === void 0 ? {} : { story: roleContext.story },
+    context
+  };
+}
+function targetArtifactFor(invocation, roleContext) {
+  const contextTarget = roleContext.context?.target_artifact;
+  if (isJsonObject2(contextTarget)) {
+    return contextTarget;
+  }
+  const firstInputArtifact = invocation.payload.input_artifacts[0];
+  if (firstInputArtifact === void 0) {
+    return {};
+  }
+  return artifactReferenceJson(firstInputArtifact);
+}
+function acceptanceCriteriaFor(roleContext) {
+  const criteria = roleContext.context?.acceptance_criteria;
+  if (!Array.isArray(criteria)) {
+    return [];
+  }
+  return criteria.filter(isString);
+}
+function isJsonObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isString(value) {
+  return typeof value === "string";
+}
 export {
   ARCHITECT_ROLE_ID,
   ARCHITECT_ROLE_PROMPT,
@@ -8022,6 +8201,11 @@ export {
   PLANNER_ROLE_PROMPT_REF,
   PLANNER_ROLE_VERSION,
   PlannerRoleRunner,
+  QUALITY_GOVERNOR_ROLE_ID,
+  QUALITY_GOVERNOR_ROLE_PROMPT,
+  QUALITY_GOVERNOR_ROLE_PROMPT_REF,
+  QUALITY_GOVERNOR_ROLE_VERSION,
+  QualityGovernorRoleRunner,
   ROLE_RUNNER_STATUSES,
   RoleRegistry,
   RoleRunner,
@@ -8032,16 +8216,22 @@ export {
   architectureImpactValidationErrors,
   isArchitectureImpact,
   isPlanProposal,
+  isReviewJudgment,
   isRoleResult,
   isValidationReport,
   planProposalJsonSchema,
   planProposalStructuredSchema,
   planProposalValidationErrors,
   plannerRoleDefinition,
+  qualityGovernorRoleDefinition,
+  reviewJudgmentJsonSchema,
+  reviewJudgmentStructuredSchema,
+  reviewJudgmentValidationErrors,
   roleResultJsonSchema,
   roleResultValidationErrors,
   runArchitectRole,
   runPlannerRole,
+  runQualityGovernorRole,
   schemaFor,
   validationReportJsonSchema,
   validationReportValidationErrors,

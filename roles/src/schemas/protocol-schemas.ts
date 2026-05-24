@@ -11,6 +11,7 @@ import type {
   JsonObject,
   JsonValue,
   PlanProposal,
+  ReviewJudgment,
   RoleResult,
   ValidationReport,
 } from "protocol";
@@ -37,11 +38,13 @@ for (const loadedSchema of loadedSchemas) {
 
 const architectureImpactValidator = validatorFor("ArchitectureImpact");
 const planProposalValidator = validatorFor("PlanProposal");
+const reviewJudgmentValidator = validatorFor("ReviewJudgment");
 const roleResultValidator = validatorFor("RoleResult");
 const validationReportValidator = validatorFor("ValidationReport");
 
 export const architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
 export const planProposalJsonSchema = schemaFor("PlanProposal");
+export const reviewJudgmentJsonSchema = schemaFor("ReviewJudgment");
 export const roleResultJsonSchema = schemaFor("RoleResult");
 export const validationReportJsonSchema = schemaFor("ValidationReport");
 
@@ -58,6 +61,14 @@ export const planProposalStructuredSchema: StructuredModelSchema<PlanProposal> =
   schema: planProposalJsonSchema,
   parse(value: JsonValue): PlanProposal {
     return parsePlanProposal(value);
+  },
+};
+
+export const reviewJudgmentStructuredSchema: StructuredModelSchema<ReviewJudgment> = {
+  name: "dev-genie.review-judgment.v1",
+  schema: reviewJudgmentJsonSchema,
+  parse(value: JsonValue): ReviewJudgment {
+    return parseReviewJudgment(value);
   },
 };
 
@@ -79,12 +90,25 @@ export function parsePlanProposal(value: JsonValue): PlanProposal {
   );
 }
 
+export function parseReviewJudgment(value: JsonValue): ReviewJudgment {
+  if (isReviewJudgment(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError(
+    `ReviewJudgment failed protocol schema validation: ${formatValidationErrors(reviewJudgmentValidator).join("; ")}`,
+  );
+}
+
 export function isArchitectureImpact(value: unknown): value is ArchitectureImpact {
   return architectureImpactValidator(value);
 }
 
 export function isPlanProposal(value: unknown): value is PlanProposal {
   return planProposalValidator(value);
+}
+
+export function isReviewJudgment(value: unknown): value is ReviewJudgment {
+  return reviewJudgmentValidator(value);
 }
 
 export function isRoleResult(value: unknown): value is RoleResult {
@@ -105,6 +129,10 @@ export function architectureImpactValidationErrors(): readonly string[] {
 
 export function planProposalValidationErrors(): readonly string[] {
   return formatValidationErrors(planProposalValidator);
+}
+
+export function reviewJudgmentValidationErrors(): readonly string[] {
+  return formatValidationErrors(reviewJudgmentValidator);
 }
 
 export function validationReportValidationErrors(): readonly string[] {

@@ -4,14 +4,14 @@ level: task
 title: "Implement and register the Quality Governor Role"
 short_code: "DGOS-T-0033"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:19:07.513882+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Implement the Quality Governor Role in `roles/` as a registered `RoleDefinition`: a versioned prompt that, given a target artifact and its acceptance criteria/context, produces a `ReviewJudgment` artifact (from [[DGOS-T-0031]]) carrying a pass/fail/needs-human verdict, per-criterion findings, and blocking reason codes. Use the shared `RoleRunner`/registry/assembler unchanged. Tag the autonomy domain `engineering`, and ensure `human_review_required`/`needs_human` flow correctly into the `RoleResult` so daimyo's Decision Policy Engine can escalate.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -64,3 +68,7 @@ Implement the Quality Governor Role in `roles/` as a registered `RoleDefinition`
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-23: Started implementation. Existing `RoleRunner`/assembler pattern supports additive role registration; current plan is prompt + `RoleDefinition` + protocol `ReviewJudgment` validation wiring + parity tests without touching `protocol-proof`.
+- 2026-05-23: Completed implementation in `roles/` without `RoleRunner`, assembler, `protocol/`, or `protocol-proof` edits. Added Quality Governor prompt/definition/schema wiring/tests, bumped roles to `0.4.0`, rebuilt `dist/`, and verified `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build` all pass from `roles/`.
+- 2026-05-24 (orchestrator verification): re-ran roles typecheck/lint/test/build — green (24 tests across Architect/Planner/Quality Governor; QG covers pass, fail+blocking_reason_codes, cannot-judge→needs_human (produced with human_review_required), wrong role/version/op skips, no-tier needs_human, schema-invalid/throw blocked). `dev-genie.quality-governor-role@1.0.0` → `ReviewJudgment`, additive registration, **no runner/assembler/protocol/protocol-proof edits** — third Role on the same seam. **v1 Role set complete (Architect, Planner, Quality Governor).** roles 0.3.0 → 0.4.0. No escape hatches. **exit_criteria_met: true.** Completed.

@@ -10,6 +10,12 @@ export {
   PLANNER_ROLE_PROMPT_REF,
   PLANNER_ROLE_VERSION,
 } from "./prompts/planner-role.js";
+export {
+  QUALITY_GOVERNOR_ROLE_ID,
+  QUALITY_GOVERNOR_ROLE_PROMPT,
+  QUALITY_GOVERNOR_ROLE_PROMPT_REF,
+  QUALITY_GOVERNOR_ROLE_VERSION,
+} from "./prompts/quality-governor-role.js";
 export type { VersionedRolePrompt } from "./prompts/role-prompt.js";
 
 export {
@@ -20,6 +26,15 @@ export {
 export type { ArchitectRoleContext, ArchitectRoleRunnerOptions } from "./roles/architect.js";
 export { PlannerRoleRunner, plannerRoleDefinition, runPlannerRole } from "./roles/planner.js";
 export type { PlannerRoleContext, PlannerRoleRunnerOptions } from "./roles/planner.js";
+export {
+  QualityGovernorRoleRunner,
+  qualityGovernorRoleDefinition,
+  runQualityGovernorRole,
+} from "./roles/quality-governor.js";
+export type {
+  QualityGovernorRoleContext,
+  QualityGovernorRoleRunnerOptions,
+} from "./roles/quality-governor.js";
 
 export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
 
@@ -32,11 +47,15 @@ export {
   architectureImpactValidationErrors,
   isArchitectureImpact,
   isPlanProposal,
+  isReviewJudgment,
   isRoleResult,
   isValidationReport,
   planProposalJsonSchema,
   planProposalStructuredSchema,
   planProposalValidationErrors,
+  reviewJudgmentJsonSchema,
+  reviewJudgmentStructuredSchema,
+  reviewJudgmentValidationErrors,
   roleResultJsonSchema,
   roleResultValidationErrors,
   schemaFor,
