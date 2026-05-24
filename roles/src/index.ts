@@ -48,6 +48,7 @@ export {
   isArchitectureImpact,
   isPlanProposal,
   isReviewJudgment,
+  isRoleInvocation,
   isRoleResult,
   isValidationReport,
   planProposalJsonSchema,
@@ -56,6 +57,8 @@ export {
   reviewJudgmentJsonSchema,
   reviewJudgmentStructuredSchema,
   reviewJudgmentValidationErrors,
+  roleInvocationJsonSchema,
+  roleInvocationValidationErrors,
   roleResultJsonSchema,
   roleResultValidationErrors,
   schemaFor,
@@ -75,10 +78,21 @@ export type {
   RoleNormalizeArgs,
   RoleSkipCodes,
 } from "./runner/role-definition.js";
-export { StructuredModelCallError } from "./runner/structured-model.js";
+export {
+  StructuredModelCallError,
+  StructuredModelUnavailableError,
+} from "./runner/structured-model.js";
 export type {
   StructuredModelCaller,
   StructuredModelInput,
   StructuredModelRequest,
   StructuredModelSchema,
 } from "./runner/structured-model.js";
+
+export {
+  ROLE_INVOKE_EXIT_CODES,
+  createDefaultRoleRegistry,
+  exitCodeForRoleResult,
+  runCli,
+} from "./cli/role-invoke.js";
+export type { RoleInvokeCliDeps } from "./cli/role-invoke.js";

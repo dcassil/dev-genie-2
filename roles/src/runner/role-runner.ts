@@ -20,7 +20,10 @@ import {
   traceResult,
 } from "./artifacts.js";
 import type { RoleContext, RoleDefinition } from "./role-definition.js";
-import type { StructuredModelCaller } from "./structured-model.js";
+import {
+  StructuredModelUnavailableError,
+  type StructuredModelCaller,
+} from "./structured-model.js";
 
 const ROLE_RESULT_SCHEMA_VERSION = "1.0.0";
 
@@ -116,6 +119,15 @@ export class RoleRunner {
       await this.artifactSink?.(artifact);
       return this.checkedResult(producedResult(invocation, definition, artifact, createdAt));
     } catch (error) {
+      if (error instanceof StructuredModelUnavailableError) {
+        return this.checkedResult(
+          needsHumanResult(invocation, definition, createdAt, {
+            code: "model:credentials_unavailable",
+            ref_type: "config",
+            id: error.envName,
+          }),
+        );
+      }
       return this.checkedResult(
         blockedResult(invocation, definition, createdAt, [
           {

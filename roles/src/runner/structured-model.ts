@@ -29,3 +29,10 @@ export class StructuredModelCallError extends Error {
     this.name = "StructuredModelCallError";
   }
 }
+
+export class StructuredModelUnavailableError extends StructuredModelCallError {
+  constructor(readonly envName: string) {
+    super(`Structured model call unavailable. Set ${envName} or inject a modelClient.`);
+    this.name = "StructuredModelUnavailableError";
+  }
+}

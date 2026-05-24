@@ -7138,1083 +7138,6 @@ var require__ = __commonJS({
   }
 });
 
-// src/prompts/architect-role.ts
-var ARCHITECT_ROLE_ID = "dev-genie.architect-role";
-var ARCHITECT_ROLE_VERSION = "1.0.0";
-var ARCHITECT_ROLE_PROMPT_REF = `${ARCHITECT_ROLE_ID}@${ARCHITECT_ROLE_VERSION}`;
-var ARCHITECT_ROLE_PROMPT = {
-  id: ARCHITECT_ROLE_ID,
-  version: ARCHITECT_ROLE_VERSION,
-  ref: ARCHITECT_ROLE_PROMPT_REF,
-  text: [
-    "You are Dev-Genie's bounded Architect Role for the Protocol Proof MVP.",
-    "Given exactly {context, rules, request}, produce one ArchitectureImpact JSON artifact.",
-    "Use only the supplied Story artifact references, bounded context refs, decision scope, constraints, and expected output contract.",
-    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, or hidden chat history.",
-    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
-    "If the Story is outside architectural scope, encode that through low or none impact fields instead of prose.",
-    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope."
-  ].join(" ")
-};
-
-// src/prompts/planner-role.ts
-var PLANNER_ROLE_ID = "dev-genie.planner-role";
-var PLANNER_ROLE_VERSION = "1.0.0";
-var PLANNER_ROLE_PROMPT_REF = `${PLANNER_ROLE_ID}@${PLANNER_ROLE_VERSION}`;
-var PLANNER_ROLE_PROMPT = {
-  id: PLANNER_ROLE_ID,
-  version: PLANNER_ROLE_VERSION,
-  ref: PLANNER_ROLE_PROMPT_REF,
-  text: [
-    "You are Dev-Genie's bounded Planner Role for engineering planning.",
-    "Given exactly {context, rules, request}, produce one PlanProposal JSON artifact.",
-    "Use only the supplied goal or initiative artifact references, bounded context refs, decision scope objective, constraints, and expected output contract.",
-    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state.",
-    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
-    "Represent proposed execution work only inside PlanProposal.payload.tasks, in dependency order when possible.",
-    "Represent decisions the caller must route inside PlanProposal.payload.decision_requests; do not resolve those decisions autonomously.",
-    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope and payload."
-  ].join(" ")
-};
-
-// src/prompts/quality-governor-role.ts
-var QUALITY_GOVERNOR_ROLE_ID = "dev-genie.quality-governor-role";
-var QUALITY_GOVERNOR_ROLE_VERSION = "1.0.0";
-var QUALITY_GOVERNOR_ROLE_PROMPT_REF = `${QUALITY_GOVERNOR_ROLE_ID}@${QUALITY_GOVERNOR_ROLE_VERSION}`;
-var QUALITY_GOVERNOR_ROLE_PROMPT = {
-  id: QUALITY_GOVERNOR_ROLE_ID,
-  version: QUALITY_GOVERNOR_ROLE_VERSION,
-  ref: QUALITY_GOVERNOR_ROLE_PROMPT_REF,
-  text: [
-    "You are Dev-Genie's bounded Quality Governor Role for engineering review.",
-    "Given exactly {context, rules, request}, produce one ReviewJudgment JSON artifact.",
-    "Judge the supplied target artifact against the supplied acceptance criteria and bounded review context.",
-    "Use verdict pass only when every criterion is satisfied with enough evidence.",
-    "Use verdict fail when one or more criteria are not satisfied, and populate completion_decision.blocking_reason_codes and payload.blocking_reason_codes with stable machine-readable reason codes.",
-    "Use verdict needs_human when you cannot confidently judge because required context, evidence, authority, or policy is missing.",
-    "When you use needs_human, set envelope review_required.required, payload.review_required.required, and payload.human_review_required to true and include missing_context entries.",
-    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
-    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state."
-  ].join(" ")
-};
-
-// src/schemas/protocol-schemas.ts
-var import__ = __toESM(require__(), 1);
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { createRequire } from "node:module";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-// src/runner/structured-model.ts
-var StructuredModelCallError = class extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "StructuredModelCallError";
-  }
-};
-var StructuredModelUnavailableError = class extends StructuredModelCallError {
-  constructor(envName) {
-    super(`Structured model call unavailable. Set ${envName} or inject a modelClient.`);
-    this.envName = envName;
-    this.name = "StructuredModelUnavailableError";
-  }
-  envName;
-};
-
-// src/schemas/protocol-schemas.ts
-var require2 = createRequire(import.meta.url);
-var addFormats = require2("ajv-formats").default;
-var loadedSchemas = loadProtocolSchemas();
-var ajv = new import__.Ajv2020({ allErrors: true, strict: true });
-addFormats(ajv);
-for (const loadedSchema of loadedSchemas) {
-  ajv.addSchema(loadedSchema.schema);
-}
-var architectureImpactValidator = validatorFor("ArchitectureImpact");
-var planProposalValidator = validatorFor("PlanProposal");
-var reviewJudgmentValidator = validatorFor("ReviewJudgment");
-var roleInvocationValidator = validatorFor("RoleInvocation");
-var roleResultValidator = validatorFor("RoleResult");
-var validationReportValidator = validatorFor("ValidationReport");
-var architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
-var planProposalJsonSchema = schemaFor("PlanProposal");
-var reviewJudgmentJsonSchema = schemaFor("ReviewJudgment");
-var roleInvocationJsonSchema = schemaFor("RoleInvocation");
-var roleResultJsonSchema = schemaFor("RoleResult");
-var validationReportJsonSchema = schemaFor("ValidationReport");
-var architectureImpactStructuredSchema = {
-  name: "dev-genie.architecture-impact.v1",
-  schema: architectureImpactJsonSchema,
-  parse(value) {
-    return parseArchitectureImpact(value);
-  }
-};
-var planProposalStructuredSchema = {
-  name: "dev-genie.plan-proposal.v1",
-  schema: planProposalJsonSchema,
-  parse(value) {
-    return parsePlanProposal(value);
-  }
-};
-var reviewJudgmentStructuredSchema = {
-  name: "dev-genie.review-judgment.v1",
-  schema: reviewJudgmentJsonSchema,
-  parse(value) {
-    return parseReviewJudgment(value);
-  }
-};
-function parseArchitectureImpact(value) {
-  if (isArchitectureImpact(value)) {
-    return value;
-  }
-  throw new StructuredModelCallError(
-    `ArchitectureImpact failed protocol schema validation: ${formatValidationErrors(architectureImpactValidator).join("; ")}`
-  );
-}
-function parsePlanProposal(value) {
-  if (isPlanProposal(value)) {
-    return value;
-  }
-  throw new StructuredModelCallError(
-    `PlanProposal failed protocol schema validation: ${formatValidationErrors(planProposalValidator).join("; ")}`
-  );
-}
-function parseReviewJudgment(value) {
-  if (isReviewJudgment(value)) {
-    return value;
-  }
-  throw new StructuredModelCallError(
-    `ReviewJudgment failed protocol schema validation: ${formatValidationErrors(reviewJudgmentValidator).join("; ")}`
-  );
-}
-function isArchitectureImpact(value) {
-  return architectureImpactValidator(value);
-}
-function isPlanProposal(value) {
-  return planProposalValidator(value);
-}
-function isReviewJudgment(value) {
-  return reviewJudgmentValidator(value);
-}
-function isRoleInvocation(value) {
-  return roleInvocationValidator(value);
-}
-function isRoleResult(value) {
-  return roleResultValidator(value);
-}
-function isValidationReport(value) {
-  return validationReportValidator(value);
-}
-function roleResultValidationErrors() {
-  return formatValidationErrors(roleResultValidator);
-}
-function architectureImpactValidationErrors() {
-  return formatValidationErrors(architectureImpactValidator);
-}
-function planProposalValidationErrors() {
-  return formatValidationErrors(planProposalValidator);
-}
-function reviewJudgmentValidationErrors() {
-  return formatValidationErrors(reviewJudgmentValidator);
-}
-function roleInvocationValidationErrors() {
-  return formatValidationErrors(roleInvocationValidator);
-}
-function validationReportValidationErrors() {
-  return formatValidationErrors(validationReportValidator);
-}
-function validatorFor(artifactType) {
-  const loadedSchema = loadedSchemaFor(artifactType);
-  const validator = ajv.getSchema(loadedSchema.id);
-  if (validator === void 0) {
-    throw new Error(`Protocol schema ${loadedSchema.fileName} did not compile`);
-  }
-  return validator;
-}
-function schemaFor(artifactType) {
-  return loadedSchemaFor(artifactType).schema;
-}
-function loadedSchemaFor(artifactType) {
-  const loadedSchema = loadedSchemas.find((candidate) => candidate.artifactType === artifactType);
-  if (loadedSchema === void 0) {
-    throw new Error(`Protocol schema for ${artifactType} was not found`);
-  }
-  return loadedSchema;
-}
-function loadProtocolSchemas() {
-  const schemaDir = findProtocolSchemaDir();
-  return readdirSync(schemaDir).filter((entry) => entry.endsWith(".schema.json")).sort().map((fileName) => {
-    const schema = readJsonObject(resolve(schemaDir, fileName));
-    return {
-      artifactType: artifactTypeForSchema(schema, fileName),
-      fileName,
-      schema,
-      id: schemaId(schema, fileName)
-    };
-  });
-}
-function findProtocolSchemaDir() {
-  const candidates = [
-    fileURLToPath(new URL("../../../protocol/schemas", import.meta.url)),
-    fileURLToPath(new URL("../../protocol/schemas", import.meta.url)),
-    resolve(process.cwd(), "../protocol/schemas")
-  ];
-  const schemaDir = candidates.find((candidate) => existsSync(candidate));
-  if (schemaDir === void 0) {
-    throw new Error("Unable to locate sibling protocol/schemas directory");
-  }
-  return schemaDir;
-}
-function readJsonObject(filePath) {
-  const parsed = JSON.parse(readFileSync(filePath, "utf8"));
-  if (!isJsonObject(parsed)) {
-    throw new Error(`${filePath} must contain a JSON object`);
-  }
-  return parsed;
-}
-function isJsonObject(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function schemaId(schema, fileName) {
-  const id = schema.$id;
-  if (typeof id !== "string" || id.length === 0) {
-    throw new Error(`Protocol schema ${fileName} must declare $id`);
-  }
-  return id;
-}
-function artifactTypeForSchema(schema, fileName) {
-  const title = schema.title;
-  if (typeof title === "string" && title.length > 0) {
-    return title;
-  }
-  throw new Error(`Protocol schema ${fileName} must declare title`);
-}
-function formatValidationErrors(validator) {
-  return (validator.errors ?? []).map(formatValidationError);
-}
-function formatValidationError(error) {
-  const path = error.instancePath.length === 0 ? "/" : error.instancePath;
-  const message = error.message ?? "schema validation failed";
-  return `${path} ${message}`;
-}
-
-// src/runner/artifacts.ts
-import { createHash } from "node:crypto";
-function artifactReferenceFor(artifactType, schemaVersion, artifactId, protocolVersion) {
-  return {
-    ref_type: "artifact",
-    id: artifactId,
-    artifact_type: artifactType,
-    schema_version: schemaVersion,
-    protocol_version: protocolVersion,
-    relation: "produces"
-  };
-}
-function invocationReference(invocation) {
-  return {
-    ref_type: "artifact",
-    id: invocation.artifact_id,
-    artifact_type: "RoleInvocation",
-    schema_version: invocation.schema_version,
-    protocol_version: invocation.protocol_version,
-    relation: "derived_from"
-  };
-}
-function artifactReferenceJson(reference) {
-  return {
-    ref_type: reference.ref_type,
-    id: reference.id,
-    ...reference.artifact_type === void 0 ? {} : { artifact_type: reference.artifact_type },
-    ...reference.schema_version === void 0 ? {} : { schema_version: reference.schema_version },
-    ...reference.protocol_version === void 0 ? {} : { protocol_version: reference.protocol_version },
-    ...reference.uri === void 0 ? {} : { uri: reference.uri },
-    ...reference.relation === void 0 ? {} : { relation: reference.relation }
-  };
-}
-function traceResult(invocation) {
-  const traceRefs = [invocation.payload.trace.destination];
-  if (invocation.payload.trace.trace_id === void 0) {
-    return { trace_refs: traceRefs };
-  }
-  return { trace_refs: traceRefs, trace_id: invocation.payload.trace.trace_id };
-}
-function traceRequestJson(invocation) {
-  return {
-    destination: artifactReferenceJson(invocation.payload.trace.destination),
-    ...invocation.payload.trace.trace_id === void 0 ? {} : { trace_id: invocation.payload.trace.trace_id }
-  };
-}
-function roleResultOwnership() {
-  return {
-    owns_files: [],
-    owns_interfaces: ["interface:role-result"],
-    owns_data: [],
-    owns_workflow_steps: ["workflow:role-runner"]
-  };
-}
-function artifactIdFor(artifactType, createdAt, payload) {
-  const digest = createHash("sha256").update(JSON.stringify({ artifact_type: artifactType, created_at: createdAt, payload })).digest("hex");
-  return `artifact:sha256:${digest}`;
-}
-
-// src/assembler/context-profile-assembler.ts
-var ContextProfileAssembler = class {
-  assemble(invocation, definition, roleContext) {
-    return {
-      context: {
-        prompt_id: definition.prompt.id,
-        prompt_version: definition.prompt.version,
-        prompt_ref: definition.prompt.ref,
-        prompt: definition.prompt.text,
-        invocation: invocationContext(invocation),
-        bounded_context: boundedContextFor(roleContext, definition.context_profile)
-      },
-      rules: {
-        role_contract: definition.context_profile.rules.role_contract,
-        non_goals: [...definition.context_profile.rules.non_goals],
-        expected_output_artifacts: invocation.payload.expected_output_artifacts.map(
-          expectedOutputArtifactJson
-        )
-      },
-      request: requestFor(invocation, definition, roleContext)
-    };
-  }
-};
-function invocationContext(invocation) {
-  return {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
-    context_bundle_refs: invocation.payload.context_bundle_refs.map(artifactReferenceJson),
-    policy_decision_refs: invocation.payload.policy_decision_refs.map(artifactReferenceJson),
-    timeout_ms: invocation.payload.timeout_ms,
-    allowed_engines: invocation.payload.allowed_engines.map((engine) => ({
-      engine_id: engine.engine_id,
-      ...engine.engine_version === void 0 ? {} : { engine_version: engine.engine_version },
-      operations: [...engine.operations ?? []]
-    })),
-    allowed_tools: invocation.payload.allowed_tools.map((tool) => ({
-      tool_id: tool.tool_id,
-      permission: tool.permission,
-      ...tool.restrictions === void 0 ? {} : { restrictions: tool.restrictions }
-    })),
-    trace: traceRequestJson(invocation)
-  };
-}
-function expectedOutputArtifactJson(reference) {
-  return {
-    artifact_type: reference.artifact_type,
-    schema_version: reference.schema_version,
-    required: reference.required,
-    ...reference.relation === void 0 ? {} : { relation: reference.relation }
-  };
-}
-function boundedContextFor(roleContext, profile) {
-  const source = roleContext.context ?? {};
-  const keys = profile.context?.context_bundle_keys;
-  if (keys === void 0) {
-    return source;
-  }
-  const selected = {};
-  for (const key of keys) {
-    const value = source[key];
-    if (value !== void 0) {
-      selected[key] = value;
-    }
-  }
-  return selected;
-}
-function requestFor(invocation, definition, roleContext) {
-  const request = {};
-  if (definition.context_profile.request.include_operation !== false) {
-    request.operation = invocation.payload.operation;
-  }
-  if (definition.context_profile.request.include_decision_scope !== false) {
-    request.decision_scope = {
-      scope_type: invocation.payload.decision_scope.scope_type,
-      scope_id: invocation.payload.decision_scope.scope_id,
-      objective: invocation.payload.decision_scope.objective,
-      constraints: [...invocation.payload.decision_scope.constraints ?? []]
-    };
-  }
-  const fields = definition.context_profile.request.fields?.({
-    invocation,
-    roleContext,
-    definition
-  });
-  if (fields !== void 0) {
-    for (const [key, value] of Object.entries(fields)) {
-      request[key] = value;
-    }
-  }
-  if (definition.context_profile.request.include_output_schema === true) {
-    request.output_schema = {
-      artifact_type: definition.expected_output_artifact_type,
-      schema_version: definition.expected_output_schema_version
-    };
-  }
-  return request;
-}
-
-// src/runner/role-runner.ts
-var ROLE_RESULT_SCHEMA_VERSION = "1.0.0";
-var ROLE_RUNNER_STATUSES = [
-  "produced",
-  "skipped",
-  "blocked",
-  "needs_human",
-  "failed"
-];
-var RoleRunner = class {
-  registry;
-  modelClient;
-  assembler;
-  now;
-  artifactSink;
-  constructor(options) {
-    this.registry = options.registry;
-    this.modelClient = options.modelClient;
-    this.assembler = options.assembler ?? new ContextProfileAssembler();
-    this.now = options.now ?? (() => /* @__PURE__ */ new Date());
-    this.artifactSink = options.artifactSink;
-  }
-  async run(invocation, roleContext) {
-    const createdAt = this.now().toISOString();
-    const resolved = this.registry.resolve(invocation.payload.role_id, invocation.payload.role_version);
-    if (resolved.kind === "miss") {
-      return this.checkedResult(
-        skippedResult(invocation, invocationRoleIdentity(invocation), createdAt, resolved.reason)
-      );
-    }
-    const definition = resolved.definition;
-    const skipReason = skipReasonFor(invocation, definition);
-    if (skipReason !== void 0) {
-      return this.checkedResult(skippedResult(invocation, definition, createdAt, skipReason));
-    }
-    if (!allowsModelBackedCall(invocation)) {
-      return this.checkedResult(
-        needsHumanResult(invocation, definition, createdAt, {
-          code: "model_tier_policy_requires_human",
-          ref_type: "policy",
-          id: "model_tier_policy"
-        })
-      );
-    }
-    try {
-      const modelArtifact = await this.modelClient.call({
-        input: this.assembler.assemble(invocation, definition, roleContext),
-        output: definition.output
-      });
-      const artifact = definition.normalize({
-        modelArtifact,
-        invocation,
-        createdAt,
-        definition
-      });
-      if (!definition.validate_output(artifact)) {
-        return this.checkedResult(
-          blockedResult(
-            invocation,
-            definition,
-            createdAt,
-            schemaErrorDiagnostics(
-              `schema:invalid_${definition.expected_output_artifact_type}`,
-              definition.validation_errors()
-            )
-          )
-        );
-      }
-      await this.artifactSink?.(artifact);
-      return this.checkedResult(producedResult(invocation, definition, artifact, createdAt));
-    } catch (error) {
-      if (error instanceof StructuredModelUnavailableError) {
-        return this.checkedResult(
-          needsHumanResult(invocation, definition, createdAt, {
-            code: "model:credentials_unavailable",
-            ref_type: "config",
-            id: error.envName
-          })
-        );
-      }
-      return this.checkedResult(
-        blockedResult(invocation, definition, createdAt, [
-          {
-            code: "structured_model_call_failed",
-            severity: "blocker",
-            details: {
-              message: errorMessage(error)
-            }
-          }
-        ])
-      );
-    }
-  }
-  checkedResult(result) {
-    if (isRoleResult(result)) {
-      return result;
-    }
-    throw new Error(`Constructed RoleResult is invalid: ${roleResultValidationErrors().join("; ")}`);
-  }
-};
-function producedResult(invocation, definition, artifact, createdAt) {
-  const outputArtifact = outputReference(definition, artifact);
-  const payload = {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    status: "produced",
-    confidence: artifact.confidence,
-    missing_context: [...artifact.diagnostics.missing_context],
-    human_review_required: artifact.review_required.required,
-    source_artifacts: [...invocation.payload.input_artifacts],
-    output_artifacts: [outputArtifact],
-    trace: traceResult(invocation)
-  };
-  return roleResultEnvelope(invocation, definition, createdAt, payload, [outputArtifact], "produced", [], []);
-}
-function skippedResult(invocation, identity, createdAt, skipReason) {
-  const payload = {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    status: "skipped",
-    confidence: { score: 1, level: "high", reason_codes: [skipReason.code] },
-    missing_context: [],
-    human_review_required: false,
-    source_artifacts: [...invocation.payload.input_artifacts],
-    output_artifacts: [],
-    skip_reason: skipReason,
-    trace: traceResult(invocation)
-  };
-  return roleResultEnvelope(invocation, identity, createdAt, payload, [], "skipped", [], []);
-}
-function needsHumanResult(invocation, definition, createdAt, missingContext) {
-  const payload = {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    status: "needs_human",
-    confidence: { score: 0, level: "low", reason_codes: ["role:needs_human"] },
-    missing_context: [missingContext],
-    human_review_required: true,
-    source_artifacts: [...invocation.payload.input_artifacts],
-    output_artifacts: [],
-    trace: traceResult(invocation)
-  };
-  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", [], [missingContext]);
-}
-function blockedResult(invocation, definition, createdAt, errors) {
-  const payload = {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    status: "blocked",
-    confidence: { score: 0, level: "low", reason_codes: errors.map((error) => error.code) },
-    missing_context: [],
-    human_review_required: false,
-    source_artifacts: [...invocation.payload.input_artifacts],
-    output_artifacts: [],
-    trace: traceResult(invocation),
-    retry_recommendation: {
-      recommended: true,
-      reason_codes: ["role:structured_output_retry"]
-    }
-  };
-  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", errors, []);
-}
-function roleResultEnvelope(invocation, identity, createdAt, payload, outputRefs, diagnosticStatus, errors, missingContext) {
-  return {
-    artifact_id: artifactIdFor("RoleResult", createdAt, payload),
-    artifact_type: "RoleResult",
-    schema_version: ROLE_RESULT_SCHEMA_VERSION,
-    protocol_version: invocation.protocol_version,
-    producer: {
-      primitive: "role",
-      name: identity.role_id,
-      version: identity.role_version,
-      invocation_id: invocation.payload.invocation_id
-    },
-    created_at: createdAt,
-    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
-    output_refs: [...outputRefs],
-    ownership: roleResultOwnership(),
-    confidence: payload.confidence,
-    review_required: {
-      required: payload.human_review_required,
-      reason_codes: payload.human_review_required ? ["role:human_review_required"] : []
-    },
-    diagnostics: {
-      status: diagnosticStatus,
-      warnings: [],
-      errors: [...errors],
-      missing_context: [...missingContext]
-    },
-    payload
-  };
-}
-function skipReasonFor(invocation, definition) {
-  if (!definition.supported_operations.includes(invocation.payload.operation)) {
-    return {
-      code: "role:unsupported_operation",
-      category: "not_applicable",
-      details: {
-        requested_operation: invocation.payload.operation
-      }
-    };
-  }
-  if (!expectsRequiredOutput(invocation, definition)) {
-    return {
-      code: definition.skip_codes?.missing_required_output ?? "role:no_required_output_artifact",
-      category: "not_applicable",
-      details: {
-        expected_artifact_types: invocation.payload.expected_output_artifacts.map(
-          (artifact) => artifact.artifact_type
-        )
-      }
-    };
-  }
-  return void 0;
-}
-function expectsRequiredOutput(invocation, definition) {
-  return invocation.payload.expected_output_artifacts.some(
-    (artifact) => artifact.artifact_type === definition.expected_output_artifact_type && artifact.schema_version === definition.expected_output_schema_version && artifact.required
-  );
-}
-function allowsModelBackedCall(invocation) {
-  return invocation.payload.model_tier_policy.allowed_tiers.some(
-    (tier) => tier === "small" || tier === "standard" || tier === "frontier"
-  );
-}
-function outputReference(definition, artifact) {
-  return artifactReferenceFor(
-    definition.expected_output_artifact_type,
-    definition.expected_output_schema_version,
-    artifact.artifact_id,
-    artifact.protocol_version
-  );
-}
-function schemaErrorDiagnostics(code, errors) {
-  if (errors.length === 0) {
-    return [{ code, severity: "blocker" }];
-  }
-  return errors.map((message) => ({
-    code,
-    severity: "blocker",
-    details: { message }
-  }));
-}
-function errorMessage(error) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "Unknown structured model call failure";
-}
-function invocationRoleIdentity(invocation) {
-  return {
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version
-  };
-}
-
-// src/registry/role-registry.ts
-var RoleRegistry = class {
-  definitionsByRoleId = /* @__PURE__ */ new Map();
-  register(definition) {
-    const definitionsByVersion = this.definitionsByRoleId.get(definition.role_id) ?? /* @__PURE__ */ new Map();
-    if (definitionsByVersion.has(definition.role_version)) {
-      throw new Error(
-        `Role ${definition.role_id}@${definition.role_version} is already registered`
-      );
-    }
-    definitionsByVersion.set(definition.role_version, definition);
-    this.definitionsByRoleId.set(definition.role_id, definitionsByVersion);
-    return this;
-  }
-  resolve(roleId, roleVersion) {
-    const definitionsByVersion = this.definitionsByRoleId.get(roleId);
-    if (definitionsByVersion === void 0) {
-      return {
-        kind: "miss",
-        reason: {
-          code: "role:not_registered",
-          category: "not_applicable",
-          details: {
-            requested_role_id: roleId
-          }
-        }
-      };
-    }
-    if (roleVersion === void 0) {
-      const firstDefinition = firstRegisteredDefinition(definitionsByVersion);
-      if (firstDefinition !== void 0) {
-        return { kind: "hit", definition: firstDefinition };
-      }
-    }
-    const definition = roleVersion === void 0 ? void 0 : definitionsByVersion.get(roleVersion);
-    if (definition !== void 0) {
-      return { kind: "hit", definition };
-    }
-    return {
-      kind: "miss",
-      reason: {
-        code: "role:unsupported_version",
-        category: "policy",
-        details: {
-          requested_role_id: roleId,
-          requested_role_version: roleVersion ?? "",
-          supported_role_versions: [...definitionsByVersion.keys()]
-        }
-      }
-    };
-  }
-  list() {
-    const definitions = [];
-    for (const definitionsByVersion of this.definitionsByRoleId.values()) {
-      definitions.push(...definitionsByVersion.values());
-    }
-    return definitions;
-  }
-};
-function firstRegisteredDefinition(definitionsByVersion) {
-  for (const definition of definitionsByVersion.values()) {
-    return definition;
-  }
-  return void 0;
-}
-
-// src/roles/architect.ts
-var ARCHITECTURE_IMPACT_SCHEMA_VERSION = "1.0.0";
-var SUPPORTED_OPERATIONS = ["assess_architecture_impact", "architecture_impact"];
-var architectRoleDefinition = {
-  role_id: ARCHITECT_ROLE_ID,
-  role_version: ARCHITECT_ROLE_VERSION,
-  prompt: ARCHITECT_ROLE_PROMPT,
-  supported_operations: SUPPORTED_OPERATIONS,
-  expected_output_artifact_type: "ArchitectureImpact",
-  expected_output_schema_version: ARCHITECTURE_IMPACT_SCHEMA_VERSION,
-  output: architectureImpactStructuredSchema,
-  validate_output: isArchitectureImpact,
-  validation_errors: architectureImpactValidationErrors,
-  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeArchitectureImpact(modelArtifact, invocation, createdAt, definition),
-  context_profile: {
-    rules: {
-      role_contract: "Return exactly one ArchitectureImpact artifact. Do not return prose-only output.",
-      non_goals: [
-        "no_recursive_supervisor",
-        "no_agent_transport",
-        "no_tool_use",
-        "no_filesystem_or_network_access"
-      ]
-    },
-    request: {
-      include_output_schema: true,
-      fields: ({ roleContext }) => ({
-        story: roleContext.story ?? {}
-      })
-    }
-  },
-  autonomy: {
-    domain: "engineering"
-  },
-  skip_codes: {
-    missing_required_output: "role:no_required_architecture_impact"
-  }
-};
-var ArchitectRoleRunner = class {
-  runner;
-  constructor(options) {
-    const registry = new RoleRegistry().register(architectRoleDefinition);
-    this.runner = new RoleRunner({
-      registry,
-      modelClient: options.modelClient,
-      ...options.now === void 0 ? {} : { now: options.now },
-      ...options.artifactSink === void 0 ? {} : { artifactSink: architectureImpactSink(options.artifactSink) }
-    });
-  }
-  async run(invocation, roleContext = {}) {
-    return this.runner.run(invocation, roleContext);
-  }
-};
-async function runArchitectRole(invocation, options, roleContext = {}) {
-  return new ArchitectRoleRunner(options).run(invocation, roleContext);
-}
-function normalizeArchitectureImpact(modelImpact, invocation, createdAt, definition) {
-  const artifactId = artifactIdFor("ArchitectureImpact", createdAt, modelImpact.payload);
-  return {
-    ...modelImpact,
-    artifact_id: artifactId,
-    schema_version: definition.expected_output_schema_version,
-    protocol_version: invocation.protocol_version,
-    producer: {
-      primitive: "role",
-      name: definition.role_id,
-      version: definition.role_version,
-      invocation_id: invocation.payload.invocation_id
-    },
-    created_at: createdAt,
-    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
-    output_refs: [
-      artifactReferenceFor(
-        definition.expected_output_artifact_type,
-        definition.expected_output_schema_version,
-        artifactId,
-        invocation.protocol_version
-      )
-    ]
-  };
-}
-function architectureImpactSink(sink) {
-  return (artifact) => {
-    if (!isArchitectureImpact(artifact)) {
-      throw new Error("Architect artifact sink received a non-ArchitectureImpact artifact");
-    }
-    return sink(artifact);
-  };
-}
-
-// src/roles/planner.ts
-var PLAN_PROPOSAL_SCHEMA_VERSION = "1.0.0";
-var SUPPORTED_OPERATIONS2 = ["propose_plan", "decompose_initiative"];
-var plannerRoleDefinition = {
-  role_id: PLANNER_ROLE_ID,
-  role_version: PLANNER_ROLE_VERSION,
-  prompt: PLANNER_ROLE_PROMPT,
-  supported_operations: SUPPORTED_OPERATIONS2,
-  expected_output_artifact_type: "PlanProposal",
-  expected_output_schema_version: PLAN_PROPOSAL_SCHEMA_VERSION,
-  output: planProposalStructuredSchema,
-  validate_output: isPlanProposal,
-  validation_errors: planProposalValidationErrors,
-  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizePlanProposal(modelArtifact, invocation, createdAt, definition),
-  context_profile: {
-    rules: {
-      role_contract: "Return exactly one PlanProposal artifact. Do not return prose-only output.",
-      non_goals: [
-        "no_recursive_supervisor",
-        "no_agent_transport",
-        "no_tool_use",
-        "no_filesystem_or_network_access",
-        "no_long_running_state"
-      ]
-    },
-    request: {
-      include_output_schema: true,
-      fields: ({ invocation, roleContext }) => ({
-        planning_goal: invocation.payload.decision_scope.objective,
-        constraints: [...invocation.payload.decision_scope.constraints ?? []],
-        input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
-        bounded_context: roleContext.context ?? {}
-      })
-    }
-  },
-  autonomy: {
-    domain: "engineering"
-  },
-  skip_codes: {
-    missing_required_output: "role:no_required_plan_proposal"
-  }
-};
-var PlannerRoleRunner = class {
-  runner;
-  constructor(options) {
-    const registry = new RoleRegistry().register(plannerRoleDefinition);
-    this.runner = new RoleRunner({
-      registry,
-      modelClient: options.modelClient,
-      ...options.now === void 0 ? {} : { now: options.now },
-      ...options.artifactSink === void 0 ? {} : { artifactSink: planProposalSink(options.artifactSink) }
-    });
-  }
-  async run(invocation, roleContext = {}) {
-    return this.runner.run(invocation, roleContextForPlanner(roleContext));
-  }
-};
-async function runPlannerRole(invocation, options, roleContext = {}) {
-  return new PlannerRoleRunner(options).run(invocation, roleContext);
-}
-function normalizePlanProposal(modelProposal, invocation, createdAt, definition) {
-  const artifactId = artifactIdFor("PlanProposal", createdAt, modelProposal.payload);
-  return {
-    ...modelProposal,
-    artifact_id: artifactId,
-    schema_version: definition.expected_output_schema_version,
-    protocol_version: invocation.protocol_version,
-    producer: {
-      primitive: "role",
-      name: definition.role_id,
-      version: definition.role_version,
-      invocation_id: invocation.payload.invocation_id
-    },
-    created_at: createdAt,
-    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
-    output_refs: [
-      artifactReferenceFor(
-        definition.expected_output_artifact_type,
-        definition.expected_output_schema_version,
-        artifactId,
-        invocation.protocol_version
-      )
-    ]
-  };
-}
-function planProposalSink(sink) {
-  return (artifact) => {
-    if (!isPlanProposal(artifact)) {
-      throw new Error("Planner artifact sink received a non-PlanProposal artifact");
-    }
-    return sink(artifact);
-  };
-}
-function roleContextForPlanner(roleContext) {
-  const context = { ...roleContext.context ?? {} };
-  if (roleContext.initiative !== void 0) {
-    context.initiative = roleContext.initiative;
-  }
-  if (roleContext.goal !== void 0) {
-    context.goal = roleContext.goal;
-  }
-  return {
-    ...roleContext.story === void 0 ? {} : { story: roleContext.story },
-    context
-  };
-}
-
-// src/roles/quality-governor.ts
-var REVIEW_JUDGMENT_SCHEMA_VERSION = "1.0.0";
-var SUPPORTED_OPERATIONS3 = ["review_artifact", "govern_quality"];
-var qualityGovernorRoleDefinition = {
-  role_id: QUALITY_GOVERNOR_ROLE_ID,
-  role_version: QUALITY_GOVERNOR_ROLE_VERSION,
-  prompt: QUALITY_GOVERNOR_ROLE_PROMPT,
-  supported_operations: SUPPORTED_OPERATIONS3,
-  expected_output_artifact_type: "ReviewJudgment",
-  expected_output_schema_version: REVIEW_JUDGMENT_SCHEMA_VERSION,
-  output: reviewJudgmentStructuredSchema,
-  validate_output: isReviewJudgment,
-  validation_errors: reviewJudgmentValidationErrors,
-  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeReviewJudgment(modelArtifact, invocation, createdAt, definition),
-  context_profile: {
-    rules: {
-      role_contract: "Return exactly one ReviewJudgment artifact. Judge the target against the acceptance criteria with no prose-only output.",
-      non_goals: [
-        "no_recursive_supervisor",
-        "no_agent_transport",
-        "no_tool_use",
-        "no_filesystem_or_network_access",
-        "no_long_running_state"
-      ]
-    },
-    request: {
-      include_output_schema: true,
-      fields: ({ invocation, roleContext }) => ({
-        review_scope_type: "review",
-        target_artifact: targetArtifactFor(invocation, roleContext),
-        acceptance_criteria: acceptanceCriteriaFor(roleContext),
-        review_context: roleContext.context?.review_context ?? {},
-        bounded_context: roleContext.context ?? {}
-      })
-    }
-  },
-  autonomy: {
-    domain: "engineering"
-  },
-  skip_codes: {
-    missing_required_output: "role:no_required_review_judgment"
-  }
-};
-var QualityGovernorRoleRunner = class {
-  runner;
-  constructor(options) {
-    const registry = new RoleRegistry().register(qualityGovernorRoleDefinition);
-    this.runner = new RoleRunner({
-      registry,
-      modelClient: options.modelClient,
-      ...options.now === void 0 ? {} : { now: options.now },
-      ...options.artifactSink === void 0 ? {} : { artifactSink: reviewJudgmentSink(options.artifactSink) }
-    });
-  }
-  async run(invocation, roleContext = {}) {
-    return this.runner.run(invocation, roleContextForQualityGovernor(roleContext));
-  }
-};
-async function runQualityGovernorRole(invocation, options, roleContext = {}) {
-  return new QualityGovernorRoleRunner(options).run(invocation, roleContext);
-}
-function normalizeReviewJudgment(modelJudgment, invocation, createdAt, definition) {
-  const artifactId = artifactIdFor("ReviewJudgment", createdAt, modelJudgment.payload);
-  return {
-    ...modelJudgment,
-    artifact_id: artifactId,
-    schema_version: definition.expected_output_schema_version,
-    protocol_version: invocation.protocol_version,
-    producer: {
-      primitive: "role",
-      name: definition.role_id,
-      version: definition.role_version,
-      invocation_id: invocation.payload.invocation_id
-    },
-    created_at: createdAt,
-    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
-    output_refs: [
-      artifactReferenceFor(
-        definition.expected_output_artifact_type,
-        definition.expected_output_schema_version,
-        artifactId,
-        invocation.protocol_version
-      )
-    ]
-  };
-}
-function reviewJudgmentSink(sink) {
-  return (artifact) => {
-    if (!isReviewJudgment(artifact)) {
-      throw new Error("Quality Governor artifact sink received a non-ReviewJudgment artifact");
-    }
-    return sink(artifact);
-  };
-}
-function roleContextForQualityGovernor(roleContext) {
-  const context = { ...roleContext.context ?? {} };
-  if (roleContext.target_artifact !== void 0) {
-    context.target_artifact = roleContext.target_artifact;
-  }
-  if (roleContext.acceptance_criteria !== void 0) {
-    context.acceptance_criteria = [...roleContext.acceptance_criteria];
-  }
-  if (roleContext.review_context !== void 0) {
-    context.review_context = roleContext.review_context;
-  }
-  return {
-    ...roleContext.story === void 0 ? {} : { story: roleContext.story },
-    context
-  };
-}
-function targetArtifactFor(invocation, roleContext) {
-  const contextTarget = roleContext.context?.target_artifact;
-  if (isJsonObject2(contextTarget)) {
-    return contextTarget;
-  }
-  const firstInputArtifact = invocation.payload.input_artifacts[0];
-  if (firstInputArtifact === void 0) {
-    return {};
-  }
-  return artifactReferenceJson(firstInputArtifact);
-}
-function acceptanceCriteriaFor(roleContext) {
-  const criteria = roleContext.context?.acceptance_criteria;
-  if (!Array.isArray(criteria)) {
-    return [];
-  }
-  return criteria.filter(isString);
-}
-function isJsonObject2(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function isString(value) {
-  return typeof value === "string";
-}
-
 // src/cli/role-invoke.ts
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve as resolve2 } from "node:path";
@@ -26253,7 +25176,7 @@ var ib = d$$;
 var i$$ = ib(function($, Q) {
   return $ == null ? {} : ub($, Q);
 });
-var StructuredModelCallError2 = class extends Error {
+var StructuredModelCallError = class extends Error {
   constructor(message) {
     super(message);
     this.name = "StructuredModelCallError";
@@ -26265,9 +25188,9 @@ function parseJson(value, label) {
     return parsed;
   } catch (error) {
     if (error instanceof Error) {
-      throw new StructuredModelCallError2(`Invalid ${label}: ${error.message}`);
+      throw new StructuredModelCallError(`Invalid ${label}: ${error.message}`);
     }
-    throw new StructuredModelCallError2(`Invalid ${label}`);
+    throw new StructuredModelCallError(`Invalid ${label}`);
   }
 }
 function isJsonObject4(value) {
@@ -26275,7 +25198,7 @@ function isJsonObject4(value) {
 }
 function requireJsonObject(value, label) {
   if (!isJsonObject4(value)) {
-    throw new StructuredModelCallError2(`${label} must be a JSON object`);
+    throw new StructuredModelCallError(`${label} must be a JSON object`);
   }
   return value;
 }
@@ -26324,7 +25247,7 @@ var AnthropicStructuredModelClient = class {
       });
       const body = await response.text();
       if (!response.ok) {
-        throw new StructuredModelCallError2(
+        throw new StructuredModelCallError(
           `Anthropic structured model call failed with HTTP ${response.status}: ${body}`
         );
       }
@@ -26340,12 +25263,12 @@ function extractAnthropicText(body, output) {
   const parsed = requireJsonObject(parseJson(body, "Anthropic message response"), "Anthropic message response");
   const content = parsed.content;
   if (!Array.isArray(content)) {
-    throw new StructuredModelCallError2("Anthropic message response content must be an array");
+    throw new StructuredModelCallError("Anthropic message response content must be an array");
   }
   const blocks = content.filter(isAnthropicTextBlock);
   const text = blocks.map((block) => block.text).join("\n").trim();
   if (text.length === 0) {
-    throw new StructuredModelCallError2(
+    throw new StructuredModelCallError(
       `Anthropic message response did not contain text for ${output.name}`
     );
   }
@@ -26354,6 +25277,963 @@ function extractAnthropicText(body, output) {
 function isAnthropicTextBlock(value) {
   if (!isJsonObject4(value)) return false;
   return value.type === "text" && typeof value.text === "string";
+}
+
+// src/prompts/architect-role.ts
+var ARCHITECT_ROLE_ID = "dev-genie.architect-role";
+var ARCHITECT_ROLE_VERSION = "1.0.0";
+var ARCHITECT_ROLE_PROMPT_REF = `${ARCHITECT_ROLE_ID}@${ARCHITECT_ROLE_VERSION}`;
+var ARCHITECT_ROLE_PROMPT = {
+  id: ARCHITECT_ROLE_ID,
+  version: ARCHITECT_ROLE_VERSION,
+  ref: ARCHITECT_ROLE_PROMPT_REF,
+  text: [
+    "You are Dev-Genie's bounded Architect Role for the Protocol Proof MVP.",
+    "Given exactly {context, rules, request}, produce one ArchitectureImpact JSON artifact.",
+    "Use only the supplied Story artifact references, bounded context refs, decision scope, constraints, and expected output contract.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, or hidden chat history.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "If the Story is outside architectural scope, encode that through low or none impact fields instead of prose.",
+    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope."
+  ].join(" ")
+};
+
+// src/schemas/protocol-schemas.ts
+var import__ = __toESM(require__(), 1);
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// src/runner/structured-model.ts
+var StructuredModelCallError2 = class extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "StructuredModelCallError";
+  }
+};
+var StructuredModelUnavailableError = class extends StructuredModelCallError2 {
+  constructor(envName) {
+    super(`Structured model call unavailable. Set ${envName} or inject a modelClient.`);
+    this.envName = envName;
+    this.name = "StructuredModelUnavailableError";
+  }
+  envName;
+};
+
+// src/schemas/protocol-schemas.ts
+var require2 = createRequire(import.meta.url);
+var addFormats = require2("ajv-formats").default;
+var loadedSchemas = loadProtocolSchemas();
+var ajv = new import__.Ajv2020({ allErrors: true, strict: true });
+addFormats(ajv);
+for (const loadedSchema of loadedSchemas) {
+  ajv.addSchema(loadedSchema.schema);
+}
+var architectureImpactValidator = validatorFor("ArchitectureImpact");
+var planProposalValidator = validatorFor("PlanProposal");
+var reviewJudgmentValidator = validatorFor("ReviewJudgment");
+var roleInvocationValidator = validatorFor("RoleInvocation");
+var roleResultValidator = validatorFor("RoleResult");
+var validationReportValidator = validatorFor("ValidationReport");
+var architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
+var planProposalJsonSchema = schemaFor("PlanProposal");
+var reviewJudgmentJsonSchema = schemaFor("ReviewJudgment");
+var roleInvocationJsonSchema = schemaFor("RoleInvocation");
+var roleResultJsonSchema = schemaFor("RoleResult");
+var validationReportJsonSchema = schemaFor("ValidationReport");
+var architectureImpactStructuredSchema = {
+  name: "dev-genie.architecture-impact.v1",
+  schema: architectureImpactJsonSchema,
+  parse(value) {
+    return parseArchitectureImpact(value);
+  }
+};
+var planProposalStructuredSchema = {
+  name: "dev-genie.plan-proposal.v1",
+  schema: planProposalJsonSchema,
+  parse(value) {
+    return parsePlanProposal(value);
+  }
+};
+var reviewJudgmentStructuredSchema = {
+  name: "dev-genie.review-judgment.v1",
+  schema: reviewJudgmentJsonSchema,
+  parse(value) {
+    return parseReviewJudgment(value);
+  }
+};
+function parseArchitectureImpact(value) {
+  if (isArchitectureImpact(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError2(
+    `ArchitectureImpact failed protocol schema validation: ${formatValidationErrors(architectureImpactValidator).join("; ")}`
+  );
+}
+function parsePlanProposal(value) {
+  if (isPlanProposal(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError2(
+    `PlanProposal failed protocol schema validation: ${formatValidationErrors(planProposalValidator).join("; ")}`
+  );
+}
+function parseReviewJudgment(value) {
+  if (isReviewJudgment(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError2(
+    `ReviewJudgment failed protocol schema validation: ${formatValidationErrors(reviewJudgmentValidator).join("; ")}`
+  );
+}
+function isArchitectureImpact(value) {
+  return architectureImpactValidator(value);
+}
+function isPlanProposal(value) {
+  return planProposalValidator(value);
+}
+function isReviewJudgment(value) {
+  return reviewJudgmentValidator(value);
+}
+function isRoleInvocation(value) {
+  return roleInvocationValidator(value);
+}
+function isRoleResult(value) {
+  return roleResultValidator(value);
+}
+function roleResultValidationErrors() {
+  return formatValidationErrors(roleResultValidator);
+}
+function architectureImpactValidationErrors() {
+  return formatValidationErrors(architectureImpactValidator);
+}
+function planProposalValidationErrors() {
+  return formatValidationErrors(planProposalValidator);
+}
+function reviewJudgmentValidationErrors() {
+  return formatValidationErrors(reviewJudgmentValidator);
+}
+function roleInvocationValidationErrors() {
+  return formatValidationErrors(roleInvocationValidator);
+}
+function validatorFor(artifactType) {
+  const loadedSchema = loadedSchemaFor(artifactType);
+  const validator = ajv.getSchema(loadedSchema.id);
+  if (validator === void 0) {
+    throw new Error(`Protocol schema ${loadedSchema.fileName} did not compile`);
+  }
+  return validator;
+}
+function schemaFor(artifactType) {
+  return loadedSchemaFor(artifactType).schema;
+}
+function loadedSchemaFor(artifactType) {
+  const loadedSchema = loadedSchemas.find((candidate) => candidate.artifactType === artifactType);
+  if (loadedSchema === void 0) {
+    throw new Error(`Protocol schema for ${artifactType} was not found`);
+  }
+  return loadedSchema;
+}
+function loadProtocolSchemas() {
+  const schemaDir = findProtocolSchemaDir();
+  return readdirSync2(schemaDir).filter((entry) => entry.endsWith(".schema.json")).sort().map((fileName) => {
+    const schema = readJsonObject(resolve(schemaDir, fileName));
+    return {
+      artifactType: artifactTypeForSchema(schema, fileName),
+      fileName,
+      schema,
+      id: schemaId(schema, fileName)
+    };
+  });
+}
+function findProtocolSchemaDir() {
+  const candidates = [
+    fileURLToPath(new URL("../../../protocol/schemas", import.meta.url)),
+    fileURLToPath(new URL("../../protocol/schemas", import.meta.url)),
+    resolve(process.cwd(), "../protocol/schemas")
+  ];
+  const schemaDir = candidates.find((candidate) => existsSync2(candidate));
+  if (schemaDir === void 0) {
+    throw new Error("Unable to locate sibling protocol/schemas directory");
+  }
+  return schemaDir;
+}
+function readJsonObject(filePath) {
+  const parsed = JSON.parse(readFileSync2(filePath, "utf8"));
+  if (!isJsonObject(parsed)) {
+    throw new Error(`${filePath} must contain a JSON object`);
+  }
+  return parsed;
+}
+function isJsonObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function schemaId(schema, fileName) {
+  const id = schema.$id;
+  if (typeof id !== "string" || id.length === 0) {
+    throw new Error(`Protocol schema ${fileName} must declare $id`);
+  }
+  return id;
+}
+function artifactTypeForSchema(schema, fileName) {
+  const title = schema.title;
+  if (typeof title === "string" && title.length > 0) {
+    return title;
+  }
+  throw new Error(`Protocol schema ${fileName} must declare title`);
+}
+function formatValidationErrors(validator) {
+  return (validator.errors ?? []).map(formatValidationError);
+}
+function formatValidationError(error) {
+  const path = error.instancePath.length === 0 ? "/" : error.instancePath;
+  const message = error.message ?? "schema validation failed";
+  return `${path} ${message}`;
+}
+
+// src/runner/artifacts.ts
+import { createHash } from "node:crypto";
+function artifactReferenceFor(artifactType, schemaVersion, artifactId, protocolVersion) {
+  return {
+    ref_type: "artifact",
+    id: artifactId,
+    artifact_type: artifactType,
+    schema_version: schemaVersion,
+    protocol_version: protocolVersion,
+    relation: "produces"
+  };
+}
+function invocationReference(invocation) {
+  return {
+    ref_type: "artifact",
+    id: invocation.artifact_id,
+    artifact_type: "RoleInvocation",
+    schema_version: invocation.schema_version,
+    protocol_version: invocation.protocol_version,
+    relation: "derived_from"
+  };
+}
+function artifactReferenceJson(reference) {
+  return {
+    ref_type: reference.ref_type,
+    id: reference.id,
+    ...reference.artifact_type === void 0 ? {} : { artifact_type: reference.artifact_type },
+    ...reference.schema_version === void 0 ? {} : { schema_version: reference.schema_version },
+    ...reference.protocol_version === void 0 ? {} : { protocol_version: reference.protocol_version },
+    ...reference.uri === void 0 ? {} : { uri: reference.uri },
+    ...reference.relation === void 0 ? {} : { relation: reference.relation }
+  };
+}
+function traceResult(invocation) {
+  const traceRefs = [invocation.payload.trace.destination];
+  if (invocation.payload.trace.trace_id === void 0) {
+    return { trace_refs: traceRefs };
+  }
+  return { trace_refs: traceRefs, trace_id: invocation.payload.trace.trace_id };
+}
+function traceRequestJson(invocation) {
+  return {
+    destination: artifactReferenceJson(invocation.payload.trace.destination),
+    ...invocation.payload.trace.trace_id === void 0 ? {} : { trace_id: invocation.payload.trace.trace_id }
+  };
+}
+function roleResultOwnership() {
+  return {
+    owns_files: [],
+    owns_interfaces: ["interface:role-result"],
+    owns_data: [],
+    owns_workflow_steps: ["workflow:role-runner"]
+  };
+}
+function artifactIdFor(artifactType, createdAt, payload) {
+  const digest = createHash("sha256").update(JSON.stringify({ artifact_type: artifactType, created_at: createdAt, payload })).digest("hex");
+  return `artifact:sha256:${digest}`;
+}
+
+// src/assembler/context-profile-assembler.ts
+var ContextProfileAssembler = class {
+  assemble(invocation, definition, roleContext) {
+    return {
+      context: {
+        prompt_id: definition.prompt.id,
+        prompt_version: definition.prompt.version,
+        prompt_ref: definition.prompt.ref,
+        prompt: definition.prompt.text,
+        invocation: invocationContext(invocation),
+        bounded_context: boundedContextFor(roleContext, definition.context_profile)
+      },
+      rules: {
+        role_contract: definition.context_profile.rules.role_contract,
+        non_goals: [...definition.context_profile.rules.non_goals],
+        expected_output_artifacts: invocation.payload.expected_output_artifacts.map(
+          expectedOutputArtifactJson
+        )
+      },
+      request: requestFor(invocation, definition, roleContext)
+    };
+  }
+};
+function invocationContext(invocation) {
+  return {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
+    context_bundle_refs: invocation.payload.context_bundle_refs.map(artifactReferenceJson),
+    policy_decision_refs: invocation.payload.policy_decision_refs.map(artifactReferenceJson),
+    timeout_ms: invocation.payload.timeout_ms,
+    allowed_engines: invocation.payload.allowed_engines.map((engine) => ({
+      engine_id: engine.engine_id,
+      ...engine.engine_version === void 0 ? {} : { engine_version: engine.engine_version },
+      operations: [...engine.operations ?? []]
+    })),
+    allowed_tools: invocation.payload.allowed_tools.map((tool) => ({
+      tool_id: tool.tool_id,
+      permission: tool.permission,
+      ...tool.restrictions === void 0 ? {} : { restrictions: tool.restrictions }
+    })),
+    trace: traceRequestJson(invocation)
+  };
+}
+function expectedOutputArtifactJson(reference) {
+  return {
+    artifact_type: reference.artifact_type,
+    schema_version: reference.schema_version,
+    required: reference.required,
+    ...reference.relation === void 0 ? {} : { relation: reference.relation }
+  };
+}
+function boundedContextFor(roleContext, profile) {
+  const source = roleContext.context ?? {};
+  const keys = profile.context?.context_bundle_keys;
+  if (keys === void 0) {
+    return source;
+  }
+  const selected = {};
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== void 0) {
+      selected[key] = value;
+    }
+  }
+  return selected;
+}
+function requestFor(invocation, definition, roleContext) {
+  const request = {};
+  if (definition.context_profile.request.include_operation !== false) {
+    request.operation = invocation.payload.operation;
+  }
+  if (definition.context_profile.request.include_decision_scope !== false) {
+    request.decision_scope = {
+      scope_type: invocation.payload.decision_scope.scope_type,
+      scope_id: invocation.payload.decision_scope.scope_id,
+      objective: invocation.payload.decision_scope.objective,
+      constraints: [...invocation.payload.decision_scope.constraints ?? []]
+    };
+  }
+  const fields = definition.context_profile.request.fields?.({
+    invocation,
+    roleContext,
+    definition
+  });
+  if (fields !== void 0) {
+    for (const [key, value] of Object.entries(fields)) {
+      request[key] = value;
+    }
+  }
+  if (definition.context_profile.request.include_output_schema === true) {
+    request.output_schema = {
+      artifact_type: definition.expected_output_artifact_type,
+      schema_version: definition.expected_output_schema_version
+    };
+  }
+  return request;
+}
+
+// src/runner/role-runner.ts
+var ROLE_RESULT_SCHEMA_VERSION = "1.0.0";
+var RoleRunner = class {
+  registry;
+  modelClient;
+  assembler;
+  now;
+  artifactSink;
+  constructor(options) {
+    this.registry = options.registry;
+    this.modelClient = options.modelClient;
+    this.assembler = options.assembler ?? new ContextProfileAssembler();
+    this.now = options.now ?? (() => /* @__PURE__ */ new Date());
+    this.artifactSink = options.artifactSink;
+  }
+  async run(invocation, roleContext) {
+    const createdAt = this.now().toISOString();
+    const resolved = this.registry.resolve(invocation.payload.role_id, invocation.payload.role_version);
+    if (resolved.kind === "miss") {
+      return this.checkedResult(
+        skippedResult(invocation, invocationRoleIdentity(invocation), createdAt, resolved.reason)
+      );
+    }
+    const definition = resolved.definition;
+    const skipReason = skipReasonFor(invocation, definition);
+    if (skipReason !== void 0) {
+      return this.checkedResult(skippedResult(invocation, definition, createdAt, skipReason));
+    }
+    if (!allowsModelBackedCall(invocation)) {
+      return this.checkedResult(
+        needsHumanResult(invocation, definition, createdAt, {
+          code: "model_tier_policy_requires_human",
+          ref_type: "policy",
+          id: "model_tier_policy"
+        })
+      );
+    }
+    try {
+      const modelArtifact = await this.modelClient.call({
+        input: this.assembler.assemble(invocation, definition, roleContext),
+        output: definition.output
+      });
+      const artifact = definition.normalize({
+        modelArtifact,
+        invocation,
+        createdAt,
+        definition
+      });
+      if (!definition.validate_output(artifact)) {
+        return this.checkedResult(
+          blockedResult(
+            invocation,
+            definition,
+            createdAt,
+            schemaErrorDiagnostics(
+              `schema:invalid_${definition.expected_output_artifact_type}`,
+              definition.validation_errors()
+            )
+          )
+        );
+      }
+      await this.artifactSink?.(artifact);
+      return this.checkedResult(producedResult(invocation, definition, artifact, createdAt));
+    } catch (error) {
+      if (error instanceof StructuredModelUnavailableError) {
+        return this.checkedResult(
+          needsHumanResult(invocation, definition, createdAt, {
+            code: "model:credentials_unavailable",
+            ref_type: "config",
+            id: error.envName
+          })
+        );
+      }
+      return this.checkedResult(
+        blockedResult(invocation, definition, createdAt, [
+          {
+            code: "structured_model_call_failed",
+            severity: "blocker",
+            details: {
+              message: errorMessage(error)
+            }
+          }
+        ])
+      );
+    }
+  }
+  checkedResult(result) {
+    if (isRoleResult(result)) {
+      return result;
+    }
+    throw new Error(`Constructed RoleResult is invalid: ${roleResultValidationErrors().join("; ")}`);
+  }
+};
+function producedResult(invocation, definition, artifact, createdAt) {
+  const outputArtifact = outputReference(definition, artifact);
+  const payload = {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    status: "produced",
+    confidence: artifact.confidence,
+    missing_context: [...artifact.diagnostics.missing_context],
+    human_review_required: artifact.review_required.required,
+    source_artifacts: [...invocation.payload.input_artifacts],
+    output_artifacts: [outputArtifact],
+    trace: traceResult(invocation)
+  };
+  return roleResultEnvelope(invocation, definition, createdAt, payload, [outputArtifact], "produced", [], []);
+}
+function skippedResult(invocation, identity, createdAt, skipReason) {
+  const payload = {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    status: "skipped",
+    confidence: { score: 1, level: "high", reason_codes: [skipReason.code] },
+    missing_context: [],
+    human_review_required: false,
+    source_artifacts: [...invocation.payload.input_artifacts],
+    output_artifacts: [],
+    skip_reason: skipReason,
+    trace: traceResult(invocation)
+  };
+  return roleResultEnvelope(invocation, identity, createdAt, payload, [], "skipped", [], []);
+}
+function needsHumanResult(invocation, definition, createdAt, missingContext) {
+  const payload = {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    status: "needs_human",
+    confidence: { score: 0, level: "low", reason_codes: ["role:needs_human"] },
+    missing_context: [missingContext],
+    human_review_required: true,
+    source_artifacts: [...invocation.payload.input_artifacts],
+    output_artifacts: [],
+    trace: traceResult(invocation)
+  };
+  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", [], [missingContext]);
+}
+function blockedResult(invocation, definition, createdAt, errors) {
+  const payload = {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    status: "blocked",
+    confidence: { score: 0, level: "low", reason_codes: errors.map((error) => error.code) },
+    missing_context: [],
+    human_review_required: false,
+    source_artifacts: [...invocation.payload.input_artifacts],
+    output_artifacts: [],
+    trace: traceResult(invocation),
+    retry_recommendation: {
+      recommended: true,
+      reason_codes: ["role:structured_output_retry"]
+    }
+  };
+  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", errors, []);
+}
+function roleResultEnvelope(invocation, identity, createdAt, payload, outputRefs, diagnosticStatus, errors, missingContext) {
+  return {
+    artifact_id: artifactIdFor("RoleResult", createdAt, payload),
+    artifact_type: "RoleResult",
+    schema_version: ROLE_RESULT_SCHEMA_VERSION,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: identity.role_id,
+      version: identity.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [...outputRefs],
+    ownership: roleResultOwnership(),
+    confidence: payload.confidence,
+    review_required: {
+      required: payload.human_review_required,
+      reason_codes: payload.human_review_required ? ["role:human_review_required"] : []
+    },
+    diagnostics: {
+      status: diagnosticStatus,
+      warnings: [],
+      errors: [...errors],
+      missing_context: [...missingContext]
+    },
+    payload
+  };
+}
+function skipReasonFor(invocation, definition) {
+  if (!definition.supported_operations.includes(invocation.payload.operation)) {
+    return {
+      code: "role:unsupported_operation",
+      category: "not_applicable",
+      details: {
+        requested_operation: invocation.payload.operation
+      }
+    };
+  }
+  if (!expectsRequiredOutput(invocation, definition)) {
+    return {
+      code: definition.skip_codes?.missing_required_output ?? "role:no_required_output_artifact",
+      category: "not_applicable",
+      details: {
+        expected_artifact_types: invocation.payload.expected_output_artifacts.map(
+          (artifact) => artifact.artifact_type
+        )
+      }
+    };
+  }
+  return void 0;
+}
+function expectsRequiredOutput(invocation, definition) {
+  return invocation.payload.expected_output_artifacts.some(
+    (artifact) => artifact.artifact_type === definition.expected_output_artifact_type && artifact.schema_version === definition.expected_output_schema_version && artifact.required
+  );
+}
+function allowsModelBackedCall(invocation) {
+  return invocation.payload.model_tier_policy.allowed_tiers.some(
+    (tier) => tier === "small" || tier === "standard" || tier === "frontier"
+  );
+}
+function outputReference(definition, artifact) {
+  return artifactReferenceFor(
+    definition.expected_output_artifact_type,
+    definition.expected_output_schema_version,
+    artifact.artifact_id,
+    artifact.protocol_version
+  );
+}
+function schemaErrorDiagnostics(code, errors) {
+  if (errors.length === 0) {
+    return [{ code, severity: "blocker" }];
+  }
+  return errors.map((message) => ({
+    code,
+    severity: "blocker",
+    details: { message }
+  }));
+}
+function errorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unknown structured model call failure";
+}
+function invocationRoleIdentity(invocation) {
+  return {
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version
+  };
+}
+
+// src/registry/role-registry.ts
+var RoleRegistry = class {
+  definitionsByRoleId = /* @__PURE__ */ new Map();
+  register(definition) {
+    const definitionsByVersion = this.definitionsByRoleId.get(definition.role_id) ?? /* @__PURE__ */ new Map();
+    if (definitionsByVersion.has(definition.role_version)) {
+      throw new Error(
+        `Role ${definition.role_id}@${definition.role_version} is already registered`
+      );
+    }
+    definitionsByVersion.set(definition.role_version, definition);
+    this.definitionsByRoleId.set(definition.role_id, definitionsByVersion);
+    return this;
+  }
+  resolve(roleId, roleVersion) {
+    const definitionsByVersion = this.definitionsByRoleId.get(roleId);
+    if (definitionsByVersion === void 0) {
+      return {
+        kind: "miss",
+        reason: {
+          code: "role:not_registered",
+          category: "not_applicable",
+          details: {
+            requested_role_id: roleId
+          }
+        }
+      };
+    }
+    if (roleVersion === void 0) {
+      const firstDefinition = firstRegisteredDefinition(definitionsByVersion);
+      if (firstDefinition !== void 0) {
+        return { kind: "hit", definition: firstDefinition };
+      }
+    }
+    const definition = roleVersion === void 0 ? void 0 : definitionsByVersion.get(roleVersion);
+    if (definition !== void 0) {
+      return { kind: "hit", definition };
+    }
+    return {
+      kind: "miss",
+      reason: {
+        code: "role:unsupported_version",
+        category: "policy",
+        details: {
+          requested_role_id: roleId,
+          requested_role_version: roleVersion ?? "",
+          supported_role_versions: [...definitionsByVersion.keys()]
+        }
+      }
+    };
+  }
+  list() {
+    const definitions = [];
+    for (const definitionsByVersion of this.definitionsByRoleId.values()) {
+      definitions.push(...definitionsByVersion.values());
+    }
+    return definitions;
+  }
+};
+function firstRegisteredDefinition(definitionsByVersion) {
+  for (const definition of definitionsByVersion.values()) {
+    return definition;
+  }
+  return void 0;
+}
+
+// src/roles/architect.ts
+var ARCHITECTURE_IMPACT_SCHEMA_VERSION = "1.0.0";
+var SUPPORTED_OPERATIONS = ["assess_architecture_impact", "architecture_impact"];
+var architectRoleDefinition = {
+  role_id: ARCHITECT_ROLE_ID,
+  role_version: ARCHITECT_ROLE_VERSION,
+  prompt: ARCHITECT_ROLE_PROMPT,
+  supported_operations: SUPPORTED_OPERATIONS,
+  expected_output_artifact_type: "ArchitectureImpact",
+  expected_output_schema_version: ARCHITECTURE_IMPACT_SCHEMA_VERSION,
+  output: architectureImpactStructuredSchema,
+  validate_output: isArchitectureImpact,
+  validation_errors: architectureImpactValidationErrors,
+  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeArchitectureImpact(modelArtifact, invocation, createdAt, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one ArchitectureImpact artifact. Do not return prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ roleContext }) => ({
+        story: roleContext.story ?? {}
+      })
+    }
+  },
+  autonomy: {
+    domain: "engineering"
+  },
+  skip_codes: {
+    missing_required_output: "role:no_required_architecture_impact"
+  }
+};
+function normalizeArchitectureImpact(modelImpact, invocation, createdAt, definition) {
+  const artifactId = artifactIdFor("ArchitectureImpact", createdAt, modelImpact.payload);
+  return {
+    ...modelImpact,
+    artifact_id: artifactId,
+    schema_version: definition.expected_output_schema_version,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [
+      artifactReferenceFor(
+        definition.expected_output_artifact_type,
+        definition.expected_output_schema_version,
+        artifactId,
+        invocation.protocol_version
+      )
+    ]
+  };
+}
+
+// src/prompts/planner-role.ts
+var PLANNER_ROLE_ID = "dev-genie.planner-role";
+var PLANNER_ROLE_VERSION = "1.0.0";
+var PLANNER_ROLE_PROMPT_REF = `${PLANNER_ROLE_ID}@${PLANNER_ROLE_VERSION}`;
+var PLANNER_ROLE_PROMPT = {
+  id: PLANNER_ROLE_ID,
+  version: PLANNER_ROLE_VERSION,
+  ref: PLANNER_ROLE_PROMPT_REF,
+  text: [
+    "You are Dev-Genie's bounded Planner Role for engineering planning.",
+    "Given exactly {context, rules, request}, produce one PlanProposal JSON artifact.",
+    "Use only the supplied goal or initiative artifact references, bounded context refs, decision scope objective, constraints, and expected output contract.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Represent proposed execution work only inside PlanProposal.payload.tasks, in dependency order when possible.",
+    "Represent decisions the caller must route inside PlanProposal.payload.decision_requests; do not resolve those decisions autonomously.",
+    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope and payload."
+  ].join(" ")
+};
+
+// src/roles/planner.ts
+var PLAN_PROPOSAL_SCHEMA_VERSION = "1.0.0";
+var SUPPORTED_OPERATIONS2 = ["propose_plan", "decompose_initiative"];
+var plannerRoleDefinition = {
+  role_id: PLANNER_ROLE_ID,
+  role_version: PLANNER_ROLE_VERSION,
+  prompt: PLANNER_ROLE_PROMPT,
+  supported_operations: SUPPORTED_OPERATIONS2,
+  expected_output_artifact_type: "PlanProposal",
+  expected_output_schema_version: PLAN_PROPOSAL_SCHEMA_VERSION,
+  output: planProposalStructuredSchema,
+  validate_output: isPlanProposal,
+  validation_errors: planProposalValidationErrors,
+  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizePlanProposal(modelArtifact, invocation, createdAt, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one PlanProposal artifact. Do not return prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access",
+        "no_long_running_state"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ invocation, roleContext }) => ({
+        planning_goal: invocation.payload.decision_scope.objective,
+        constraints: [...invocation.payload.decision_scope.constraints ?? []],
+        input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
+        bounded_context: roleContext.context ?? {}
+      })
+    }
+  },
+  autonomy: {
+    domain: "engineering"
+  },
+  skip_codes: {
+    missing_required_output: "role:no_required_plan_proposal"
+  }
+};
+function normalizePlanProposal(modelProposal, invocation, createdAt, definition) {
+  const artifactId = artifactIdFor("PlanProposal", createdAt, modelProposal.payload);
+  return {
+    ...modelProposal,
+    artifact_id: artifactId,
+    schema_version: definition.expected_output_schema_version,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [
+      artifactReferenceFor(
+        definition.expected_output_artifact_type,
+        definition.expected_output_schema_version,
+        artifactId,
+        invocation.protocol_version
+      )
+    ]
+  };
+}
+
+// src/prompts/quality-governor-role.ts
+var QUALITY_GOVERNOR_ROLE_ID = "dev-genie.quality-governor-role";
+var QUALITY_GOVERNOR_ROLE_VERSION = "1.0.0";
+var QUALITY_GOVERNOR_ROLE_PROMPT_REF = `${QUALITY_GOVERNOR_ROLE_ID}@${QUALITY_GOVERNOR_ROLE_VERSION}`;
+var QUALITY_GOVERNOR_ROLE_PROMPT = {
+  id: QUALITY_GOVERNOR_ROLE_ID,
+  version: QUALITY_GOVERNOR_ROLE_VERSION,
+  ref: QUALITY_GOVERNOR_ROLE_PROMPT_REF,
+  text: [
+    "You are Dev-Genie's bounded Quality Governor Role for engineering review.",
+    "Given exactly {context, rules, request}, produce one ReviewJudgment JSON artifact.",
+    "Judge the supplied target artifact against the supplied acceptance criteria and bounded review context.",
+    "Use verdict pass only when every criterion is satisfied with enough evidence.",
+    "Use verdict fail when one or more criteria are not satisfied, and populate completion_decision.blocking_reason_codes and payload.blocking_reason_codes with stable machine-readable reason codes.",
+    "Use verdict needs_human when you cannot confidently judge because required context, evidence, authority, or policy is missing.",
+    "When you use needs_human, set envelope review_required.required, payload.review_required.required, and payload.human_review_required to true and include missing_context entries.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state."
+  ].join(" ")
+};
+
+// src/roles/quality-governor.ts
+var REVIEW_JUDGMENT_SCHEMA_VERSION = "1.0.0";
+var SUPPORTED_OPERATIONS3 = ["review_artifact", "govern_quality"];
+var qualityGovernorRoleDefinition = {
+  role_id: QUALITY_GOVERNOR_ROLE_ID,
+  role_version: QUALITY_GOVERNOR_ROLE_VERSION,
+  prompt: QUALITY_GOVERNOR_ROLE_PROMPT,
+  supported_operations: SUPPORTED_OPERATIONS3,
+  expected_output_artifact_type: "ReviewJudgment",
+  expected_output_schema_version: REVIEW_JUDGMENT_SCHEMA_VERSION,
+  output: reviewJudgmentStructuredSchema,
+  validate_output: isReviewJudgment,
+  validation_errors: reviewJudgmentValidationErrors,
+  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeReviewJudgment(modelArtifact, invocation, createdAt, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one ReviewJudgment artifact. Judge the target against the acceptance criteria with no prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access",
+        "no_long_running_state"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ invocation, roleContext }) => ({
+        review_scope_type: "review",
+        target_artifact: targetArtifactFor(invocation, roleContext),
+        acceptance_criteria: acceptanceCriteriaFor(roleContext),
+        review_context: roleContext.context?.review_context ?? {},
+        bounded_context: roleContext.context ?? {}
+      })
+    }
+  },
+  autonomy: {
+    domain: "engineering"
+  },
+  skip_codes: {
+    missing_required_output: "role:no_required_review_judgment"
+  }
+};
+function normalizeReviewJudgment(modelJudgment, invocation, createdAt, definition) {
+  const artifactId = artifactIdFor("ReviewJudgment", createdAt, modelJudgment.payload);
+  return {
+    ...modelJudgment,
+    artifact_id: artifactId,
+    schema_version: definition.expected_output_schema_version,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [
+      artifactReferenceFor(
+        definition.expected_output_artifact_type,
+        definition.expected_output_schema_version,
+        artifactId,
+        invocation.protocol_version
+      )
+    ]
+  };
+}
+function targetArtifactFor(invocation, roleContext) {
+  const contextTarget = roleContext.context?.target_artifact;
+  if (isJsonObject2(contextTarget)) {
+    return contextTarget;
+  }
+  const firstInputArtifact = invocation.payload.input_artifacts[0];
+  if (firstInputArtifact === void 0) {
+    return {};
+  }
+  return artifactReferenceJson(firstInputArtifact);
+}
+function acceptanceCriteriaFor(roleContext) {
+  const criteria = roleContext.context?.acceptance_criteria;
+  if (!Array.isArray(criteria)) {
+    return [];
+  }
+  return criteria.filter(isString);
+}
+function isJsonObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function isString(value) {
+  return typeof value === "string";
 }
 
 // src/cli/role-invoke.ts
@@ -26684,58 +26564,8 @@ function defaultWriteStderr(content) {
   process.stderr.write(content);
 }
 export {
-  ARCHITECT_ROLE_ID,
-  ARCHITECT_ROLE_PROMPT,
-  ARCHITECT_ROLE_PROMPT_REF,
-  ARCHITECT_ROLE_VERSION,
-  ArchitectRoleRunner,
-  ContextProfileAssembler,
-  PLANNER_ROLE_ID,
-  PLANNER_ROLE_PROMPT,
-  PLANNER_ROLE_PROMPT_REF,
-  PLANNER_ROLE_VERSION,
-  PlannerRoleRunner,
-  QUALITY_GOVERNOR_ROLE_ID,
-  QUALITY_GOVERNOR_ROLE_PROMPT,
-  QUALITY_GOVERNOR_ROLE_PROMPT_REF,
-  QUALITY_GOVERNOR_ROLE_VERSION,
-  QualityGovernorRoleRunner,
   ROLE_INVOKE_EXIT_CODES,
-  ROLE_RUNNER_STATUSES,
-  RoleRegistry,
-  RoleRunner,
-  StructuredModelCallError,
-  StructuredModelUnavailableError,
-  architectRoleDefinition,
-  architectureImpactJsonSchema,
-  architectureImpactStructuredSchema,
-  architectureImpactValidationErrors,
   createDefaultRoleRegistry,
   exitCodeForRoleResult,
-  isArchitectureImpact,
-  isPlanProposal,
-  isReviewJudgment,
-  isRoleInvocation,
-  isRoleResult,
-  isValidationReport,
-  planProposalJsonSchema,
-  planProposalStructuredSchema,
-  planProposalValidationErrors,
-  plannerRoleDefinition,
-  qualityGovernorRoleDefinition,
-  reviewJudgmentJsonSchema,
-  reviewJudgmentStructuredSchema,
-  reviewJudgmentValidationErrors,
-  roleInvocationJsonSchema,
-  roleInvocationValidationErrors,
-  roleResultJsonSchema,
-  roleResultValidationErrors,
-  runArchitectRole,
-  runCli,
-  runPlannerRole,
-  runQualityGovernorRole,
-  schemaFor,
-  validationReportJsonSchema,
-  validationReportValidationErrors,
-  validatorFor
+  runCli
 };

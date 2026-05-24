@@ -20,3 +20,7 @@ export interface StructuredModelCaller {
 export declare class StructuredModelCallError extends Error {
     constructor(message: string);
 }
+export declare class StructuredModelUnavailableError extends StructuredModelCallError {
+    readonly envName: string;
+    constructor(envName: string);
+}

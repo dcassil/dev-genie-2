@@ -12,6 +12,7 @@ import type {
   JsonValue,
   PlanProposal,
   ReviewJudgment,
+  RoleInvocation,
   RoleResult,
   ValidationReport,
 } from "protocol";
@@ -39,12 +40,14 @@ for (const loadedSchema of loadedSchemas) {
 const architectureImpactValidator = validatorFor("ArchitectureImpact");
 const planProposalValidator = validatorFor("PlanProposal");
 const reviewJudgmentValidator = validatorFor("ReviewJudgment");
+const roleInvocationValidator = validatorFor("RoleInvocation");
 const roleResultValidator = validatorFor("RoleResult");
 const validationReportValidator = validatorFor("ValidationReport");
 
 export const architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
 export const planProposalJsonSchema = schemaFor("PlanProposal");
 export const reviewJudgmentJsonSchema = schemaFor("ReviewJudgment");
+export const roleInvocationJsonSchema = schemaFor("RoleInvocation");
 export const roleResultJsonSchema = schemaFor("RoleResult");
 export const validationReportJsonSchema = schemaFor("ValidationReport");
 
@@ -111,6 +114,10 @@ export function isReviewJudgment(value: unknown): value is ReviewJudgment {
   return reviewJudgmentValidator(value);
 }
 
+export function isRoleInvocation(value: unknown): value is RoleInvocation {
+  return roleInvocationValidator(value);
+}
+
 export function isRoleResult(value: unknown): value is RoleResult {
   return roleResultValidator(value);
 }
@@ -133,6 +140,10 @@ export function planProposalValidationErrors(): readonly string[] {
 
 export function reviewJudgmentValidationErrors(): readonly string[] {
   return formatValidationErrors(reviewJudgmentValidator);
+}
+
+export function roleInvocationValidationErrors(): readonly string[] {
+  return formatValidationErrors(roleInvocationValidator);
 }
 
 export function validationReportValidationErrors(): readonly string[] {

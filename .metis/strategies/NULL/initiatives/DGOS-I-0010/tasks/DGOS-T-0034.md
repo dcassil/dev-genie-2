@@ -4,14 +4,14 @@ level: task
 title: "Build the ADR-2 subprocess Role runner CLI"
 short_code: "DGOS-T-0034"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:30:04.188207+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Add a subprocess CLI to `roles/` that realizes the ADR-2 convention: `roles role invoke <role-id> --input <RoleInvocation.json> --output <RoleResult.json>` (exact binary name documented in the task; the convention is fixed). It reads and schema-validates the `RoleInvocation`, resolves the Role via the `RoleRegistry`, runs the shared `RoleRunner`, writes a schema-valid `RoleResult.json`, and exits with a machine-readable status + process exit code. The in-process runner remains the architecture for tests; the CLI is the cross-process contract.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -65,4 +69,8 @@ Add a subprocess CLI to `roles/` that realizes the ADR-2 convention: `roles role
 
 ## Status Updates
 
-*To be added during implementation.*
+### 2026-05-24 — ADR-2 subprocess Role CLI complete (via Codex gpt-5.5)
+
+`roles invoke <role-id> --input … --output … [--context …]` (+ `roles role invoke` alias): validates input against the `RoleInvocation` schema before any registry/model use; invalid input → `RoleInvokeError` JSON envelope + exit 2 + no model call; valid invocations run through the existing `RoleRegistry` + `RoleRunner` (Architect/Planner/Quality Governor registered); env-backed Anthropic client wired via daimyo, absent credentials → typed `needs_human` (no crash); exit mapping documented in README. Decided the CLI is the **cross-platform ADR-2 subprocess contract**; daimyo (T-0035) uses the in-process runner. Reused the runner, did not reimplement it.
+
+**Orchestrator verification:** roles typecheck/lint/test/build green (29 tests: valid Architect, invalid-schema/no-model-call, unknown-role skip, byte-stable output, no-credentials needs_human). protocol-proof + daimyo untouched. roles 0.4.0 → 0.5.0. No escape hatches. **exit_criteria_met: true.** Completed.

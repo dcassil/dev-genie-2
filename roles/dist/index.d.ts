@@ -11,9 +11,11 @@ export type { QualityGovernorRoleContext, QualityGovernorRoleRunnerOptions, } fr
 export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
 export { RoleRegistry } from "./registry/role-registry.js";
 export type { RoleRegistryResolveResult } from "./registry/role-registry.js";
-export { architectureImpactJsonSchema, architectureImpactStructuredSchema, architectureImpactValidationErrors, isArchitectureImpact, isPlanProposal, isReviewJudgment, isRoleResult, isValidationReport, planProposalJsonSchema, planProposalStructuredSchema, planProposalValidationErrors, reviewJudgmentJsonSchema, reviewJudgmentStructuredSchema, reviewJudgmentValidationErrors, roleResultJsonSchema, roleResultValidationErrors, schemaFor, validationReportJsonSchema, validationReportValidationErrors, validatorFor, } from "./schemas/protocol-schemas.js";
+export { architectureImpactJsonSchema, architectureImpactStructuredSchema, architectureImpactValidationErrors, isArchitectureImpact, isPlanProposal, isReviewJudgment, isRoleInvocation, isRoleResult, isValidationReport, planProposalJsonSchema, planProposalStructuredSchema, planProposalValidationErrors, reviewJudgmentJsonSchema, reviewJudgmentStructuredSchema, reviewJudgmentValidationErrors, roleInvocationJsonSchema, roleInvocationValidationErrors, roleResultJsonSchema, roleResultValidationErrors, schemaFor, validationReportJsonSchema, validationReportValidationErrors, validatorFor, } from "./schemas/protocol-schemas.js";
 export { ROLE_RUNNER_STATUSES, RoleRunner } from "./runner/role-runner.js";
 export type { RoleRunnerOptions } from "./runner/role-runner.js";
 export type { AutonomyDomain, ContextProfile, ContextProfileRequestArgs, RoleContext, RoleDefinition, RoleNormalizeArgs, RoleSkipCodes, } from "./runner/role-definition.js";
-export { StructuredModelCallError } from "./runner/structured-model.js";
+export { StructuredModelCallError, StructuredModelUnavailableError, } from "./runner/structured-model.js";
 export type { StructuredModelCaller, StructuredModelInput, StructuredModelRequest, StructuredModelSchema, } from "./runner/structured-model.js";
+export { ROLE_INVOKE_EXIT_CODES, createDefaultRoleRegistry, exitCodeForRoleResult, runCli, } from "./cli/role-invoke.js";
+export type { RoleInvokeCliDeps } from "./cli/role-invoke.js";
