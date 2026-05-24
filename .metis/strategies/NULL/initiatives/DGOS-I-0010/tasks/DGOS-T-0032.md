@@ -4,14 +4,14 @@ level: task
 title: "Implement and register the Planner Role"
 short_code: "DGOS-T-0032"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:12:19.173372+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Implement the Planner Role in `roles/` as a `RoleDefinition` registered in the `RoleRegistry`: a versioned prompt that, given a bounded goal/initiative context, produces a `PlanProposal` artifact (from [[DGOS-T-0031]]). Use the shared `RoleRunner` and `ContextProfileAssembler` with no runner changes — the Planner is proof that "add a Role = register a definition". Tag the Planner's autonomy domain as `engineering`.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -64,3 +68,6 @@ Implement the Planner Role in `roles/` as a `RoleDefinition` registered in the `
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-24: Implemented Planner as an additive Role registration in `roles/`: added versioned prompt, PlanProposal schema wiring, Planner RoleDefinition/runner wrapper, exports, parity tests, built `dist`, and minor-bumped roles to 0.3.0. `RoleRunner` and `ContextProfileAssembler` core code were not edited; Planner uses only its registered `context_profile` and `normalize` hook. Verification from `roles/`: `npm run typecheck`, `npm run lint`, `npm run test`, and `npm run build` all passed.
+- 2026-05-24 (orchestrator verification): re-ran roles typecheck/lint/test/build — green (16 tests; Architect + new Planner parity: produced/skipped/needs_human/blocked). Planner is a pure additive registration (versioned `dev-genie.planner-role@1.0.0` → `PlanProposal`, context_profile + normalize, `engineering` domain, `validatorFor("PlanProposal")`) — **no RoleRunner/assembler edits**, confirming the T-0030 seam. protocol-proof untouched. roles 0.2.0 → 0.3.0. No escape hatches. **exit_criteria_met: true.** Completed.

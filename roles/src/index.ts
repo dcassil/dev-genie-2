@@ -4,6 +4,12 @@ export {
   ARCHITECT_ROLE_PROMPT_REF,
   ARCHITECT_ROLE_VERSION,
 } from "./prompts/architect-role.js";
+export {
+  PLANNER_ROLE_ID,
+  PLANNER_ROLE_PROMPT,
+  PLANNER_ROLE_PROMPT_REF,
+  PLANNER_ROLE_VERSION,
+} from "./prompts/planner-role.js";
 export type { VersionedRolePrompt } from "./prompts/role-prompt.js";
 
 export {
@@ -12,6 +18,8 @@ export {
   runArchitectRole,
 } from "./roles/architect.js";
 export type { ArchitectRoleContext, ArchitectRoleRunnerOptions } from "./roles/architect.js";
+export { PlannerRoleRunner, plannerRoleDefinition, runPlannerRole } from "./roles/planner.js";
+export type { PlannerRoleContext, PlannerRoleRunnerOptions } from "./roles/planner.js";
 
 export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
 
@@ -23,8 +31,12 @@ export {
   architectureImpactStructuredSchema,
   architectureImpactValidationErrors,
   isArchitectureImpact,
+  isPlanProposal,
   isRoleResult,
   isValidationReport,
+  planProposalJsonSchema,
+  planProposalStructuredSchema,
+  planProposalValidationErrors,
   roleResultJsonSchema,
   roleResultValidationErrors,
   schemaFor,

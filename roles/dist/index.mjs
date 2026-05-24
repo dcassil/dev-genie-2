@@ -7157,6 +7157,26 @@ var ARCHITECT_ROLE_PROMPT = {
   ].join(" ")
 };
 
+// src/prompts/planner-role.ts
+var PLANNER_ROLE_ID = "dev-genie.planner-role";
+var PLANNER_ROLE_VERSION = "1.0.0";
+var PLANNER_ROLE_PROMPT_REF = `${PLANNER_ROLE_ID}@${PLANNER_ROLE_VERSION}`;
+var PLANNER_ROLE_PROMPT = {
+  id: PLANNER_ROLE_ID,
+  version: PLANNER_ROLE_VERSION,
+  ref: PLANNER_ROLE_PROMPT_REF,
+  text: [
+    "You are Dev-Genie's bounded Planner Role for engineering planning.",
+    "Given exactly {context, rules, request}, produce one PlanProposal JSON artifact.",
+    "Use only the supplied goal or initiative artifact references, bounded context refs, decision scope objective, constraints, and expected output contract.",
+    "Do not use tools, filesystem, network, recursive supervisors, AgentTransport, hidden chat history, or long-running state.",
+    "Return machine-readable JSON only. Do not return markdown or prose outside the JSON artifact.",
+    "Represent proposed execution work only inside PlanProposal.payload.tasks, in dependency order when possible.",
+    "Represent decisions the caller must route inside PlanProposal.payload.decision_requests; do not resolve those decisions autonomously.",
+    "If context is insufficient, record missing_context and review_required fields inside the artifact envelope and payload."
+  ].join(" ")
+};
+
 // src/schemas/protocol-schemas.ts
 var import__ = __toESM(require__(), 1);
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -7182,9 +7202,11 @@ for (const loadedSchema of loadedSchemas) {
   ajv.addSchema(loadedSchema.schema);
 }
 var architectureImpactValidator = validatorFor("ArchitectureImpact");
+var planProposalValidator = validatorFor("PlanProposal");
 var roleResultValidator = validatorFor("RoleResult");
 var validationReportValidator = validatorFor("ValidationReport");
 var architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
+var planProposalJsonSchema = schemaFor("PlanProposal");
 var roleResultJsonSchema = schemaFor("RoleResult");
 var validationReportJsonSchema = schemaFor("ValidationReport");
 var architectureImpactStructuredSchema = {
@@ -7192,6 +7214,13 @@ var architectureImpactStructuredSchema = {
   schema: architectureImpactJsonSchema,
   parse(value) {
     return parseArchitectureImpact(value);
+  }
+};
+var planProposalStructuredSchema = {
+  name: "dev-genie.plan-proposal.v1",
+  schema: planProposalJsonSchema,
+  parse(value) {
+    return parsePlanProposal(value);
   }
 };
 function parseArchitectureImpact(value) {
@@ -7202,8 +7231,19 @@ function parseArchitectureImpact(value) {
     `ArchitectureImpact failed protocol schema validation: ${formatValidationErrors(architectureImpactValidator).join("; ")}`
   );
 }
+function parsePlanProposal(value) {
+  if (isPlanProposal(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError(
+    `PlanProposal failed protocol schema validation: ${formatValidationErrors(planProposalValidator).join("; ")}`
+  );
+}
 function isArchitectureImpact(value) {
   return architectureImpactValidator(value);
+}
+function isPlanProposal(value) {
+  return planProposalValidator(value);
 }
 function isRoleResult(value) {
   return roleResultValidator(value);
@@ -7216,6 +7256,9 @@ function roleResultValidationErrors() {
 }
 function architectureImpactValidationErrors() {
   return formatValidationErrors(architectureImpactValidator);
+}
+function planProposalValidationErrors() {
+  return formatValidationErrors(planProposalValidator);
 }
 function validationReportValidationErrors() {
   return formatValidationErrors(validationReportValidator);
@@ -7860,6 +7903,113 @@ function architectureImpactSink(sink) {
     return sink(artifact);
   };
 }
+
+// src/roles/planner.ts
+var PLAN_PROPOSAL_SCHEMA_VERSION = "1.0.0";
+var SUPPORTED_OPERATIONS2 = ["propose_plan", "decompose_initiative"];
+var plannerRoleDefinition = {
+  role_id: PLANNER_ROLE_ID,
+  role_version: PLANNER_ROLE_VERSION,
+  prompt: PLANNER_ROLE_PROMPT,
+  supported_operations: SUPPORTED_OPERATIONS2,
+  expected_output_artifact_type: "PlanProposal",
+  expected_output_schema_version: PLAN_PROPOSAL_SCHEMA_VERSION,
+  output: planProposalStructuredSchema,
+  validate_output: isPlanProposal,
+  validation_errors: planProposalValidationErrors,
+  normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizePlanProposal(modelArtifact, invocation, createdAt, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one PlanProposal artifact. Do not return prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access",
+        "no_long_running_state"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ invocation, roleContext }) => ({
+        planning_goal: invocation.payload.decision_scope.objective,
+        constraints: [...invocation.payload.decision_scope.constraints ?? []],
+        input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
+        bounded_context: roleContext.context ?? {}
+      })
+    }
+  },
+  autonomy: {
+    domain: "engineering"
+  },
+  skip_codes: {
+    missing_required_output: "role:no_required_plan_proposal"
+  }
+};
+var PlannerRoleRunner = class {
+  runner;
+  constructor(options) {
+    const registry = new RoleRegistry().register(plannerRoleDefinition);
+    this.runner = new RoleRunner({
+      registry,
+      modelClient: options.modelClient,
+      ...options.now === void 0 ? {} : { now: options.now },
+      ...options.artifactSink === void 0 ? {} : { artifactSink: planProposalSink(options.artifactSink) }
+    });
+  }
+  async run(invocation, roleContext = {}) {
+    return this.runner.run(invocation, roleContextForPlanner(roleContext));
+  }
+};
+async function runPlannerRole(invocation, options, roleContext = {}) {
+  return new PlannerRoleRunner(options).run(invocation, roleContext);
+}
+function normalizePlanProposal(modelProposal, invocation, createdAt, definition) {
+  const artifactId = artifactIdFor("PlanProposal", createdAt, modelProposal.payload);
+  return {
+    ...modelProposal,
+    artifact_id: artifactId,
+    schema_version: definition.expected_output_schema_version,
+    protocol_version: invocation.protocol_version,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id
+    },
+    created_at: createdAt,
+    source_refs: [invocationReference(invocation), ...invocation.payload.input_artifacts],
+    output_refs: [
+      artifactReferenceFor(
+        definition.expected_output_artifact_type,
+        definition.expected_output_schema_version,
+        artifactId,
+        invocation.protocol_version
+      )
+    ]
+  };
+}
+function planProposalSink(sink) {
+  return (artifact) => {
+    if (!isPlanProposal(artifact)) {
+      throw new Error("Planner artifact sink received a non-PlanProposal artifact");
+    }
+    return sink(artifact);
+  };
+}
+function roleContextForPlanner(roleContext) {
+  const context = { ...roleContext.context ?? {} };
+  if (roleContext.initiative !== void 0) {
+    context.initiative = roleContext.initiative;
+  }
+  if (roleContext.goal !== void 0) {
+    context.goal = roleContext.goal;
+  }
+  return {
+    ...roleContext.story === void 0 ? {} : { story: roleContext.story },
+    context
+  };
+}
 export {
   ARCHITECT_ROLE_ID,
   ARCHITECT_ROLE_PROMPT,
@@ -7867,6 +8017,11 @@ export {
   ARCHITECT_ROLE_VERSION,
   ArchitectRoleRunner,
   ContextProfileAssembler,
+  PLANNER_ROLE_ID,
+  PLANNER_ROLE_PROMPT,
+  PLANNER_ROLE_PROMPT_REF,
+  PLANNER_ROLE_VERSION,
+  PlannerRoleRunner,
   ROLE_RUNNER_STATUSES,
   RoleRegistry,
   RoleRunner,
@@ -7876,11 +8031,17 @@ export {
   architectureImpactStructuredSchema,
   architectureImpactValidationErrors,
   isArchitectureImpact,
+  isPlanProposal,
   isRoleResult,
   isValidationReport,
+  planProposalJsonSchema,
+  planProposalStructuredSchema,
+  planProposalValidationErrors,
+  plannerRoleDefinition,
   roleResultJsonSchema,
   roleResultValidationErrors,
   runArchitectRole,
+  runPlannerRole,
   schemaFor,
   validationReportJsonSchema,
   validationReportValidationErrors,

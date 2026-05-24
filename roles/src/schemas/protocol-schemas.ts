@@ -6,7 +6,14 @@ import { fileURLToPath } from "node:url";
 import type { ErrorObject, ValidateFunction } from "ajv";
 import type { FormatsPlugin } from "ajv-formats";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import type { ArchitectureImpact, JsonObject, JsonValue, RoleResult, ValidationReport } from "protocol";
+import type {
+  ArchitectureImpact,
+  JsonObject,
+  JsonValue,
+  PlanProposal,
+  RoleResult,
+  ValidationReport,
+} from "protocol";
 
 import { StructuredModelCallError } from "../runner/structured-model.js";
 import type { StructuredModelSchema } from "../runner/structured-model.js";
@@ -29,10 +36,12 @@ for (const loadedSchema of loadedSchemas) {
 }
 
 const architectureImpactValidator = validatorFor("ArchitectureImpact");
+const planProposalValidator = validatorFor("PlanProposal");
 const roleResultValidator = validatorFor("RoleResult");
 const validationReportValidator = validatorFor("ValidationReport");
 
 export const architectureImpactJsonSchema = schemaFor("ArchitectureImpact");
+export const planProposalJsonSchema = schemaFor("PlanProposal");
 export const roleResultJsonSchema = schemaFor("RoleResult");
 export const validationReportJsonSchema = schemaFor("ValidationReport");
 
@@ -41,6 +50,14 @@ export const architectureImpactStructuredSchema: StructuredModelSchema<Architect
   schema: architectureImpactJsonSchema,
   parse(value: JsonValue): ArchitectureImpact {
     return parseArchitectureImpact(value);
+  },
+};
+
+export const planProposalStructuredSchema: StructuredModelSchema<PlanProposal> = {
+  name: "dev-genie.plan-proposal.v1",
+  schema: planProposalJsonSchema,
+  parse(value: JsonValue): PlanProposal {
+    return parsePlanProposal(value);
   },
 };
 
@@ -53,8 +70,21 @@ export function parseArchitectureImpact(value: JsonValue): ArchitectureImpact {
   );
 }
 
+export function parsePlanProposal(value: JsonValue): PlanProposal {
+  if (isPlanProposal(value)) {
+    return value;
+  }
+  throw new StructuredModelCallError(
+    `PlanProposal failed protocol schema validation: ${formatValidationErrors(planProposalValidator).join("; ")}`,
+  );
+}
+
 export function isArchitectureImpact(value: unknown): value is ArchitectureImpact {
   return architectureImpactValidator(value);
+}
+
+export function isPlanProposal(value: unknown): value is PlanProposal {
+  return planProposalValidator(value);
 }
 
 export function isRoleResult(value: unknown): value is RoleResult {
@@ -71,6 +101,10 @@ export function roleResultValidationErrors(): readonly string[] {
 
 export function architectureImpactValidationErrors(): readonly string[] {
   return formatValidationErrors(architectureImpactValidator);
+}
+
+export function planProposalValidationErrors(): readonly string[] {
+  return formatValidationErrors(planProposalValidator);
 }
 
 export function validationReportValidationErrors(): readonly string[] {
