@@ -1,7 +1,7 @@
 import type { AutonomyProfile } from "daimyo";
 import type { DecisionRequestPayload, OwnershipSurface, PolicyConfig, PolicyVerdict, TouchReport } from "protocol";
 import type { SiblingOwnership } from "./conflict.js";
-export declare const DECISION_POLICY_ENGINE_VERSION = "0.5.0";
+export declare const DECISION_POLICY_ENGINE_VERSION = "0.6.0";
 export type PolicyGovernanceConfig = Omit<PolicyConfig, "autonomy_profile"> & {
     readonly autonomy_profile: AutonomyProfile;
 };

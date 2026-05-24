@@ -76240,7 +76240,7 @@ function noMatch(rationale2) {
 }
 
 // src/decision-policy/engine.ts
-var DECISION_POLICY_ENGINE_VERSION = "0.5.0";
+var DECISION_POLICY_ENGINE_VERSION = "0.6.0";
 var DETERMINISTIC_POLICY_CONFIDENCE = 10;
 var DecisionPolicyEngine = class {
   evaluate(input) {
@@ -76381,6 +76381,10 @@ function rationale(parts) {
   return parts.filter((part) => part.length > 0).join(" ");
 }
 
+// src/decision-policy/config-loader.ts
+import { existsSync as existsSync6, readFileSync as readFileSync6 } from "node:fs";
+import { join } from "node:path";
+
 // src/schemas/protocol-schemas.ts
 var import__3 = __toESM(require__3(), 1);
 import { existsSync as existsSync5, readFileSync as readFileSync5, readdirSync as readdirSync5 } from "node:fs";
@@ -76485,23 +76489,153 @@ function formatValidationError(error) {
   const message = error.message ?? "schema validation failed";
   return `${path} ${message}`;
 }
+
+// src/decision-policy/config-loader.ts
+var GOVERNANCE_CONFIG_DIR = ".dev-genie";
+var DEFAULT_GOVERNANCE_FILE_NAME = "governance.json";
+var DAIMYO_DEFAULT_READ_ONLY_TOOLS = ["Read", "Grep", "Glob", "LS", "TodoRead"];
+var DEFAULT_POLICY_CONFIG = {
+  autonomy_profile: DEFAULT_AUTONOMY_PROFILE,
+  product_baseline_approved: false,
+  static_rules: fromDaimyoStaticRules(DAIMYO_DEFAULT_READ_ONLY_TOOLS, [])
+};
+var PolicyConfigError = class extends Error {
+  name = "PolicyConfigError";
+  code;
+  details;
+  filePath;
+  constructor(options) {
+    super(options.message, { cause: options.cause });
+    this.code = options.code;
+    this.details = options.details ?? [];
+    this.filePath = options.filePath;
+  }
+};
+function loadPolicyConfig(options) {
+  const filePath = governanceConfigPath(options);
+  if (!existsSync6(filePath)) {
+    return defaultPolicyConfig();
+  }
+  let contents;
+  try {
+    contents = readFileSync6(filePath, "utf8");
+  } catch (error) {
+    throw new PolicyConfigError({
+      code: "read_failed",
+      message: `Unable to read governance config at ${filePath}.`,
+      details: [readErrorMessage(error)],
+      filePath,
+      cause: error
+    });
+  }
+  let raw;
+  try {
+    raw = JSON.parse(contents);
+  } catch (error) {
+    throw new PolicyConfigError({
+      code: "malformed_json",
+      message: `Governance config at ${filePath} is not valid JSON.`,
+      details: [readErrorMessage(error)],
+      filePath,
+      cause: error
+    });
+  }
+  return resolvePolicyConfigForSource(raw, filePath);
+}
+function resolvePolicyConfig(raw) {
+  return resolvePolicyConfigForSource(raw, void 0);
+}
+function defaultPolicyConfig() {
+  return {
+    autonomy_profile: DEFAULT_AUTONOMY_PROFILE,
+    product_baseline_approved: DEFAULT_POLICY_CONFIG.product_baseline_approved,
+    static_rules: fromDaimyoStaticRules(DAIMYO_DEFAULT_READ_ONLY_TOOLS, [])
+  };
+}
+function resolvePolicyConfigForSource(raw, filePath) {
+  const candidate = applyPolicyConfigDefaults(raw);
+  if (isPolicyConfig(candidate)) {
+    return candidate;
+  }
+  throw new PolicyConfigError({
+    code: "schema_invalid",
+    message: sourceMessage(filePath, "Governance config does not match the PolicyConfig schema."),
+    details: policyConfigValidationErrors(),
+    filePath
+  });
+}
+function applyPolicyConfigDefaults(raw) {
+  if (!isUnknownObject(raw)) {
+    return raw;
+  }
+  const defaults = defaultPolicyConfig();
+  return {
+    ...raw,
+    autonomy_profile: hasOwn(raw, "autonomy_profile") ? applyAutonomyProfileDefaults(raw.autonomy_profile, defaults.autonomy_profile) : defaults.autonomy_profile,
+    product_baseline_approved: hasOwn(raw, "product_baseline_approved") ? raw.product_baseline_approved : defaults.product_baseline_approved,
+    static_rules: hasOwn(raw, "static_rules") ? raw.static_rules : defaults.static_rules
+  };
+}
+function applyAutonomyProfileDefaults(raw, defaults) {
+  if (!isUnknownObject(raw)) {
+    return raw;
+  }
+  return {
+    ...raw,
+    engineering: hasOwn(raw, "engineering") ? raw.engineering : defaults.engineering,
+    product: hasOwn(raw, "product") ? raw.product : defaults.product,
+    design: hasOwn(raw, "design") ? raw.design : defaults.design
+  };
+}
+function governanceConfigPath(options) {
+  return join(
+    options.projectDir,
+    GOVERNANCE_CONFIG_DIR,
+    options.fileName ?? DEFAULT_GOVERNANCE_FILE_NAME
+  );
+}
+function sourceMessage(filePath, message) {
+  if (filePath === void 0) {
+    return message;
+  }
+  return `${message} Path: ${filePath}`;
+}
+function readErrorMessage(error) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Unknown error";
+}
+function isUnknownObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function hasOwn(source, key) {
+  return Object.prototype.hasOwnProperty.call(source, key);
+}
 export {
   DECISION_POLICY_ENGINE_VERSION,
   DEFAULT_AUTONOMY_PROFILE,
   DEFAULT_DOMAIN_CLASSIFICATION_RULES,
+  DEFAULT_GOVERNANCE_FILE_NAME,
+  DEFAULT_POLICY_CONFIG,
   DEFAULT_SCOPE_CLASSIFICATION_RULES,
   DecisionPolicyEngine,
+  GOVERNANCE_CONFIG_DIR,
+  PolicyConfigError,
   assessConflict,
   classifyDecision,
+  defaultPolicyConfig,
   evaluateAutonomyThreshold,
   evaluateStaticRules,
   fromDaimyoStaticRules,
   isPolicyConfig,
   isPolicyVerdict,
+  loadPolicyConfig,
   policyConfigJsonSchema,
   policyConfigValidationErrors,
   policyVerdictJsonSchema,
   policyVerdictValidationErrors,
+  resolvePolicyConfig,
   schemaFor3 as schemaFor,
   validatorFor3 as validatorFor
 };

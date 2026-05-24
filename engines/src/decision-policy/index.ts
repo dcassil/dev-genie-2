@@ -14,6 +14,15 @@ export {
 export {
   assessConflict,
 } from "./conflict.js";
+export {
+  DEFAULT_GOVERNANCE_FILE_NAME,
+  DEFAULT_POLICY_CONFIG,
+  GOVERNANCE_CONFIG_DIR,
+  PolicyConfigError,
+  defaultPolicyConfig,
+  loadPolicyConfig,
+  resolvePolicyConfig,
+} from "./config-loader.js";
 export type {
   Engine,
   PolicyDecisionInput,
@@ -33,6 +42,11 @@ export type {
   ConflictClass,
   SiblingOwnership,
 } from "./conflict.js";
+export type {
+  LoadPolicyConfigOptions,
+  PolicyConfigErrorCode,
+  PolicyConfigErrorOptions,
+} from "./config-loader.js";
 export type {
   AutonomyDomain,
   AutonomyLevel,

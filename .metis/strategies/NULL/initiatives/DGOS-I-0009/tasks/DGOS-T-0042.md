@@ -4,14 +4,14 @@ level: task
 title: "Governance config loader and schema validation for the autonomy profile and rules"
 short_code: "DGOS-T-0042"
 created_at: 2026-05-24T19:02:50.330084+00:00
-updated_at: 2026-05-24T19:02:50.330084+00:00
+updated_at: 2026-05-24T19:54:54.745873+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/active"
 
 
 exit_criteria_met: false
@@ -28,6 +28,8 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement a typed loader in `engines/src/decision-policy/` that reads a project governance file (v1: `.dev-genie/governance.json`), validates it against `protocol/schemas/policy-config.schema.json` via the package's Ajv `validatorFor`, and returns a typed `PolicyConfig` (`autonomy_profile`, `product_baseline_approved`, `static_rules`). When the file is absent or partial it falls back deterministically to safe defaults (`DEFAULT_AUTONOMY_PROFILE` reused from daimyo, empty/`Read`-only static rules, `product_baseline_approved: false`). The loader is the *only* I/O-bearing module in the Engine package — the pure `evaluate` core never reads files; the loader hands it an in-memory `PolicyConfig`.
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -63,4 +65,5 @@ Implement a typed loader in `engines/src/decision-policy/` that reads a project 
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-24: Implemented the governance config loader in `engines/src/decision-policy/config-loader.ts` with `loadPolicyConfig`, pure `resolvePolicyConfig`, documented `DEFAULT_POLICY_CONFIG`, and typed `PolicyConfigError` paths for malformed JSON, read failures, and Ajv schema invalidity. Defaults reuse daimyo `DEFAULT_AUTONOMY_PROFILE`, set `product_baseline_approved: false`, and build read-only static rules via `fromDaimyoStaticRules(["Read", "Grep", "Glob", "LS", "TodoRead"], [])`. Added tests for valid full file, absent default parity, partial per-key merge, invalid level/domain, malformed JSON, schema-invalid config, and in-memory resolution. Verified `engines` typecheck/lint/test/build clean; engines version bumped 0.5.0 → 0.6.0. No escape hatches. **exit_criteria_met: true.** Completed.
+- 2026-05-24 (orchestrator verification): re-ran engines typecheck/lint/test/build — green (50 tests). Confirmed IO/pure split: `resolvePolicyConfig` is pure (kept out of the evaluate core), only `loadPolicyConfig` does fs; absent file → DEFAULT_POLICY_CONFIG (daimyo profile + read-only rules via fromDaimyoStaticRules); malformed/schema-invalid → typed PolicyConfigError (no crash). engines-only. Confirmed.
