@@ -1,5 +1,6 @@
 import type {
   ArchitectureImpact,
+  ArtifactEnvelope,
   JsonObject,
   JsonValue,
   OwnershipSurface,
@@ -9,10 +10,16 @@ import { describe, expect, it } from "vitest";
 
 import {
   ARCHITECT_ROLE_ID,
+  ARCHITECT_ROLE_PROMPT,
   ARCHITECT_ROLE_VERSION,
   ArchitectRoleRunner,
+  ContextProfileAssembler,
+  RoleRegistry,
+  RoleRunner,
   architectureImpactStructuredSchema,
+  architectRoleDefinition,
   isArchitectureImpact,
+  type RoleDefinition,
   type StructuredModelCaller,
   type StructuredModelInput,
   type StructuredModelRequest,
@@ -116,7 +123,7 @@ describe("ArchitectRoleRunner", () => {
     const result = await runner.run(invocation);
 
     expect(result.payload.status).toBe("skipped");
-    expect(result.payload.skip_reason?.code).toBe("role:not_architect_role");
+    expect(result.payload.skip_reason?.code).toBe("role:not_registered");
     expect(client.calls).toHaveLength(0);
   });
 
@@ -195,8 +202,224 @@ describe("ArchitectRoleRunner", () => {
   });
 });
 
+describe("RoleRegistry", () => {
+  it("resolves registered definitions and returns typed misses", () => {
+    const registry = new RoleRegistry().register(architectRoleDefinition);
+
+    const hit = registry.resolve(ARCHITECT_ROLE_ID, ARCHITECT_ROLE_VERSION);
+    const unknownRole = registry.resolve("dev-genie.missing-role", "1.0.0");
+    const unsupportedVersion = registry.resolve(ARCHITECT_ROLE_ID, "2.0.0");
+
+    expect(hit).toEqual({ kind: "hit", definition: architectRoleDefinition });
+    expect(unknownRole.kind).toBe("miss");
+    expect(unknownRole.kind === "miss" ? unknownRole.reason.code : "").toBe("role:not_registered");
+    expect(unsupportedVersion.kind).toBe("miss");
+    expect(unsupportedVersion.kind === "miss" ? unsupportedVersion.reason.code : "").toBe(
+      "role:unsupported_version",
+    );
+    expect(registry.list()).toEqual([architectRoleDefinition]);
+  });
+});
+
+describe("ContextProfileAssembler", () => {
+  it("assembles the Architect StructuredModelInput to the captured pre-refactor fixture", () => {
+    const invocation = validInvocation();
+    const roleContext = {
+      story: {
+        title: "Add direct Architect Role runner",
+        body: "Produce one ArchitectureImpact from one Story without recursive supervision.",
+      },
+      context: {
+        repo: "dev-genie",
+      },
+    };
+
+    const input = new ContextProfileAssembler().assemble(
+      invocation,
+      architectRoleDefinition,
+      roleContext,
+    );
+
+    expect(input).toEqual({
+      context: {
+        prompt_id: ARCHITECT_ROLE_PROMPT.id,
+        prompt_version: ARCHITECT_ROLE_PROMPT.version,
+        prompt_ref: ARCHITECT_ROLE_PROMPT.ref,
+        prompt: ARCHITECT_ROLE_PROMPT.text,
+        invocation: {
+          invocation_id: "architect-role-call-001",
+          role_id: ARCHITECT_ROLE_ID,
+          role_version: ARCHITECT_ROLE_VERSION,
+          input_artifacts: [
+            {
+              ref_type: "artifact",
+              id: "story:architect-role-versioned-prompt",
+              artifact_type: "Story",
+              schema_version: "1.0.0",
+              protocol_version: "1.1.0",
+              relation: "read",
+            },
+          ],
+          context_bundle_refs: [
+            {
+              ref_type: "artifact",
+              id: "context:architect-role-bounded",
+              artifact_type: "ContextBundle",
+              schema_version: "1.0.0",
+              protocol_version: "1.1.0",
+              relation: "read",
+            },
+          ],
+          policy_decision_refs: [],
+          timeout_ms: 30000,
+          allowed_engines: [],
+          allowed_tools: [],
+          trace: {
+            destination: {
+              ref_type: "file",
+              id: "roles/runs/architect-role-call-001.jsonl",
+              relation: "produces",
+            },
+            trace_id: "trace-architect-role-call-001",
+          },
+        },
+        bounded_context: {
+          repo: "dev-genie",
+        },
+      },
+      rules: {
+        role_contract:
+          "Return exactly one ArchitectureImpact artifact. Do not return prose-only output.",
+        non_goals: [
+          "no_recursive_supervisor",
+          "no_agent_transport",
+          "no_tool_use",
+          "no_filesystem_or_network_access",
+        ],
+        expected_output_artifacts: [
+          {
+            artifact_type: "ArchitectureImpact",
+            schema_version: "1.0.0",
+            required: true,
+            relation: "produces",
+          },
+        ],
+      },
+      request: {
+        operation: "assess_architecture_impact",
+        decision_scope: {
+          scope_type: "task",
+          scope_id: "DGOS-T-0022",
+          objective: "Turn the Story into one ArchitectureImpact artifact.",
+          constraints: ["proof:no_recursive_supervisor", "proof:no_agent_transport"],
+        },
+        story: {
+          title: "Add direct Architect Role runner",
+          body: "Produce one ArchitectureImpact from one Story without recursive supervision.",
+        },
+        output_schema: {
+          artifact_type: "ArchitectureImpact",
+          schema_version: "1.0.0",
+        },
+      },
+    });
+  });
+});
+
+describe("RoleRunner registry extensibility", () => {
+  it("runs a second registered RoleDefinition without runner code changes", async () => {
+    const client = new StubStructuredModelClient(validArchitectureImpact());
+    const registry = new RoleRegistry()
+      .register(architectRoleDefinition)
+      .register(fakeRoleDefinition());
+    const runner = new RoleRunner({
+      registry,
+      modelClient: client,
+      now: fixedNow,
+    });
+
+    const result = await runner.run(
+      withPayload({
+        role_id: FAKE_ROLE_ID,
+        role_version: FAKE_ROLE_VERSION,
+        operation: "fake_architecture_assessment",
+      }),
+      {
+        story: {
+          title: "Fake Role story",
+        },
+      },
+    );
+
+    expect(result.payload.status).toBe("produced");
+    expect(result.producer.name).toBe(FAKE_ROLE_ID);
+    expect(result.producer.version).toBe(FAKE_ROLE_VERSION);
+    expect(result.payload.output_artifacts[0]?.artifact_type).toBe("ArchitectureImpact");
+    expect(client.calls).toHaveLength(1);
+    expect(client.calls[0]?.input.context).toMatchObject({
+      prompt_ref: `${FAKE_ROLE_ID}@${FAKE_ROLE_VERSION}`,
+    });
+  });
+});
+
 function fixedNow(): Date {
   return new Date("2026-05-23T23:30:00.000Z");
+}
+
+const FAKE_ROLE_ID = "dev-genie.fake-role";
+const FAKE_ROLE_VERSION = "1.0.0";
+
+function fakeRoleDefinition(): RoleDefinition {
+  return {
+    ...architectRoleDefinition,
+    role_id: FAKE_ROLE_ID,
+    role_version: FAKE_ROLE_VERSION,
+    prompt: {
+      id: FAKE_ROLE_ID,
+      version: FAKE_ROLE_VERSION,
+      ref: `${FAKE_ROLE_ID}@${FAKE_ROLE_VERSION}`,
+      text: "Return one ArchitectureImpact JSON artifact for the fake role.",
+    },
+    supported_operations: ["fake_architecture_assessment"],
+    normalize: ({ modelArtifact, invocation, createdAt, definition }) =>
+      normalizeFakeArchitectureImpact(modelArtifact, invocation, createdAt, definition),
+    context_profile: {
+      rules: {
+        role_contract:
+          "Return exactly one ArchitectureImpact artifact for the fake role. Do not return prose-only output.",
+        non_goals: ["no_tool_use"],
+      },
+      request: {
+        include_output_schema: true,
+        fields: ({ roleContext }) => ({
+          story: roleContext.story ?? {},
+        }),
+      },
+    },
+  };
+}
+
+function normalizeFakeArchitectureImpact(
+  modelArtifact: ArtifactEnvelope,
+  invocation: RoleInvocation,
+  createdAt: string,
+  definition: RoleDefinition,
+): ArtifactEnvelope {
+  const normalized = architectRoleDefinition.normalize({
+    modelArtifact,
+    invocation,
+    createdAt,
+    definition,
+  });
+  return {
+    ...normalized,
+    producer: {
+      primitive: "role",
+      name: definition.role_id,
+      version: definition.role_version,
+      invocation_id: invocation.payload.invocation_id,
+    },
+  };
 }
 
 function withPayload(patch: Partial<RoleInvocation["payload"]>): RoleInvocation {

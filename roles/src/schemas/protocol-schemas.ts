@@ -53,15 +53,15 @@ export function parseArchitectureImpact(value: JsonValue): ArchitectureImpact {
   );
 }
 
-export function isArchitectureImpact(value: JsonValue | ArchitectureImpact): value is ArchitectureImpact {
+export function isArchitectureImpact(value: unknown): value is ArchitectureImpact {
   return architectureImpactValidator(value);
 }
 
-export function isRoleResult(value: JsonValue | RoleResult): value is RoleResult {
+export function isRoleResult(value: unknown): value is RoleResult {
   return roleResultValidator(value);
 }
 
-export function isValidationReport(value: JsonValue | ValidationReport): value is ValidationReport {
+export function isValidationReport(value: unknown): value is ValidationReport {
   return validationReportValidator(value);
 }
 

@@ -4,14 +4,14 @@ level: task
 title: "Add the RoleRegistry and the generalized context-profile assembler"
 short_code: "DGOS-T-0030"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:06:17.545803+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Add a `RoleRegistry` to `roles/` that maps `role_id` (and optionally `role_version`) to the registered `RoleDefinition`, and a `ContextProfileAssembler` that builds the bounded `{context, rules, request}` `StructuredModelInput` for any Role from its `RoleInvocation` plus injected role context. Refactor `RoleRunner` so it resolves the Role through the registry and assembles input through the assembler, instead of receiving a single hard-wired `RoleDefinition`. After this task, "add a Role" is a registration plus a context-profile declaration — no runner edits.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -64,3 +68,7 @@ Add a `RoleRegistry` to `roles/` that maps `role_id` (and optionally `role_versi
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-23: Read preamble, initiative, ADR-1/2/4, CLAUDE.md, current `roles/` implementation, and `protocol-proof` Architect runner reference. Found `roles/` currently still hard-wires a single Architect definition and builds Architect model input inline; implementing registry + pure assembler next.
+- 2026-05-23: Implemented `RoleRegistry`, pure `ContextProfileAssembler`, `RoleDefinition.context_profile`, and registry-resolved `RoleRunner`; moved Architect framing into its context profile. Added tests for registry hit/miss/version miss, Architect assembler fixture parity, and a fake second role running through the same runner. Verification from `roles/`: `npm run typecheck && npm run lint && npm run test && npm run build` passed; Vitest reported 10 tests passed.
+- 2026-05-23 (orchestrator verification): re-ran roles typecheck/lint/test/build — green (10 tests). Confirmed `RoleRegistry` (register/resolve/list + typed `role:not_registered` / `role:unsupported_version` misses), pure `ContextProfileAssembler` ({context,rules,request}), and runner now registry-resolved + assembler-driven with Architect framing moved into its `context_profile`. **Extensibility proven by a test running a second fake role through the same runner with no runner edits** — the key seam for T-0032/T-0033. protocol-proof untouched. roles 0.1.0 → 0.2.0. No escape hatches. **exit_criteria_met: true.** Completed.

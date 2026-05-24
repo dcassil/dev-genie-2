@@ -10,7 +10,7 @@ export interface ArchitectRoleRunnerOptions {
     readonly now?: () => Date;
     readonly artifactSink?: (artifact: ArchitectureImpact) => void | Promise<void>;
 }
-export declare const architectRoleDefinition: RoleDefinition<ArchitectureImpact, ArchitectRoleContext>;
+export declare const architectRoleDefinition: RoleDefinition;
 export declare class ArchitectRoleRunner {
     private readonly runner;
     constructor(options: ArchitectRoleRunnerOptions);

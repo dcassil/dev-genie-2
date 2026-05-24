@@ -1,38 +1,52 @@
 import type { ArtifactEnvelope, JsonObject, RoleInvocation } from "protocol";
 import type { VersionedRolePrompt } from "../prompts/role-prompt.js";
-import type { StructuredModelInput, StructuredModelSchema } from "./structured-model.js";
+import type { StructuredModelSchema } from "./structured-model.js";
 export type AutonomyDomain = "engineering" | "product" | "design";
 export interface RoleContext {
     readonly story?: JsonObject;
     readonly context?: JsonObject;
 }
-export interface RoleBuildInputArgs<TArtifact extends ArtifactEnvelope, TContext extends RoleContext> {
+export interface ContextProfileRequestArgs {
     readonly invocation: RoleInvocation;
-    readonly roleContext: TContext;
-    readonly definition: RoleDefinition<TArtifact, TContext>;
+    readonly roleContext: RoleContext;
+    readonly definition: RoleDefinition;
 }
-export interface RoleNormalizeArgs<TArtifact extends ArtifactEnvelope, TContext extends RoleContext> {
-    readonly modelArtifact: TArtifact;
+export interface RoleNormalizeArgs {
+    readonly modelArtifact: ArtifactEnvelope;
     readonly invocation: RoleInvocation;
     readonly createdAt: string;
-    readonly definition: RoleDefinition<TArtifact, TContext>;
+    readonly definition: RoleDefinition;
 }
 export interface RoleSkipCodes {
-    readonly unsupported_role: string;
     readonly missing_required_output: string;
 }
-export interface RoleDefinition<TArtifact extends ArtifactEnvelope, TContext extends RoleContext = RoleContext> {
+export interface ContextProfile {
+    readonly context?: {
+        readonly context_bundle_keys?: readonly string[];
+    };
+    readonly rules: {
+        readonly role_contract: string;
+        readonly non_goals: readonly string[];
+    };
+    readonly request: {
+        readonly include_operation?: boolean;
+        readonly include_decision_scope?: boolean;
+        readonly include_output_schema?: boolean;
+        readonly fields?: (args: ContextProfileRequestArgs) => JsonObject;
+    };
+}
+export interface RoleDefinition {
     readonly role_id: string;
     readonly role_version: string;
     readonly prompt: VersionedRolePrompt;
     readonly supported_operations: readonly string[];
     readonly expected_output_artifact_type: string;
     readonly expected_output_schema_version: string;
-    readonly output: StructuredModelSchema<TArtifact>;
-    readonly validate_output: (value: TArtifact) => boolean;
+    readonly output: StructuredModelSchema<ArtifactEnvelope>;
+    readonly validate_output: (value: ArtifactEnvelope) => boolean;
     readonly validation_errors: () => readonly string[];
-    readonly normalize: (args: RoleNormalizeArgs<TArtifact, TContext>) => TArtifact;
-    readonly buildInput: (args: RoleBuildInputArgs<TArtifact, TContext>) => StructuredModelInput;
+    readonly normalize: (args: RoleNormalizeArgs) => ArtifactEnvelope;
+    readonly context_profile: ContextProfile;
     readonly autonomy: {
         readonly domain: AutonomyDomain;
     };

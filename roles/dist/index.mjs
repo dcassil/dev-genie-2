@@ -7354,6 +7354,106 @@ function artifactIdFor(artifactType, createdAt, payload) {
   return `artifact:sha256:${digest}`;
 }
 
+// src/assembler/context-profile-assembler.ts
+var ContextProfileAssembler = class {
+  assemble(invocation, definition, roleContext) {
+    return {
+      context: {
+        prompt_id: definition.prompt.id,
+        prompt_version: definition.prompt.version,
+        prompt_ref: definition.prompt.ref,
+        prompt: definition.prompt.text,
+        invocation: invocationContext(invocation),
+        bounded_context: boundedContextFor(roleContext, definition.context_profile)
+      },
+      rules: {
+        role_contract: definition.context_profile.rules.role_contract,
+        non_goals: [...definition.context_profile.rules.non_goals],
+        expected_output_artifacts: invocation.payload.expected_output_artifacts.map(
+          expectedOutputArtifactJson
+        )
+      },
+      request: requestFor(invocation, definition, roleContext)
+    };
+  }
+};
+function invocationContext(invocation) {
+  return {
+    invocation_id: invocation.payload.invocation_id,
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+    input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
+    context_bundle_refs: invocation.payload.context_bundle_refs.map(artifactReferenceJson),
+    policy_decision_refs: invocation.payload.policy_decision_refs.map(artifactReferenceJson),
+    timeout_ms: invocation.payload.timeout_ms,
+    allowed_engines: invocation.payload.allowed_engines.map((engine) => ({
+      engine_id: engine.engine_id,
+      ...engine.engine_version === void 0 ? {} : { engine_version: engine.engine_version },
+      operations: [...engine.operations ?? []]
+    })),
+    allowed_tools: invocation.payload.allowed_tools.map((tool) => ({
+      tool_id: tool.tool_id,
+      permission: tool.permission,
+      ...tool.restrictions === void 0 ? {} : { restrictions: tool.restrictions }
+    })),
+    trace: traceRequestJson(invocation)
+  };
+}
+function expectedOutputArtifactJson(reference) {
+  return {
+    artifact_type: reference.artifact_type,
+    schema_version: reference.schema_version,
+    required: reference.required,
+    ...reference.relation === void 0 ? {} : { relation: reference.relation }
+  };
+}
+function boundedContextFor(roleContext, profile) {
+  const source = roleContext.context ?? {};
+  const keys = profile.context?.context_bundle_keys;
+  if (keys === void 0) {
+    return source;
+  }
+  const selected = {};
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== void 0) {
+      selected[key] = value;
+    }
+  }
+  return selected;
+}
+function requestFor(invocation, definition, roleContext) {
+  const request = {};
+  if (definition.context_profile.request.include_operation !== false) {
+    request.operation = invocation.payload.operation;
+  }
+  if (definition.context_profile.request.include_decision_scope !== false) {
+    request.decision_scope = {
+      scope_type: invocation.payload.decision_scope.scope_type,
+      scope_id: invocation.payload.decision_scope.scope_id,
+      objective: invocation.payload.decision_scope.objective,
+      constraints: [...invocation.payload.decision_scope.constraints ?? []]
+    };
+  }
+  const fields = definition.context_profile.request.fields?.({
+    invocation,
+    roleContext,
+    definition
+  });
+  if (fields !== void 0) {
+    for (const [key, value] of Object.entries(fields)) {
+      request[key] = value;
+    }
+  }
+  if (definition.context_profile.request.include_output_schema === true) {
+    request.output_schema = {
+      artifact_type: definition.expected_output_artifact_type,
+      schema_version: definition.expected_output_schema_version
+    };
+  }
+  return request;
+}
+
 // src/runner/role-runner.ts
 var ROLE_RESULT_SCHEMA_VERSION = "1.0.0";
 var ROLE_RUNNER_STATUSES = [
@@ -7364,25 +7464,34 @@ var ROLE_RUNNER_STATUSES = [
   "failed"
 ];
 var RoleRunner = class {
-  definition;
+  registry;
   modelClient;
+  assembler;
   now;
   artifactSink;
   constructor(options) {
-    this.definition = options.definition;
+    this.registry = options.registry;
     this.modelClient = options.modelClient;
+    this.assembler = options.assembler ?? new ContextProfileAssembler();
     this.now = options.now ?? (() => /* @__PURE__ */ new Date());
     this.artifactSink = options.artifactSink;
   }
   async run(invocation, roleContext) {
     const createdAt = this.now().toISOString();
-    const skipReason = skipReasonFor(invocation, this.definition);
+    const resolved = this.registry.resolve(invocation.payload.role_id, invocation.payload.role_version);
+    if (resolved.kind === "miss") {
+      return this.checkedResult(
+        skippedResult(invocation, invocationRoleIdentity(invocation), createdAt, resolved.reason)
+      );
+    }
+    const definition = resolved.definition;
+    const skipReason = skipReasonFor(invocation, definition);
     if (skipReason !== void 0) {
-      return this.checkedResult(skippedResult(invocation, this.definition, createdAt, skipReason));
+      return this.checkedResult(skippedResult(invocation, definition, createdAt, skipReason));
     }
     if (!allowsModelBackedCall(invocation)) {
       return this.checkedResult(
-        needsHumanResult(invocation, this.definition, createdAt, {
+        needsHumanResult(invocation, definition, createdAt, {
           code: "model_tier_policy_requires_human",
           ref_type: "policy",
           id: "model_tier_policy"
@@ -7391,33 +7500,33 @@ var RoleRunner = class {
     }
     try {
       const modelArtifact = await this.modelClient.call({
-        input: this.definition.buildInput({ invocation, roleContext, definition: this.definition }),
-        output: this.definition.output
+        input: this.assembler.assemble(invocation, definition, roleContext),
+        output: definition.output
       });
-      const artifact = this.definition.normalize({
+      const artifact = definition.normalize({
         modelArtifact,
         invocation,
         createdAt,
-        definition: this.definition
+        definition
       });
-      if (!this.definition.validate_output(artifact)) {
+      if (!definition.validate_output(artifact)) {
         return this.checkedResult(
           blockedResult(
             invocation,
-            this.definition,
+            definition,
             createdAt,
             schemaErrorDiagnostics(
-              `schema:invalid_${this.definition.expected_output_artifact_type}`,
-              this.definition.validation_errors()
+              `schema:invalid_${definition.expected_output_artifact_type}`,
+              definition.validation_errors()
             )
           )
         );
       }
       await this.artifactSink?.(artifact);
-      return this.checkedResult(producedResult(invocation, this.definition, artifact, createdAt));
+      return this.checkedResult(producedResult(invocation, definition, artifact, createdAt));
     } catch (error) {
       return this.checkedResult(
-        blockedResult(invocation, this.definition, createdAt, [
+        blockedResult(invocation, definition, createdAt, [
           {
             code: "structured_model_call_failed",
             severity: "blocker",
@@ -7452,7 +7561,7 @@ function producedResult(invocation, definition, artifact, createdAt) {
   };
   return roleResultEnvelope(invocation, definition, createdAt, payload, [outputArtifact], "produced", [], []);
 }
-function skippedResult(invocation, definition, createdAt, skipReason) {
+function skippedResult(invocation, identity, createdAt, skipReason) {
   const payload = {
     invocation_id: invocation.payload.invocation_id,
     role_id: invocation.payload.role_id,
@@ -7466,7 +7575,7 @@ function skippedResult(invocation, definition, createdAt, skipReason) {
     skip_reason: skipReason,
     trace: traceResult(invocation)
   };
-  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "skipped", [], []);
+  return roleResultEnvelope(invocation, identity, createdAt, payload, [], "skipped", [], []);
 }
 function needsHumanResult(invocation, definition, createdAt, missingContext) {
   const payload = {
@@ -7502,7 +7611,7 @@ function blockedResult(invocation, definition, createdAt, errors) {
   };
   return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", errors, []);
 }
-function roleResultEnvelope(invocation, definition, createdAt, payload, outputRefs, diagnosticStatus, errors, missingContext) {
+function roleResultEnvelope(invocation, identity, createdAt, payload, outputRefs, diagnosticStatus, errors, missingContext) {
   return {
     artifact_id: artifactIdFor("RoleResult", createdAt, payload),
     artifact_type: "RoleResult",
@@ -7510,8 +7619,8 @@ function roleResultEnvelope(invocation, definition, createdAt, payload, outputRe
     protocol_version: invocation.protocol_version,
     producer: {
       primitive: "role",
-      name: definition.role_id,
-      version: definition.role_version,
+      name: identity.role_id,
+      version: identity.role_version,
       invocation_id: invocation.payload.invocation_id
     },
     created_at: createdAt,
@@ -7533,26 +7642,6 @@ function roleResultEnvelope(invocation, definition, createdAt, payload, outputRe
   };
 }
 function skipReasonFor(invocation, definition) {
-  if (invocation.payload.role_id !== definition.role_id) {
-    return {
-      code: definition.skip_codes?.unsupported_role ?? "role:unsupported_role",
-      category: "not_applicable",
-      details: {
-        requested_role_id: invocation.payload.role_id,
-        supported_role_id: definition.role_id
-      }
-    };
-  }
-  if (invocation.payload.role_version !== definition.role_version) {
-    return {
-      code: "role:unsupported_version",
-      category: "policy",
-      details: {
-        requested_role_version: invocation.payload.role_version,
-        supported_role_version: definition.role_version
-      }
-    };
-  }
   if (!definition.supported_operations.includes(invocation.payload.operation)) {
     return {
       code: "role:unsupported_operation",
@@ -7609,6 +7698,78 @@ function errorMessage(error) {
   }
   return "Unknown structured model call failure";
 }
+function invocationRoleIdentity(invocation) {
+  return {
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version
+  };
+}
+
+// src/registry/role-registry.ts
+var RoleRegistry = class {
+  definitionsByRoleId = /* @__PURE__ */ new Map();
+  register(definition) {
+    const definitionsByVersion = this.definitionsByRoleId.get(definition.role_id) ?? /* @__PURE__ */ new Map();
+    if (definitionsByVersion.has(definition.role_version)) {
+      throw new Error(
+        `Role ${definition.role_id}@${definition.role_version} is already registered`
+      );
+    }
+    definitionsByVersion.set(definition.role_version, definition);
+    this.definitionsByRoleId.set(definition.role_id, definitionsByVersion);
+    return this;
+  }
+  resolve(roleId, roleVersion) {
+    const definitionsByVersion = this.definitionsByRoleId.get(roleId);
+    if (definitionsByVersion === void 0) {
+      return {
+        kind: "miss",
+        reason: {
+          code: "role:not_registered",
+          category: "not_applicable",
+          details: {
+            requested_role_id: roleId
+          }
+        }
+      };
+    }
+    if (roleVersion === void 0) {
+      const firstDefinition = firstRegisteredDefinition(definitionsByVersion);
+      if (firstDefinition !== void 0) {
+        return { kind: "hit", definition: firstDefinition };
+      }
+    }
+    const definition = roleVersion === void 0 ? void 0 : definitionsByVersion.get(roleVersion);
+    if (definition !== void 0) {
+      return { kind: "hit", definition };
+    }
+    return {
+      kind: "miss",
+      reason: {
+        code: "role:unsupported_version",
+        category: "policy",
+        details: {
+          requested_role_id: roleId,
+          requested_role_version: roleVersion ?? "",
+          supported_role_versions: [...definitionsByVersion.keys()]
+        }
+      }
+    };
+  }
+  list() {
+    const definitions = [];
+    for (const definitionsByVersion of this.definitionsByRoleId.values()) {
+      definitions.push(...definitionsByVersion.values());
+    }
+    return definitions;
+  }
+};
+function firstRegisteredDefinition(definitionsByVersion) {
+  for (const definition of definitionsByVersion.values()) {
+    return definition;
+  }
+  return void 0;
+}
 
 // src/roles/architect.ts
 var ARCHITECTURE_IMPACT_SCHEMA_VERSION = "1.0.0";
@@ -7624,23 +7785,39 @@ var architectRoleDefinition = {
   validate_output: isArchitectureImpact,
   validation_errors: architectureImpactValidationErrors,
   normalize: ({ modelArtifact, invocation, createdAt, definition }) => normalizeArchitectureImpact(modelArtifact, invocation, createdAt, definition),
-  buildInput: ({ invocation, roleContext, definition }) => architectModelInput(invocation, roleContext, definition),
+  context_profile: {
+    rules: {
+      role_contract: "Return exactly one ArchitectureImpact artifact. Do not return prose-only output.",
+      non_goals: [
+        "no_recursive_supervisor",
+        "no_agent_transport",
+        "no_tool_use",
+        "no_filesystem_or_network_access"
+      ]
+    },
+    request: {
+      include_output_schema: true,
+      fields: ({ roleContext }) => ({
+        story: roleContext.story ?? {}
+      })
+    }
+  },
   autonomy: {
     domain: "engineering"
   },
   skip_codes: {
-    unsupported_role: "role:not_architect_role",
     missing_required_output: "role:no_required_architecture_impact"
   }
 };
 var ArchitectRoleRunner = class {
   runner;
   constructor(options) {
+    const registry = new RoleRegistry().register(architectRoleDefinition);
     this.runner = new RoleRunner({
-      definition: architectRoleDefinition,
+      registry,
       modelClient: options.modelClient,
       ...options.now === void 0 ? {} : { now: options.now },
-      ...options.artifactSink === void 0 ? {} : { artifactSink: options.artifactSink }
+      ...options.artifactSink === void 0 ? {} : { artifactSink: architectureImpactSink(options.artifactSink) }
     });
   }
   async run(invocation, roleContext = {}) {
@@ -7649,69 +7826,6 @@ var ArchitectRoleRunner = class {
 };
 async function runArchitectRole(invocation, options, roleContext = {}) {
   return new ArchitectRoleRunner(options).run(invocation, roleContext);
-}
-function architectModelInput(invocation, roleContext, definition) {
-  return {
-    context: {
-      prompt_id: definition.prompt.id,
-      prompt_version: definition.prompt.version,
-      prompt_ref: definition.prompt.ref,
-      prompt: definition.prompt.text,
-      invocation: invocationContext(invocation),
-      bounded_context: roleContext.context ?? {}
-    },
-    rules: {
-      role_contract: "Return exactly one ArchitectureImpact artifact. Do not return prose-only output.",
-      non_goals: [
-        "no_recursive_supervisor",
-        "no_agent_transport",
-        "no_tool_use",
-        "no_filesystem_or_network_access"
-      ],
-      expected_output_artifacts: invocation.payload.expected_output_artifacts.map((artifact) => ({
-        artifact_type: artifact.artifact_type,
-        schema_version: artifact.schema_version,
-        required: artifact.required,
-        ...artifact.relation === void 0 ? {} : { relation: artifact.relation }
-      }))
-    },
-    request: {
-      operation: invocation.payload.operation,
-      decision_scope: {
-        scope_type: invocation.payload.decision_scope.scope_type,
-        scope_id: invocation.payload.decision_scope.scope_id,
-        objective: invocation.payload.decision_scope.objective,
-        constraints: [...invocation.payload.decision_scope.constraints ?? []]
-      },
-      story: roleContext.story ?? {},
-      output_schema: {
-        artifact_type: definition.expected_output_artifact_type,
-        schema_version: definition.expected_output_schema_version
-      }
-    }
-  };
-}
-function invocationContext(invocation) {
-  return {
-    invocation_id: invocation.payload.invocation_id,
-    role_id: invocation.payload.role_id,
-    role_version: invocation.payload.role_version,
-    input_artifacts: invocation.payload.input_artifacts.map(artifactReferenceJson),
-    context_bundle_refs: invocation.payload.context_bundle_refs.map(artifactReferenceJson),
-    policy_decision_refs: invocation.payload.policy_decision_refs.map(artifactReferenceJson),
-    timeout_ms: invocation.payload.timeout_ms,
-    allowed_engines: invocation.payload.allowed_engines.map((engine) => ({
-      engine_id: engine.engine_id,
-      ...engine.engine_version === void 0 ? {} : { engine_version: engine.engine_version },
-      operations: [...engine.operations ?? []]
-    })),
-    allowed_tools: invocation.payload.allowed_tools.map((tool) => ({
-      tool_id: tool.tool_id,
-      permission: tool.permission,
-      ...tool.restrictions === void 0 ? {} : { restrictions: tool.restrictions }
-    })),
-    trace: traceRequestJson(invocation)
-  };
 }
 function normalizeArchitectureImpact(modelImpact, invocation, createdAt, definition) {
   const artifactId = artifactIdFor("ArchitectureImpact", createdAt, modelImpact.payload);
@@ -7738,13 +7852,23 @@ function normalizeArchitectureImpact(modelImpact, invocation, createdAt, definit
     ]
   };
 }
+function architectureImpactSink(sink) {
+  return (artifact) => {
+    if (!isArchitectureImpact(artifact)) {
+      throw new Error("Architect artifact sink received a non-ArchitectureImpact artifact");
+    }
+    return sink(artifact);
+  };
+}
 export {
   ARCHITECT_ROLE_ID,
   ARCHITECT_ROLE_PROMPT,
   ARCHITECT_ROLE_PROMPT_REF,
   ARCHITECT_ROLE_VERSION,
   ArchitectRoleRunner,
+  ContextProfileAssembler,
   ROLE_RUNNER_STATUSES,
+  RoleRegistry,
   RoleRunner,
   StructuredModelCallError,
   architectRoleDefinition,

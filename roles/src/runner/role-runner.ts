@@ -9,6 +9,9 @@ import type {
   RoleSkipReason,
 } from "protocol";
 
+import { ContextProfileAssembler } from "../assembler/context-profile-assembler.js";
+import { isRoleResult, roleResultValidationErrors } from "../schemas/protocol-schemas.js";
+import type { RoleRegistry } from "../registry/role-registry.js";
 import {
   artifactIdFor,
   artifactReferenceFor,
@@ -18,7 +21,6 @@ import {
 } from "./artifacts.js";
 import type { RoleContext, RoleDefinition } from "./role-definition.js";
 import type { StructuredModelCaller } from "./structured-model.js";
-import { isRoleResult, roleResultValidationErrors } from "../schemas/protocol-schemas.js";
 
 const ROLE_RESULT_SCHEMA_VERSION = "1.0.0";
 
@@ -34,42 +36,52 @@ interface RoleResultPayloadObject extends RoleResultPayload {
   readonly [key: string]: unknown;
 }
 
-export interface RoleRunnerOptions<
-  TArtifact extends ArtifactEnvelope,
-  TContext extends RoleContext = RoleContext,
-> {
-  readonly definition: RoleDefinition<TArtifact, TContext>;
-  readonly modelClient: StructuredModelCaller;
-  readonly now?: () => Date;
-  readonly artifactSink?: (artifact: TArtifact) => void | Promise<void>;
+interface RoleIdentity {
+  readonly role_id: string;
+  readonly role_version: string;
 }
 
-export class RoleRunner<
-  TArtifact extends ArtifactEnvelope,
-  TContext extends RoleContext = RoleContext,
-> {
-  private readonly definition: RoleDefinition<TArtifact, TContext>;
-  private readonly modelClient: StructuredModelCaller;
-  private readonly now: () => Date;
-  private readonly artifactSink: ((artifact: TArtifact) => void | Promise<void>) | undefined;
+export interface RoleRunnerOptions {
+  readonly registry: RoleRegistry;
+  readonly modelClient: StructuredModelCaller;
+  readonly assembler?: ContextProfileAssembler;
+  readonly now?: () => Date;
+  readonly artifactSink?: (artifact: ArtifactEnvelope) => void | Promise<void>;
+}
 
-  constructor(options: RoleRunnerOptions<TArtifact, TContext>) {
-    this.definition = options.definition;
+export class RoleRunner {
+  private readonly registry: RoleRegistry;
+  private readonly modelClient: StructuredModelCaller;
+  private readonly assembler: ContextProfileAssembler;
+  private readonly now: () => Date;
+  private readonly artifactSink: ((artifact: ArtifactEnvelope) => void | Promise<void>) | undefined;
+
+  constructor(options: RoleRunnerOptions) {
+    this.registry = options.registry;
     this.modelClient = options.modelClient;
+    this.assembler = options.assembler ?? new ContextProfileAssembler();
     this.now = options.now ?? (() => new Date());
     this.artifactSink = options.artifactSink;
   }
 
-  async run(invocation: RoleInvocation, roleContext: TContext): Promise<RoleResult> {
+  async run(invocation: RoleInvocation, roleContext: RoleContext): Promise<RoleResult> {
     const createdAt = this.now().toISOString();
-    const skipReason = skipReasonFor(invocation, this.definition);
+    const resolved = this.registry.resolve(invocation.payload.role_id, invocation.payload.role_version);
+    if (resolved.kind === "miss") {
+      return this.checkedResult(
+        skippedResult(invocation, invocationRoleIdentity(invocation), createdAt, resolved.reason),
+      );
+    }
+
+    const definition = resolved.definition;
+    const skipReason = skipReasonFor(invocation, definition);
     if (skipReason !== undefined) {
-      return this.checkedResult(skippedResult(invocation, this.definition, createdAt, skipReason));
+      return this.checkedResult(skippedResult(invocation, definition, createdAt, skipReason));
     }
 
     if (!allowsModelBackedCall(invocation)) {
       return this.checkedResult(
-        needsHumanResult(invocation, this.definition, createdAt, {
+        needsHumanResult(invocation, definition, createdAt, {
           code: "model_tier_policy_requires_human",
           ref_type: "policy",
           id: "model_tier_policy",
@@ -78,34 +90,34 @@ export class RoleRunner<
     }
 
     try {
-      const modelArtifact = await this.modelClient.call<TArtifact>({
-        input: this.definition.buildInput({ invocation, roleContext, definition: this.definition }),
-        output: this.definition.output,
+      const modelArtifact = await this.modelClient.call<ArtifactEnvelope>({
+        input: this.assembler.assemble(invocation, definition, roleContext),
+        output: definition.output,
       });
-      const artifact = this.definition.normalize({
+      const artifact = definition.normalize({
         modelArtifact,
         invocation,
         createdAt,
-        definition: this.definition,
+        definition,
       });
-      if (!this.definition.validate_output(artifact)) {
+      if (!definition.validate_output(artifact)) {
         return this.checkedResult(
           blockedResult(
             invocation,
-            this.definition,
+            definition,
             createdAt,
             schemaErrorDiagnostics(
-              `schema:invalid_${this.definition.expected_output_artifact_type}`,
-              this.definition.validation_errors(),
+              `schema:invalid_${definition.expected_output_artifact_type}`,
+              definition.validation_errors(),
             ),
           ),
         );
       }
       await this.artifactSink?.(artifact);
-      return this.checkedResult(producedResult(invocation, this.definition, artifact, createdAt));
+      return this.checkedResult(producedResult(invocation, definition, artifact, createdAt));
     } catch (error) {
       return this.checkedResult(
-        blockedResult(invocation, this.definition, createdAt, [
+        blockedResult(invocation, definition, createdAt, [
           {
             code: "structured_model_call_failed",
             severity: "blocker",
@@ -126,10 +138,10 @@ export class RoleRunner<
   }
 }
 
-function producedResult<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function producedResult(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
-  artifact: TArtifact,
+  definition: RoleDefinition,
+  artifact: ArtifactEnvelope,
   createdAt: string,
 ): RoleResult {
   const outputArtifact = outputReference(definition, artifact);
@@ -148,9 +160,9 @@ function producedResult<TArtifact extends ArtifactEnvelope, TContext extends Rol
   return roleResultEnvelope(invocation, definition, createdAt, payload, [outputArtifact], "produced", [], []);
 }
 
-function skippedResult<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function skippedResult(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  identity: RoleIdentity,
   createdAt: string,
   skipReason: RoleSkipReason,
 ): RoleResult {
@@ -167,12 +179,12 @@ function skippedResult<TArtifact extends ArtifactEnvelope, TContext extends Role
     skip_reason: skipReason,
     trace: traceResult(invocation),
   };
-  return roleResultEnvelope(invocation, definition, createdAt, payload, [], "skipped", [], []);
+  return roleResultEnvelope(invocation, identity, createdAt, payload, [], "skipped", [], []);
 }
 
-function needsHumanResult<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function needsHumanResult(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  definition: RoleDefinition,
   createdAt: string,
   missingContext: MissingContext,
 ): RoleResult {
@@ -191,9 +203,9 @@ function needsHumanResult<TArtifact extends ArtifactEnvelope, TContext extends R
   return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", [], [missingContext]);
 }
 
-function blockedResult<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function blockedResult(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  definition: RoleDefinition,
   createdAt: string,
   errors: readonly DiagnosticEntry[],
 ): RoleResult {
@@ -216,9 +228,9 @@ function blockedResult<TArtifact extends ArtifactEnvelope, TContext extends Role
   return roleResultEnvelope(invocation, definition, createdAt, payload, [], "blocked", errors, []);
 }
 
-function roleResultEnvelope<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function roleResultEnvelope(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  identity: RoleIdentity,
   createdAt: string,
   payload: RoleResultPayloadObject,
   outputRefs: readonly ArtifactReference[],
@@ -233,8 +245,8 @@ function roleResultEnvelope<TArtifact extends ArtifactEnvelope, TContext extends
     protocol_version: invocation.protocol_version,
     producer: {
       primitive: "role",
-      name: definition.role_id,
-      version: definition.role_version,
+      name: identity.role_id,
+      version: identity.role_version,
       invocation_id: invocation.payload.invocation_id,
     },
     created_at: createdAt,
@@ -256,30 +268,10 @@ function roleResultEnvelope<TArtifact extends ArtifactEnvelope, TContext extends
   };
 }
 
-function skipReasonFor<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function skipReasonFor(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  definition: RoleDefinition,
 ): RoleSkipReason | undefined {
-  if (invocation.payload.role_id !== definition.role_id) {
-    return {
-      code: definition.skip_codes?.unsupported_role ?? "role:unsupported_role",
-      category: "not_applicable",
-      details: {
-        requested_role_id: invocation.payload.role_id,
-        supported_role_id: definition.role_id,
-      },
-    };
-  }
-  if (invocation.payload.role_version !== definition.role_version) {
-    return {
-      code: "role:unsupported_version",
-      category: "policy",
-      details: {
-        requested_role_version: invocation.payload.role_version,
-        supported_role_version: definition.role_version,
-      },
-    };
-  }
   if (!definition.supported_operations.includes(invocation.payload.operation)) {
     return {
       code: "role:unsupported_operation",
@@ -303,9 +295,9 @@ function skipReasonFor<TArtifact extends ArtifactEnvelope, TContext extends Role
   return undefined;
 }
 
-function expectsRequiredOutput<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
+function expectsRequiredOutput(
   invocation: RoleInvocation,
-  definition: RoleDefinition<TArtifact, TContext>,
+  definition: RoleDefinition,
 ): boolean {
   return invocation.payload.expected_output_artifacts.some(
     (artifact) =>
@@ -321,10 +313,7 @@ function allowsModelBackedCall(invocation: RoleInvocation): boolean {
   );
 }
 
-function outputReference<TArtifact extends ArtifactEnvelope, TContext extends RoleContext>(
-  definition: RoleDefinition<TArtifact, TContext>,
-  artifact: TArtifact,
-): ArtifactReference {
+function outputReference(definition: RoleDefinition, artifact: ArtifactEnvelope): ArtifactReference {
   return artifactReferenceFor(
     definition.expected_output_artifact_type,
     definition.expected_output_schema_version,
@@ -352,4 +341,11 @@ function errorMessage(error: unknown): string {
     return error.message;
   }
   return "Unknown structured model call failure";
+}
+
+function invocationRoleIdentity(invocation: RoleInvocation): RoleIdentity {
+  return {
+    role_id: invocation.payload.role_id,
+    role_version: invocation.payload.role_version,
+  };
 }

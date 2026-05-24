@@ -13,6 +13,11 @@ export {
 } from "./roles/architect.js";
 export type { ArchitectRoleContext, ArchitectRoleRunnerOptions } from "./roles/architect.js";
 
+export { ContextProfileAssembler } from "./assembler/context-profile-assembler.js";
+
+export { RoleRegistry } from "./registry/role-registry.js";
+export type { RoleRegistryResolveResult } from "./registry/role-registry.js";
+
 export {
   architectureImpactJsonSchema,
   architectureImpactStructuredSchema,
@@ -32,7 +37,8 @@ export { ROLE_RUNNER_STATUSES, RoleRunner } from "./runner/role-runner.js";
 export type { RoleRunnerOptions } from "./runner/role-runner.js";
 export type {
   AutonomyDomain,
-  RoleBuildInputArgs,
+  ContextProfile,
+  ContextProfileRequestArgs,
   RoleContext,
   RoleDefinition,
   RoleNormalizeArgs,
