@@ -11,6 +11,9 @@ import {
   type DecisionRecord,
   type DecisionVerdict,
   type HumanDecisionNotifier,
+  type PlanningRequest,
+  type PlanningResult,
+  type RolesPlanning,
   type StructuredModelInput,
   type StructuredModelRequest,
   type Validation,
@@ -144,6 +147,18 @@ describe("standalone composition root", () => {
     expect(model.inputs).toEqual([]);
     expect(notifier.records).toEqual([record]);
   });
+
+  it("accepts an injected RolesPlanning port implementation", () => {
+    const rolesPlanning = new StubRolesPlanning();
+    const daimyo = createStandaloneDaimyo({
+      workSource: new FakeWorkSource([]),
+      agentTransport: new FakeAgentTransport([]),
+      validation: new PassingValidation(),
+      rolesPlanning,
+    });
+
+    expect(daimyo.rolesPlanning).toBe(rolesPlanning);
+  });
 });
 
 class PassingValidation implements Validation {
@@ -164,6 +179,15 @@ class RecordingNotifier implements HumanDecisionNotifier {
 
   async notify(record: DecisionRecord): Promise<void> {
     this.records.push(record);
+  }
+}
+
+class StubRolesPlanning implements RolesPlanning {
+  async plan(_request: PlanningRequest): Promise<PlanningResult> {
+    return {
+      tasks: [],
+      decisions: [],
+    };
   }
 }
 

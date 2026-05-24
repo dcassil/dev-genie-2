@@ -4,14 +4,14 @@ level: task
 title: "Wire the Roles layer into daimyo's RolesPlanning port with autonomy domain tagging"
 short_code: "DGOS-T-0035"
 created_at: 2026-05-23T23:39:53.298041+00:00
-updated_at: 2026-05-23T23:39:53.298041+00:00
+updated_at: 2026-05-24T00:30:04.769964+00:00
 parent: DGOS-I-0010
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0010
 ## Objective
 
 Implement a daimyo adapter for the `RolesPlanning` port (`daimyo/src/core/ports/capabilities.ts`) that runs the Planner Role from the `roles/` layer and converts its `PlanProposal` → `PlanningResult` (`PlannedTask[]` + `DecisionRequest[]`), wired in at `daimyo/src/standalone/composition.ts` (not in `src/core`, preserving import purity). Ensure each Role/operation's autonomy `domain` and `human_review_required` flow into the decision-routing path so `evaluateAutonomyThreshold` makes the ask-vs-proceed call using the ADR-4 profile. Roles never decide ask-vs-proceed themselves.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,4 +71,12 @@ Implement a daimyo adapter for the `RolesPlanning` port (`daimyo/src/core/ports/
 
 ## Status Updates
 
-*To be added during implementation.*
+### 2026-05-24 — Implementation status
+
+- Implemented `daimyo/src/adapters/roles-planning.ts` as the in-process adapter for daimyo standalone composition. It invokes `roles` `PlannerRoleRunner`, captures the emitted `PlanProposal`, converts protocol snake_case fields to daimyo `PlannedTask` camelCase fields, and carries planner-only task fields through `metadata.plan_proposal`.
+- Wired `createStandaloneDaimyo` to accept an injected `RolesPlanning` port or default to the Roles-backed adapter when using the standalone model client. `daimyo/src/core` remains import-pure; `roles` is imported only at the adapter/composition layer.
+- Autonomy remains signal-only in the Roles path. The adapter tags `DecisionRequest.context` with the Planner RoleDefinition domain, daimyo policy scope, role scope type, `human_review_required`, confidence, and declared risk; ask/proceed escalation remains entirely in `TieredDecisionProvider` / `evaluateAutonomyThreshold`.
+- Added tests showing PlanProposal mapping, injected standalone wiring, core boundary purity, and the same Role-emitted review decision escalating under `always_in_loop` while proceeding under `delegate` via the existing `TieredDecisionProvider` logic.
+- Verification: `daimyo` `npm run typecheck`, `npm run lint`, `npm run test` (69 passed / 5 skipped), and `npm run build` all passed. `roles` `npm run typecheck`, `npm run lint`, `npm run test` (29 passed), and `npm run build` all passed against the current local roles package state.
+- ADR-4 dependency note: DGOS-A-0004 is still `draft`; this implementation consumes only the already-encoded three-domain / three-level shape in `daimyo/src/decision/autonomy.ts`. Recommendation: move DGOS-A-0004 `draft -> decided` before closing the autonomy contract, and revisit this adapter if ADR-4 changes the domain/level model.
+- 2026-05-24 (orchestrator verification): re-ran daimyo typecheck/lint/test/build — green, 69 passed / 5 skipped (was 66 — +3, no test dropped); roles still green (29). Confirmed `daimyo/src/core` has **zero `roles` imports** (`roles` only in `src/adapters/roles-planning.ts`); cross-port-boundary test 3/3. Adapter maps PlanProposal→PlannedTask + tags autonomy context; ask/proceed/stop stays in `TieredDecisionProvider` (tested escalate-under-always_in_loop / proceed-under-delegate). daimyo 0.12.0 → 0.13.0, `roles: file:../roles`. **ADR-4 still draft — finalization surfaced to the decision-maker.** No escape hatches. **exit_criteria_met: true** (with ADR-4 governance follow-up). Completed.

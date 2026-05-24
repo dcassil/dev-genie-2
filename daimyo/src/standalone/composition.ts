@@ -2,8 +2,9 @@ import { dirname, extname, resolve } from "node:path";
 import { ClaudeSdkAgentTransport } from "../adapters/claude-sdk-agent-transport.js";
 import { JsonWorkSource } from "../adapters/json-work-source.js";
 import { MarkdownChecklistWorkSource } from "../adapters/markdown-checklist-work-source.js";
+import { RolesPlanningAdapter } from "../adapters/roles-planning.js";
 import type { AgentTransport } from "../core/ports/agent-transport.js";
-import type { Validation } from "../core/ports/capabilities.js";
+import type { RolesPlanning, Validation } from "../core/ports/capabilities.js";
 import type { DecisionProvider } from "../core/ports/decision-provider.js";
 import type { WorkSource } from "../core/ports/work-source.js";
 import { JsonlExecutionStore } from "../core/jsonl-execution-store.js";
@@ -45,6 +46,7 @@ export interface StandaloneDaimyoOptions {
   readonly workSource?: WorkSource;
   readonly executionStore?: ExecutionStore;
   readonly validation?: Validation;
+  readonly rolesPlanning?: RolesPlanning;
   readonly decisionProvider?: DecisionProvider;
   readonly modelClient?: DecisionModelClient & StructuredModelCaller;
   readonly notifier?: HumanDecisionNotifier;
@@ -63,6 +65,7 @@ export interface StandaloneDaimyo {
   readonly workSource: WorkSource;
   readonly executionStore: ExecutionStore;
   readonly validation: Validation;
+  readonly rolesPlanning: RolesPlanning;
   readonly decisionProvider: DecisionProvider;
   readonly notifier: HumanDecisionNotifier;
 }
@@ -79,6 +82,11 @@ export function createStandaloneDaimyo(options: StandaloneDaimyoOptions): Standa
     options.validation ??
     new BuiltInValidation({
       executionStore,
+      modelClient,
+    });
+  const rolesPlanning =
+    options.rolesPlanning ??
+    new RolesPlanningAdapter({
       modelClient,
     });
   const autonomyProfile = options.autonomyProfile ?? DEFAULT_AUTONOMY_PROFILE;
@@ -111,6 +119,7 @@ export function createStandaloneDaimyo(options: StandaloneDaimyoOptions): Standa
     workSource,
     executionStore,
     validation,
+    rolesPlanning,
     decisionProvider,
     notifier,
   };
