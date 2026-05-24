@@ -4,14 +4,14 @@ level: initiative
 title: "Decision Policy & Governance"
 short_code: "DGOS-I-0009"
 created_at: 2026-05-21T17:45:11.503016+00:00
-updated_at: 2026-05-24T19:01:50.157675+00:00
+updated_at: 2026-05-24T20:10:53.732773+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#initiative"
-  - "#phase/decompose"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -239,6 +239,14 @@ No model call in the Engine's core decision path. When a decision cannot be sett
 - **DGOS-T-0038** — classification is the input substrate the ADR-4 autonomy profile is applied against; a wrong domain/scope mapping silently changes daimyo's injected behavior.
 - **DGOS-T-0041** — the Engine's decision core; must reuse daimyo's `evaluateAutonomyThreshold` rather than duplicate threshold math. This is where the initiative's "no duplication" invariant is enforced.
 - **DGOS-T-0043** — the integration capstone; proves the Engine supersedes daimyo's trivial Tier-0 through the existing `DecisionProvider` seam without reimplementing tier orchestration.
+
+## Outcome (2026-05-24)
+
+**Completed — all 7 tasks (DGOS-T-0037…0043) done, verified, committed.** New `engines/` sibling package (v0.7.0) houses the **Decision Policy Engine** — a pure ADR-1 Engine (`evaluate(input): PolicyVerdict`, no model call / no IO in core): deterministic domain/scope classifier (T-0038), structured static allow/deny rule evaluator (T-0039), conflict-class/ownership evaluator (T-0040), the verdict assembler that composes them and **reuses daimyo's `evaluateAutonomyThreshold`** for ask/proceed/stop (T-0041, no threshold math duplicated), and the governance config loader (T-0042, the one IO module). The `PolicyDecisionProvider` adapter (T-0043) injects it into daimyo via the existing `DecisionProvider` seam (`createStandaloneDaimyo({ decisionProvider })`), settling deterministically at Tier-0 and **delegating to a wrapped `TieredDecisionProvider` on fall-through** — daimyo keeps Tiers 1/2/3 + DecisionRecord persistence; dev-genie wrote zero tier-orchestration. The "enrich, not duplicate" thesis held: **daimyo source was never modified** by the adapter (engines-only; import-boundaries test enforces it). New protocol contracts `PolicyVerdict` + `PolicyConfig` (protocol → 0.5.0). Suites green: engines 58, protocol 76, daimyo 69/5.
+
+**Enabled by:** ADR-4 (Human Involvement Autonomy Profile) finalized `draft → decided` this session — the autonomy contract this Engine consumes.
+
+**Follow-up (recorded, not blocking):** governance-file convention (`.dev-genie/governance.json`) and capturing the ADR-4 profile via the three bootstrap questions are owned by the Bootstrap/Project-Readiness initiative (DGOS-I-0012); if it picks a different storage convention, T-0042's loader path must align.
 
 ### Genuine forks / risks for a human
 
