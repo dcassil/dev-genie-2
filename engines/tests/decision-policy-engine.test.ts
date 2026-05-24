@@ -29,17 +29,18 @@ describe("DecisionPolicyEngine", () => {
 
     const verdict = new DecisionPolicyEngine().evaluate({ request, config });
 
-    expect(verdict).toEqual({
+    expect(verdict).toMatchObject({
       outcome: "route",
       conflict_class: "soft_conflict",
       review_required: false,
       route_to: "parent_loop",
       classified_domain: "engineering",
       classified_scope: "moderate",
-      rationale: "Scaffold fallback routed routing policy decision to the parent loop pending concrete evaluators.",
       matched_rule_refs: [],
       engine_version: DECISION_POLICY_ENGINE_VERSION,
     });
+    expect(verdict.rationale).toContain("Scaffold fallback routed routing policy decision to the parent loop pending concrete evaluators.");
+    expect(verdict.rationale).toContain("Domain engineering was caller-supplied in request context.");
   });
 
   it("uses daimyo's autonomy profile and threshold primitives directly", () => {

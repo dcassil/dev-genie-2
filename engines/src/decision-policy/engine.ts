@@ -1,7 +1,9 @@
-import type { AutonomyDomain, AutonomyProfile } from "daimyo";
+import type { AutonomyProfile } from "daimyo";
 import type { DecisionRequestPayload, PolicyConfig, PolicyVerdict } from "protocol";
 
-export const DECISION_POLICY_ENGINE_VERSION = "0.1.0";
+import { classifyDecision } from "./classifier.js";
+
+export const DECISION_POLICY_ENGINE_VERSION = "0.2.0";
 
 export type PolicyGovernanceConfig = Omit<PolicyConfig, "autonomy_profile"> & {
   readonly autonomy_profile: AutonomyProfile;
@@ -23,25 +25,17 @@ export class DecisionPolicyEngine implements Engine<PolicyDecisionInput, PolicyV
 }
 
 function scaffoldFallbackVerdict(input: PolicyDecisionInput): PolicyVerdict {
+  const classification = classifyDecision(input);
+
   return {
     outcome: "route",
     conflict_class: "soft_conflict",
     review_required: false,
     route_to: "parent_loop",
-    classified_domain: defaultDomain(input.config.autonomy_profile),
-    classified_scope: "moderate",
-    rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators.`,
+    classified_domain: classification.domain,
+    classified_scope: classification.scope,
+    rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators. ${classification.rationale}`,
     matched_rule_refs: [],
     engine_version: DECISION_POLICY_ENGINE_VERSION,
   };
-}
-
-function defaultDomain(profile: AutonomyProfile): AutonomyDomain {
-  const profileEntries: ReadonlyArray<readonly [AutonomyDomain, AutonomyProfile[AutonomyDomain]]> = [
-    ["engineering", profile.engineering],
-    ["product", profile.product],
-    ["design", profile.design],
-  ];
-  const delegatedDomain = profileEntries.find((entry) => entry[1] === "delegate");
-  return delegatedDomain?.[0] ?? "engineering";
 }

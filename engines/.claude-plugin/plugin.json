@@ -1,6 +1,6 @@
 {
   "name": "engines",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Dev-Genie deterministic Engines package: shared Engine contracts and Decision Policy Engine scaffolding.",
   "author": {
     "name": "Daniel Cassil",

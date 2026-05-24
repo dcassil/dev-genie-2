@@ -4,14 +4,14 @@ level: task
 title: "Deterministic decision-domain and scope classifier"
 short_code: "DGOS-T-0038"
 created_at: 2026-05-24T19:02:45.668335+00:00
-updated_at: 2026-05-24T19:02:45.668335+00:00
+updated_at: 2026-05-24T19:30:47.115163+00:00
 parent: DGOS-I-0009
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0009
 ## Objective
 
 Implement a deterministic, pure classifier in `engines/src/decision-policy/` that maps a `PolicyDecisionInput` (the protocol `DecisionRequest` payload — `action_type`, `ownership_scope`, `touched_surfaces`, `altitude`, optional `risk_level`/`declared_risk` from the request context) onto a `classified_domain` (`engineering` | `product` | `design`) and a `classified_scope` (`local` | `moderate` | `major`), reusing daimyo's `AutonomyDomain`/`DecisionScope` types. The classifier is the input stage of the Engine: its outputs feed the autonomy-profile lookup in the verdict assembler (DGOS-T-0041). It performs no model call and no I/O.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -63,4 +67,5 @@ Implement a deterministic, pure classifier in `engines/src/decision-policy/` tha
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-24: Implemented `classifyDecision` in `engines/src/decision-policy/classifier.ts`. Seed domain mapping is table-driven: `ui_text_update` plus `ux_`/`visual_`/`interaction_` action prefixes -> `design`; `policy_change`, `product_behavior_change`, `product_behavior_update` plus `capability_`/`workflow_`/`scope_`/`product_behavior_` prefixes -> `product`; `api_response_change` plus `schema_`/`tech_`/`code_`/`architecture_` prefixes -> `engineering`, with unmatched actions defaulting to `engineering`. Seed scope rules are ordered: initiative/epic/strategy/vision/root altitude -> `major`; governance surfaces or wildcard `config:*` -> `major`; task-altitude shared `interface:`/`config:`/`schema:` surfaces -> `moderate`; story altitude -> `moderate`; task altitude with only `file:`/`workflow:` surfaces -> `local`; otherwise default `moderate`.
+- 2026-05-24 (orchestrator verification): re-ran engines typecheck/lint/test/build — green (15 tests). Pure deterministic `classifyDecision` (table-driven domain rules + ordered scope rules, no model/IO); honors explicit `domain`/`scope` overrides; defaults engineering/moderate/risk-5 matching daimyo. Reuses daimyo's AutonomyDomain/DecisionScope (no redeclaration). engines-only scope. engines 0.1.0 → 0.2.0. (esbuild emits a dist size warning only — not an error.) No escape hatches. **exit_criteria_met: true.** Completed.

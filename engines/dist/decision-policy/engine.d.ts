@@ -1,6 +1,6 @@
 import type { AutonomyProfile } from "daimyo";
 import type { DecisionRequestPayload, PolicyConfig, PolicyVerdict } from "protocol";
-export declare const DECISION_POLICY_ENGINE_VERSION = "0.1.0";
+export declare const DECISION_POLICY_ENGINE_VERSION = "0.2.0";
 export type PolicyGovernanceConfig = Omit<PolicyConfig, "autonomy_profile"> & {
     readonly autonomy_profile: AutonomyProfile;
 };

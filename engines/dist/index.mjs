@@ -7138,34 +7138,272 @@ var require__3 = __commonJS({
   }
 });
 
+// src/decision-policy/classifier.ts
+var DEFAULT_DOMAIN = "engineering";
+var DEFAULT_SCOPE = "moderate";
+var DEFAULT_RISK = 5;
+var TASK_OWNED_SURFACE_PREFIXES = ["file:", "workflow:"];
+var SHARED_CONTRACT_SURFACE_PREFIXES = ["interface:", "config:", "schema:"];
+var MAJOR_ALTITUDES = ["initiative", "epic", "strategy", "vision", "root"];
+var MODERATE_ALTITUDES = ["story"];
+var DEFAULT_DOMAIN_CLASSIFICATION_RULES = [
+  {
+    id: "domain:design:exact-actions",
+    domain: "design",
+    match: "exact",
+    values: ["ui_text_update"],
+    rationale: "UI copy updates are design decisions."
+  },
+  {
+    id: "domain:design:action-prefixes",
+    domain: "design",
+    match: "prefix",
+    values: ["ux_", "visual_", "interaction_"],
+    rationale: "UX, visual, and interaction action families are design decisions."
+  },
+  {
+    id: "domain:product:exact-actions",
+    domain: "product",
+    match: "exact",
+    values: ["policy_change", "product_behavior_change", "product_behavior_update"],
+    rationale: "Policy and product-behavior actions change product behavior."
+  },
+  {
+    id: "domain:product:action-prefixes",
+    domain: "product",
+    match: "prefix",
+    values: ["capability_", "workflow_", "scope_", "product_behavior_"],
+    rationale: "Capability, workflow, scope, and product-behavior action families are product decisions."
+  },
+  {
+    id: "domain:engineering:exact-actions",
+    domain: "engineering",
+    match: "exact",
+    values: ["api_response_change"],
+    rationale: "API response changes are engineering contract decisions."
+  },
+  {
+    id: "domain:engineering:action-prefixes",
+    domain: "engineering",
+    match: "prefix",
+    values: ["schema_", "tech_", "code_", "architecture_"],
+    rationale: "Schema, technical, code, and architecture action families are engineering decisions."
+  }
+];
+var DEFAULT_SCOPE_CLASSIFICATION_RULES = [
+  {
+    id: "scope:major:initiative-plus-altitude",
+    scope: "major",
+    rationale: "Initiative, epic, strategy, vision, and root altitude decisions cross a strategic review boundary.",
+    matches: (signals) => isOneOf(signals.altitude, MAJOR_ALTITUDES)
+  },
+  {
+    id: "scope:major:governance-or-config-wildcard",
+    scope: "major",
+    rationale: "Governance surfaces and wildcard config changes can affect multiple children or policy boundaries.",
+    matches: (signals) => signals.surfaces.some((surface) => surface.startsWith("governance:") || isWildcardConfigSurface(surface))
+  },
+  {
+    id: "scope:moderate:shared-contract-task-altitude",
+    scope: "moderate",
+    rationale: "Task-altitude shared interface, config, or schema surfaces affect contracts outside a local task.",
+    matches: (signals) => signals.altitude === "task" && signals.surfaces.some(isSharedContractSurface)
+  },
+  {
+    id: "scope:moderate:story-altitude",
+    scope: "moderate",
+    rationale: "Story altitude is above a task-local implementation detail but below initiative scope.",
+    matches: (signals) => isOneOf(signals.altitude, MODERATE_ALTITUDES)
+  },
+  {
+    id: "scope:local:task-owned-surfaces",
+    scope: "local",
+    rationale: "Task altitude with only file or workflow surfaces stays within task-owned execution scope.",
+    matches: (signals) => signals.altitude === "task" && signals.surfaces.length > 0 && signals.surfaces.every(isTaskOwnedSurface)
+  }
+];
+function classifyDecision(input) {
+  const signals = classificationSignals(input.request.context);
+  const domainResult = classifyDomain(signals);
+  const scopeResult = classifyScope(signals);
+  const riskResult = classifyRisk(signals.context);
+  return {
+    domain: domainResult.value,
+    scope: scopeResult.value,
+    risk: riskResult.value,
+    rationale: [
+      domainResult.rationale,
+      scopeResult.rationale,
+      riskResult.rationale
+    ].join(" ")
+  };
+}
+function classifyDomain(signals) {
+  const explicitDomain = readDomain(signals.context, "domain") ?? readDomain(signals.context, "decision_domain");
+  if (explicitDomain !== void 0) {
+    return {
+      value: explicitDomain,
+      rationale: `Domain ${explicitDomain} was caller-supplied in request context.`
+    };
+  }
+  if (signals.actionType !== void 0) {
+    const actionType = signals.actionType;
+    const matchedRule = DEFAULT_DOMAIN_CLASSIFICATION_RULES.find((rule) => domainRuleMatches(rule, actionType));
+    if (matchedRule !== void 0) {
+      return {
+        value: matchedRule.domain,
+        rationale: `Domain ${matchedRule.domain} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
+      };
+    }
+  }
+  return {
+    value: DEFAULT_DOMAIN,
+    rationale: "Domain defaulted to engineering because no explicit domain or action_type rule matched."
+  };
+}
+function classifyScope(signals) {
+  const explicitScope = readScope(signals.context, "scope") ?? readScope(signals.context, "decision_scope");
+  if (explicitScope !== void 0) {
+    return {
+      value: explicitScope,
+      rationale: `Scope ${explicitScope} was caller-supplied in request context.`
+    };
+  }
+  const scopeSignals = {
+    ...signals.altitude === void 0 ? {} : { altitude: signals.altitude },
+    surfaces: [...signals.ownershipScope, ...signals.touchedSurfaces]
+  };
+  const matchedRule = DEFAULT_SCOPE_CLASSIFICATION_RULES.find((rule) => rule.matches(scopeSignals));
+  if (matchedRule !== void 0) {
+    return {
+      value: matchedRule.scope,
+      rationale: `Scope ${matchedRule.scope} inferred by ${matchedRule.id}: ${matchedRule.rationale}`
+    };
+  }
+  return {
+    value: DEFAULT_SCOPE,
+    rationale: "Scope defaulted to moderate because ownership and altitude signals were absent or insufficient for local scope."
+  };
+}
+function classifyRisk(context) {
+  const explicitRisk = readScore(context, "risk") ?? readScore(context, "declared_risk");
+  if (explicitRisk !== void 0) {
+    return {
+      value: explicitRisk,
+      rationale: `Risk ${explicitRisk} was caller-supplied in request context.`
+    };
+  }
+  const riskLevel = readString(context, "risk_level") ?? readString(context, "declared_risk_level");
+  if (riskLevel !== void 0) {
+    const mappedRisk = riskForLevel(riskLevel);
+    if (mappedRisk !== void 0) {
+      return {
+        value: mappedRisk,
+        rationale: `Risk ${mappedRisk} inferred from risk_level ${riskLevel}.`
+      };
+    }
+  }
+  return {
+    value: DEFAULT_RISK,
+    rationale: "Risk defaulted to 5 to match daimyo's declared-risk default."
+  };
+}
+function classificationSignals(context) {
+  const safeContext = context ?? {};
+  const altitude = readString(safeContext, "altitude");
+  const actionType = readString(safeContext, "action_type");
+  const ownershipScope = readStringArray(safeContext, "ownership_scope");
+  const touchedSurfaces = readStringArray(safeContext, "touched_surfaces");
+  return {
+    ...actionType === void 0 ? {} : { actionType },
+    ...altitude === void 0 ? {} : { altitude },
+    ownershipScope,
+    touchedSurfaces,
+    context: safeContext
+  };
+}
+function domainRuleMatches(rule, actionType) {
+  if (rule.match === "exact") {
+    return rule.values.includes(actionType);
+  }
+  return rule.values.some((value) => actionType.startsWith(value));
+}
+function readDomain(context, key) {
+  const value = context[key];
+  if (value === "engineering" || value === "product" || value === "design") return value;
+  return void 0;
+}
+function readScope(context, key) {
+  const value = context[key];
+  if (value === "local" || value === "moderate" || value === "major") return value;
+  return void 0;
+}
+function readScore(context, key) {
+  const value = context[key];
+  if (typeof value !== "number" || !Number.isInteger(value)) return void 0;
+  if (value === 0 || value === 1 || value === 2 || value === 3 || value === 4) return value;
+  if (value === 5 || value === 6 || value === 7 || value === 8 || value === 9 || value === 10) return value;
+  return void 0;
+}
+function readString(context, key) {
+  const value = context[key];
+  return typeof value === "string" && value.length > 0 ? value : void 0;
+}
+function readStringArray(context, key) {
+  const value = context[key];
+  if (!Array.isArray(value)) return [];
+  return value.filter(isString);
+}
+function riskForLevel(riskLevel) {
+  switch (riskLevel) {
+    case "low":
+      return 2;
+    case "medium":
+      return 5;
+    case "high":
+      return 8;
+    case "critical":
+      return 10;
+    default:
+      return void 0;
+  }
+}
+function isWildcardConfigSurface(surface) {
+  return surface.startsWith("config:") && surface.includes("*");
+}
+function isSharedContractSurface(surface) {
+  return SHARED_CONTRACT_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
+}
+function isTaskOwnedSurface(surface) {
+  return TASK_OWNED_SURFACE_PREFIXES.some((prefix) => surface.startsWith(prefix));
+}
+function isString(value) {
+  return typeof value === "string";
+}
+function isOneOf(value, options) {
+  return value !== void 0 && options.some((option) => option === value);
+}
+
 // src/decision-policy/engine.ts
-var DECISION_POLICY_ENGINE_VERSION = "0.1.0";
+var DECISION_POLICY_ENGINE_VERSION = "0.2.0";
 var DecisionPolicyEngine = class {
   evaluate(input) {
     return scaffoldFallbackVerdict(input);
   }
 };
 function scaffoldFallbackVerdict(input) {
+  const classification = classifyDecision(input);
   return {
     outcome: "route",
     conflict_class: "soft_conflict",
     review_required: false,
     route_to: "parent_loop",
-    classified_domain: defaultDomain(input.config.autonomy_profile),
-    classified_scope: "moderate",
-    rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators.`,
+    classified_domain: classification.domain,
+    classified_scope: classification.scope,
+    rationale: `Scaffold fallback routed ${input.request.surface} policy decision to the parent loop pending concrete evaluators. ${classification.rationale}`,
     matched_rule_refs: [],
     engine_version: DECISION_POLICY_ENGINE_VERSION
   };
-}
-function defaultDomain(profile) {
-  const profileEntries = [
-    ["engineering", profile.engineering],
-    ["product", profile.product],
-    ["design", profile.design]
-  ];
-  const delegatedDomain = profileEntries.find((entry) => entry[1] === "delegate");
-  return delegatedDomain?.[0] ?? "engineering";
 }
 
 // ../daimyo/dist/index.mjs
@@ -75491,11 +75729,11 @@ var DEFAULT_AUTONOMY_PROFILE = {
 };
 function decisionPolicyContext(request, profile) {
   const context = request.context ?? {};
-  const domain = readDomain(context, "domain") ?? readDomain(context, "decision_domain") ?? "engineering";
+  const domain = readDomain2(context, "domain") ?? readDomain2(context, "decision_domain") ?? "engineering";
   return {
     domain,
     level: profile[domain],
-    scope: readScope(context, "scope") ?? readScope(context, "decision_scope") ?? "moderate",
+    scope: readScope2(context, "scope") ?? readScope2(context, "decision_scope") ?? "moderate",
     productBaselineApproved: readBoolean2(context, "product_baseline_approved") ?? true,
     declaredRisk: readScore3(context, "risk") ?? readScore3(context, "declared_risk") ?? 5
   };
@@ -75544,12 +75782,12 @@ function evaluateAutonomyThreshold(request, verdict, profile) {
       return { action: "proceed", reason: "decision is within delegated bounds" };
   }
 }
-function readDomain(source, key) {
+function readDomain2(source, key) {
   const value = source[key];
   if (typeof value === "string" && isAutonomyDomain(value)) return value;
   return void 0;
 }
-function readScope(source, key) {
+function readScope2(source, key) {
   const value = source[key];
   if (typeof value === "string" && isDecisionScope(value)) return value;
   return void 0;
@@ -75681,7 +75919,10 @@ function formatValidationError(error) {
 export {
   DECISION_POLICY_ENGINE_VERSION,
   DEFAULT_AUTONOMY_PROFILE,
+  DEFAULT_DOMAIN_CLASSIFICATION_RULES,
+  DEFAULT_SCOPE_CLASSIFICATION_RULES,
   DecisionPolicyEngine,
+  classifyDecision,
   evaluateAutonomyThreshold,
   isPolicyConfig,
   isPolicyVerdict,
