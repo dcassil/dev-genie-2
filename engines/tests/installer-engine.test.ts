@@ -160,8 +160,8 @@ describe("InstallerEngine", () => {
         {
           mutation_id: "mutation:scaffold",
           status: "skipped",
-          reason_code: "delegated_skip",
-          rationale: "Installer Engine scaffold does not apply managed writes until the applier implementation lands.",
+          reason_code: "already_satisfied",
+          rationale: "claude-settings-hook at .claude/settings.json already satisfies the install plan; no write was attempted.",
         },
       ],
     });

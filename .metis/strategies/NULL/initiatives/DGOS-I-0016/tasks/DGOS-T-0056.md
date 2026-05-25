@@ -4,14 +4,14 @@ level: task
 title: "Implement the lock-aware managed-write applier emitting a ReconciliationReport"
 short_code: "DGOS-T-0056"
 created_at: 2026-05-25T17:51:51.593671+00:00
-updated_at: 2026-05-25T17:51:51.593671+00:00
+updated_at: 2026-05-25T20:00:08.526171+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Implement `engines/src/installer/applier.ts`: `apply(plan: InstallPlan, port: ManagedWriter): Promise<ReconciliationReport>`. It walks the plan's mutations in deterministic order, delegates each to the appropriate `ManagedWriter` method (DGOS-T-0055), and assembles a `ReconciliationReport`. It enforces: idempotent reruns (already-satisfied → `skipped`, no rewrite), conflict-not-clobber (a managed region edited out from under the recorded baseline → `conflict`, no write), and lock awareness (locked target → `blocked`, never auto-lifted). It is the sole module in the installer that performs filesystem mutation, entirely through the injected port.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,4 +71,12 @@ Implement `engines/src/installer/applier.ts`: `apply(plan: InstallPlan, port: Ma
 
 ## Status Updates
 
-*To be added during implementation.*
+### 2026-05-25
+
+- Implemented `apply(plan, managedWriter): Promise<ReconciliationReport>` in `engines/src/installer/applier.ts` (plus `applyInstallPlan`); `InstallerEngine.apply` delegates to it. Walks mutations in plan order, dispatching only through the `ManagedWriter` port.
+- Enforced the guarantees: locks checked read-only before any write → `blocked`/`lock_blocked` (never auto-lifts); managed-region drift read before writing → `conflict`/`managed_region_drift` with region hash in `detail`, no write; `already_satisfied` → `skipped`, zero writes; dry-run → complete predicted report, no writes, no last-run persistence; counts + `had_conflict` rolled up from outcomes; last-run persisted via `recordLastRun` only after a non-dry-run apply that actually wrote.
+- Tests: schema-valid report (Ajv), file-unchanged-after-conflict, apply-twice byte-identical idempotency, lock→blocked, one-of-each-status counts, dry-run writes nothing, outcomes in plan order; extended `import-boundaries.test.ts` to assert detect/plan/applier IO boundary.
+
+### Orchestrator verification — 2026-05-25
+
+Independently re-verified: engines typecheck/lint (`--max-warnings=0`)/test (13 files, 87 tests)/build clean; `pnpm -r build` green. Confirmed neither `detector.ts` nor `planner.ts` imports any write-capable code (`node:fs`/`fs`/`writeFile`/`ManagedWriter`) — the applier remains the sole IO module. Worker's legacy runs: dev-genie suites (75 tests) and katana (302 tests) green; dev-genie/katana writers delegated to, not modified (no source changes outside `engines/`). Incidental `daimyo/dist/` re-bundle churn reverted before commit. All acceptance criteria met → completed.

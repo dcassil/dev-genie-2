@@ -4,7 +4,7 @@ import type {
   ReconciliationReport,
 } from "protocol";
 
-import { applyInstallPlan } from "./applier.js";
+import { apply as applyInstallPlan } from "./applier.js";
 import { detectRepoState } from "./detector.js";
 import {
   INSTALLER_ENGINE_VERSION,
@@ -207,6 +207,6 @@ export class InstallerEngine implements InstallerEngineContract {
   }
 
   apply(plan: InstallPlan, managedWriter: ManagedWriter): Promise<ReconciliationReport> {
-    return applyInstallPlan(plan, managedWriter, INSTALLER_ENGINE_VERSION);
+    return applyInstallPlan(plan, managedWriter);
   }
 }

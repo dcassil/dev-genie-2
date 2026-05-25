@@ -16,6 +16,7 @@ export {
 } from "./ports.js";
 export {
   RECONCILIATION_REPORT_VERSION,
+  apply,
   applyInstallPlan,
 } from "./applier.js";
 export * from "./adapter/index.js";
@@ -44,7 +45,11 @@ export type {
   TypescriptDetectionReport,
 } from "./engine.js";
 export type {
+  ApplyInstallPlanOptions,
+} from "./applier.js";
+export type {
   FsReadPort,
+  ManagedTargetLock,
   ManagedWriter,
 } from "./ports.js";
 export type {
