@@ -10,6 +10,7 @@ node_modules/
 dist/
 coverage/
 .next/
+.npm-cache/
 
 # Marketplace-distributed PLUGINS commit their self-contained bundled dist/ so
 # the marketplace cache can launch them with no install step; un-ignore each
