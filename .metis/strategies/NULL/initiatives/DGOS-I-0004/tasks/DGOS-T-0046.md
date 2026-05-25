@@ -4,14 +4,14 @@ level: task
 title: "Stop committing shared-library dist by removing protocol/roles/engines/protocol-proof gitignore un-ignores"
 short_code: "DGOS-T-0046"
 created_at: 2026-05-25T16:30:41.582060+00:00
-updated_at: 2026-05-25T16:30:41.582060+00:00
+updated_at: 2026-05-25T16:58:27.020987+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -40,6 +40,10 @@ delete the now-untracked committed `dist/` directories from git, and confirm
 that (a) the workspace can still build them from source on demand and (b) every
 consumer (plugin bundles + tests) builds from source, never from a stale
 committed `dist/`.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -76,4 +80,8 @@ committed `dist/`.
 
 ## Status Updates
 
-*To be added during implementation.*
+### 2026-05-25 — Library dist removed from git (orchestrator-executed; this is a git-tracking change, not a Codex task)
+
+Removed the `protocol`/`roles`/`engines` `dist/` un-ignore lines from root `.gitignore` (rewrote the comment to state: distributed *plugins* commit bundled dist, shared *libraries* do not). `protocol-proof` never had an un-ignore line (its dist was already ignored). `git rm -r --cached protocol/dist roles/dist engines/dist` untracked the committed library dist (files remain on disk as build artifacts, now ignored). **katana + daimyo dist un-ignores preserved** (daimyo's committed-dist handling is DGOS-T-0049's call once it's a registered plugin).
+
+**Verification:** `git check-ignore` confirms protocol/roles/engines/protocol-proof `dist/` are now ignored, daimyo/dist stays un-ignored. Cold `pnpm -r build` + `pnpm -r test` green (libs build from source on demand via the workspace topological order; no consumer depended on committed lib dist). No library has a `marketplace.json` entry, so no marketplace consumer is affected. **exit_criteria_met: true.** Completed.

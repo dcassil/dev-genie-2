@@ -11,19 +11,15 @@ dist/
 coverage/
 .next/
 
-# Plugin build artifacts MUST ship to the marketplace cache, so un-ignore
-# every plugin's dist/ even though `dist/` is ignored above. Add new plugins
-# here as they grow a build step.
+# Marketplace-distributed PLUGINS commit their self-contained bundled dist/ so
+# the marketplace cache can launch them with no install step; un-ignore each
+# plugin's dist/. Shared LIBRARY packages (protocol, roles, engines,
+# protocol-proof) are NOT distributed and are bundled into plugins at build time,
+# so they do NOT commit dist/ (DGOS-T-0046). Add a plugin here when it ships.
 !katana/dist/
 !katana/dist/**
 !daimyo/dist/
 !daimyo/dist/**
-!protocol/dist/
-!protocol/dist/**
-!roles/dist/
-!roles/dist/**
-!engines/dist/
-!engines/dist/**
 
 # Local databases and logs
 *.db
