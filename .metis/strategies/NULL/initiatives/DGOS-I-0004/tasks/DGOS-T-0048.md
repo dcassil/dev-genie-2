@@ -4,14 +4,14 @@ level: task
 title: "Standardize and document the native-dep vs pure-TS plugin launcher pattern"
 short_code: "DGOS-T-0048"
 created_at: 2026-05-25T16:30:44.079607+00:00
-updated_at: 2026-05-25T16:30:44.079607+00:00
+updated_at: 2026-05-25T17:06:59.612380+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -54,6 +54,10 @@ variant for daimyo (consumed by DGOS-T-0049).
 
 ## Acceptance Criteria
 
+## Acceptance Criteria
+
+## Acceptance Criteria
+
 - [ ] A packaging doc (e.g. `docs/plugin-launchers.md` or a section in the repo packaging doc) describes both launcher variants, including: the native-dep variant's probe-and-recover algorithm (mirroring `katana/bin/katana-mcp.js`: `depMissing` → install; `depsLoadable` probe via a child `process.execPath` → on failure `rm -rf node_modules` + reinstall `--omit=dev`), and the bundle-only variant. It states the decision rule verbatim: **native runtime dep present → ensure-and-recover launcher; pure-TS (all deps bundled/pure-JS) → bundle-only launcher.**
 - [ ] The doc explains WHY: native modules (e.g. `better-sqlite3`) cannot be safely bundled by esbuild and are ABI-specific, so they are externalized and installed at first launch under the running Node; pure-JS deps are inlined into the bundle and need no install — consistent with the marketplace "no install step" contract.
 - [ ] katana's launcher is reviewed and confirmed (or minimally refactored) to match the documented native-dep pattern; its `requiredRuntimeDeps` list (currently `["better-sqlite3"]`) is confirmed to match the `--external:` set in katana's build. No behavior regression to katana's launch.
@@ -87,4 +91,18 @@ variant for daimyo (consumed by DGOS-T-0049).
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-25: Added `docs/plugin-launchers.md` documenting the native-dep
+  ensure-and-recover launcher, the bundle-only launcher template, the
+  launcher/bundle externalization contract, and the self-contained `bin/` rule.
+  Reviewed Katana: `katana/bin/katana-mcp.js` uses
+  `requiredRuntimeDeps = ["better-sqlite3"]`, matching
+  `katana/package.json`'s `--external:better-sqlite3`; no Katana behavior change
+  was made.
+- 2026-05-25: Verified Daimyo's current `@anthropic-ai/claude-agent-sdk`
+  dependency is not pure JS/TS for packaging purposes: the workspace lock
+  resolves `^0.3.148` to `0.3.150`, which declares platform-specific optional
+  packages, and the installed Darwin arm64 package contains a `claude` Mach-O
+  executable. DGOS-T-0049 must treat Daimyo as native/binary-dep unless it
+  provides `pathToClaudeCodeExecutable` and proves the optional SDK binary is not
+  needed at marketplace runtime.
+- 2026-05-25 (orchestrator verification): docs-only task — `docs/plugin-launchers.md` added; katana confirmed untouched (no shared helper extracted — launchers stay self-contained/Node-builtins-only, documented as intentional duplication). **Carrying the daimyo-native finding into T-0049: daimyo must use the native-dep launcher branch (claude-agent-sdk ships a `claude` Mach-O binary), NOT bundle-only** — this overrides the earlier "daimyo is pure-TS" assumption from the I-0004 design; I'll update T-0049's prompt accordingly. No escape hatches. **exit_criteria_met: true.** Completed.
