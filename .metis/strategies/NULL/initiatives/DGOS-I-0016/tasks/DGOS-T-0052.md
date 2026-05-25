@@ -4,14 +4,14 @@ level: task
 title: "Scaffold the Installer Engine and detect/plan/apply contract"
 short_code: "DGOS-T-0052"
 created_at: 2026-05-25T17:51:46.990326+00:00
-updated_at: 2026-05-25T17:51:46.990326+00:00
+updated_at: 2026-05-25T18:11:38.349851+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Scaffold the Installer Engine at `engines/src/installer/` inside the existing `engines/` workspace package, mirroring the proven `engines/src/decision-policy/` shape (pure core + isolated IO + adapter subdir + barrel index). Deliver: (1) the `InstallerEngine` interface/class exposing `detect(...)`, `plan(state, desired): InstallPlan` (synchronous, no IO), and `apply(plan, ...): ReconciliationReport`; (2) the in-code domain types `RepoState` and `DesiredState` plus the internal `FsReadPort` and `ManagedWriter` port interfaces (declarations only); (3) Ajv protocol-validation plumbing for the two new artifacts; (4) stub implementations so the package compiles, lints, tests, and builds green. No detection, planning, or write logic is implemented here beyond minimal fall-through stubs that downstream tasks replace.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -68,3 +72,12 @@ Scaffold the Installer Engine at `engines/src/installer/` inside the existing `e
 ## Status Updates
 
 *To be added during implementation.*
+
+### 2026-05-25T18:06:28Z
+
+- Scaffolded `engines/src/installer/` with `engine.ts`, `detector.ts`, `planner.ts`, `applier.ts`, `ports.ts`, `adapter/index.ts`, and `index.ts`; `engines/src/index.ts` re-exports the installer surface.
+- Added separate `FsReadPort` and `ManagedWriter` ports, in-code `RepoState` / `DesiredState` domain types, an `INSTALLER_ENGINE_VERSION` constant, and minimal stub behavior: `plan()` returns an empty-mutations `InstallPlan`; `apply()` returns skipped outcomes.
+- Extended `engines/src/schemas/protocol-schemas.ts` with `InstallPlan` and `ReconciliationReport` schema helpers and added tests for schema resolution, protocol-valid artifacts, and `plan()` synchronous/pure/no-port structure.
+- Bumped `engines` package version to `0.8.0` because the package root now exposes the installer API.
+- Verification passed: `pnpm --filter engines typecheck`, `pnpm --filter engines lint`, `pnpm --filter engines test`, `pnpm --filter engines build`, `pnpm --filter protocol test`, `pnpm --filter protocol build`, and `pnpm -r build`. `engines/` remains library-only; no marketplace or MCP surface was added.
+- 2026-05-25 (orchestrator verification): re-ran engines typecheck/lint/test/build — green (62 tests incl. the plan()-is-synchronous/pure/no-port-access assertion). Installer scaffold present (engine/detector/planner/applier/ports/adapter); separate FsReadPort (read) vs ManagedWriter (write) so write capability is unreachable from detect/plan. Consumes protocol InstallPlan/ReconciliationReport (no redeclaration). engines 0.7.0 → 0.8.0. **Reverted incidental daimyo/dist re-bundle churn** from `pnpm -r build` (protocol 0.6.0 inlining) — daimyo source unchanged; its dist refreshes only on a deliberate daimyo release per the I-0004 model. engines-only. No escape hatches. **exit_criteria_met: true.** Completed.

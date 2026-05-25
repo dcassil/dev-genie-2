@@ -6,7 +6,14 @@ import type { ErrorObject, ValidateFunction } from "ajv";
 import type { FormatsPlugin } from "ajv-formats";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import { resolveProtocolSchemaDir } from "protocol";
-import type { JsonObject, JsonValue, PolicyConfig, PolicyVerdict } from "protocol";
+import type {
+  InstallPlan,
+  JsonObject,
+  JsonValue,
+  PolicyConfig,
+  PolicyVerdict,
+  ReconciliationReport,
+} from "protocol";
 
 interface LoadedSchema {
   readonly artifactType: string;
@@ -27,9 +34,13 @@ for (const loadedSchema of loadedSchemas) {
 
 const policyConfigValidator = validatorFor("PolicyConfig");
 const policyVerdictValidator = validatorFor("PolicyVerdict");
+const installPlanValidator = validatorFor("InstallPlan");
+const reconciliationReportValidator = validatorFor("ReconciliationReport");
 
 export const policyConfigJsonSchema = schemaFor("PolicyConfig");
 export const policyVerdictJsonSchema = schemaFor("PolicyVerdict");
+export const installPlanJsonSchema = schemaFor("InstallPlan");
+export const reconciliationReportJsonSchema = schemaFor("ReconciliationReport");
 
 export function isPolicyConfig(value: unknown): value is PolicyConfig {
   return policyConfigValidator(value);
@@ -39,12 +50,28 @@ export function isPolicyVerdict(value: unknown): value is PolicyVerdict {
   return policyVerdictValidator(value);
 }
 
+export function isInstallPlan(value: unknown): value is InstallPlan {
+  return installPlanValidator(value);
+}
+
+export function isReconciliationReport(value: unknown): value is ReconciliationReport {
+  return reconciliationReportValidator(value);
+}
+
 export function policyConfigValidationErrors(): readonly string[] {
   return formatValidationErrors(policyConfigValidator);
 }
 
 export function policyVerdictValidationErrors(): readonly string[] {
   return formatValidationErrors(policyVerdictValidator);
+}
+
+export function installPlanValidationErrors(): readonly string[] {
+  return formatValidationErrors(installPlanValidator);
+}
+
+export function reconciliationReportValidationErrors(): readonly string[] {
+  return formatValidationErrors(reconciliationReportValidator);
 }
 
 export function validatorFor(artifactType: string): ValidateFunction {
@@ -61,7 +88,9 @@ export function schemaFor(artifactType: string): JsonObject {
 }
 
 function loadedSchemaFor(artifactType: string): LoadedSchema {
-  const loadedSchema = loadedSchemas.find((candidate) => candidate.artifactType === artifactType);
+  const loadedSchema = loadedSchemas.find((candidate) => {
+    return candidate.artifactType === artifactType || schemaNameForFileName(candidate.fileName) === artifactType;
+  });
   if (loadedSchema === undefined) {
     throw new Error(`Protocol schema for ${artifactType} was not found`);
   }
@@ -110,6 +139,10 @@ function artifactTypeForSchema(schema: JsonObject, fileName: string): string {
     return title;
   }
   throw new Error(`Protocol schema ${fileName} must declare title`);
+}
+
+function schemaNameForFileName(fileName: string): string {
+  return fileName.replace(/\.schema\.json$/, "");
 }
 
 function formatValidationErrors(validator: ValidateFunction): readonly string[] {
