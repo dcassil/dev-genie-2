@@ -18,6 +18,7 @@ export {
   RECONCILIATION_REPORT_VERSION,
   applyInstallPlan,
 } from "./applier.js";
+export * from "./adapter/index.js";
 export type {
   AgentConfigDetectionReport,
   AgentConfigLockDeclaration,

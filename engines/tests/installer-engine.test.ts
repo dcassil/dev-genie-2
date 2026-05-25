@@ -6,6 +6,7 @@ import type {
   FsReadPort,
   InstallPlan,
   ManagedWriter,
+  ReconciliationOutcome,
   RepoState,
 } from "../src/index.js";
 import {
@@ -120,16 +121,7 @@ describe("InstallerEngine", () => {
 
   it("emits a protocol-valid all-skipped ReconciliationReport from apply()", async () => {
     const engine = new InstallerEngine();
-    const writer: ManagedWriter = {
-      async applyMutation(mutation) {
-        return {
-          mutation_id: mutation.mutation_id,
-          status: "applied",
-          reason_code: "written",
-          rationale: "Test writer was called.",
-        };
-      },
-    };
+    const writer = noopManagedWriter();
     const plan: InstallPlan = {
       plan_version: "1.0.0",
       engine_version: INSTALLER_ENGINE_VERSION,
@@ -176,6 +168,51 @@ describe("InstallerEngine", () => {
     expect(isReconciliationReport(report)).toBe(true);
   });
 });
+
+function noopManagedWriter(): ManagedWriter {
+  return {
+    async readManagedRegion(request) {
+      return {
+        target_path: request.mutation.target_path,
+        managed_marker: request.mutation.managed_marker ?? "",
+        begin_marker: "",
+        end_marker: "",
+        present: false,
+        content: null,
+      };
+    },
+    async findLock() {
+      return null;
+    },
+    async writeManagedRegion(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+    async writeLayered(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+    async mergeJson(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+    async writeFullFile(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+    async recordLastRun(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+    async delegatePlatformInstall(request) {
+      return appliedOutcome(request.mutation.mutation_id);
+    },
+  };
+}
+
+function appliedOutcome(mutationId: string): ReconciliationOutcome {
+  return {
+    mutation_id: mutationId,
+    status: "applied",
+    reason_code: "written",
+    rationale: "Test writer was called.",
+  };
+}
 
 function repoState(): RepoState {
   return {

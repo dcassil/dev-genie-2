@@ -568,7 +568,7 @@ async function applyFindings({ repoPath, archId, findings, mode }) {
   return { applied, skipped, errors };
 }
 
-module.exports = { applyFindings, applyFinding, writeEslintManagedBlock, parseJsonc, stripJsonc };
+module.exports = { applyFindings, applyFinding, writeEslintManagedBlock, findLockForFinding, parseJsonc, stripJsonc };
 
 // ---------- smoke test --------------------------------------------------
 // node dev-genie/lib/apply-flow.js

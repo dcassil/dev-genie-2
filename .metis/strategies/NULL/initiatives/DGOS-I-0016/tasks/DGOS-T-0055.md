@@ -4,14 +4,14 @@ level: task
 title: "Build the ManagedWriter port and dev-genie/katana write adapters"
 short_code: "DGOS-T-0055"
 created_at: 2026-05-25T17:51:51.380796+00:00
-updated_at: 2026-05-25T17:51:51.380796+00:00
+updated_at: 2026-05-25T19:49:54.923826+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Define the full `ManagedWriter` port contract in `engines/src/installer/ports.ts` and implement adapters in `engines/src/installer/adapter/` that wrap the existing writers, exposing them to the applier through that single port. The adapters **delegate, never duplicate**: dev-genie's fenced-marker writers, eslint-layered writer, `.claude/settings.json` merger, audit reconcile, and plan-store; and katana's platform install via its `PlatformAdapter`. Each adapter maps its underlying writer's outcome onto the unified status taxonomy (`applied | skipped | blocked | conflict`).
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -67,3 +71,11 @@ Define the full `ManagedWriter` port contract in `engines/src/installer/ports.ts
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-25: Implemented the `ManagedWriter` port methods and dev-genie/katana adapters. The dev-genie adapter delegates to the existing agent-config, ESLint layered, Claude settings, audit reconcile, apply-flow dry-run/lock lookup, and plan-store modules; the katana adapter delegates through `getAdapter(platformId).install(opts)` and maps file actions onto `applied|skipped` outcomes. Added adapter unit coverage for delegation, dry-run, blocked locks, current managed-region exposure, and katana action/warning mapping. Thin dev-genie wrapper/export was needed only for `findLockForFinding` from `apply-flow.js`; bumped dev-genie `0.3.1 -> 0.3.2` in both manifests. Verification: `pnpm --filter engines typecheck`, `lint`, `test` (80 tests), `build`; `pnpm -r build`; `node --test dev-genie/lib/*.test.mjs` (54 tests); `pnpm exec vitest run` in `katana/` (302 tests) after rebuilding katana's stale local `better-sqlite3` native module for the current Node ABI.
+
+### Orchestrator verification — 2026-05-25
+
+Independently re-verified: engines typecheck/lint (`--max-warnings=0`)/test (80 tests)/build clean; `pnpm -r build` green. Confirmed the dev-genie change is purely additive — `findLockForFinding` was already defined at `apply-flow.js:333`; the only edit adds it to the existing `module.exports` list (no writer body copied or altered). dev-genie version bumped `0.3.1 → 0.3.2` in both `dev-genie/package.json` and `dev-genie/.claude-plugin/plugin.json` per repo rule (dev-genie has no build/dist step — launched self-contained from source). Adapters delegate, never duplicate. Incidental `daimyo/dist/` re-bundle churn reverted before commit. All acceptance criteria met → completed.
+
+**Note for end-of-turn summary:** dev-genie bumped to 0.3.2 → consumers should `/plugin update dev-genie`.
