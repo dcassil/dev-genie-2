@@ -38,3 +38,7 @@ export {
   type KatanaPlatformWriterOptions,
   type KatanaWrittenFile,
 } from "./katana-platform.js";
+export {
+  NodeManagedWriterAdapter,
+  type NodeManagedWriterAdapterOptions,
+} from "./node-managed-writer.js";

@@ -4,14 +4,14 @@ level: task
 title: "Fixture-suite coverage and the bootstrap consumable seam"
 short_code: "DGOS-T-0057"
 created_at: 2026-05-25T17:51:52.641714+00:00
-updated_at: 2026-05-25T17:51:52.641714+00:00
+updated_at: 2026-05-25T20:07:32.971487+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Deliver (1) an end-to-end fixture suite exercising the full detect → plan → apply → report flow against temp-dir repos for the five scenarios the initiative requires, and (2) the stable, documented Engine export surface plus a consumer-perspective seam test proving bootstrap can call `detect`/`plan`/`apply` and sequence on the typed `ReconciliationReport`. No bootstrap workflow, autonomy handshake, or phase sequencing is built here (those are I-0012); only the consumable contract is delivered and proven.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -66,3 +70,9 @@ Deliver (1) an end-to-end fixture suite exercising the full detect → plan → 
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-25: Added temp-dir end-to-end installer fixture coverage for greenfield, existing adoption, idempotent rerun, managed-region conflict, and already-satisfied skip. Added public node managed-writer facade, package-entry seam coverage, and installer README consumer pattern. Verified `pnpm -r build`, `pnpm -r test`, focused engines typecheck/lint/test/build, `node --test dev-genie/lib/*.test.mjs`, and katana `npx vitest run`.
+
+### Orchestrator verification — 2026-05-25
+
+Independently re-verified: engines typecheck/lint (`--max-warnings=0`)/test (14 files, 94 tests)/build clean; `pnpm -r test` green across all five workspace packages (protocol, daimyo, roles, engines, protocol-proof); `pnpm -r build` green. Worker's legacy runs: dev-genie (54 tests) and katana (302 tests) green. Five fixture scenarios use the real `NodeFsReadPort` + `NodeManagedWriterAdapter` and validate `InstallPlan`/`ReconciliationReport` via the protocol Ajv schemas; bootstrap-seam test imports only from the package entry and branches on `report.had_conflict`/`report.counts`; README states the Engine-ships-contract / bootstrap-owns-sequencing boundary. No version bumps this task (`engines` stays 0.8.0; dev-genie 0.3.2 from T-0055). Incidental `daimyo/dist/` churn reverted before commit. All acceptance criteria met → completed. **This closes DGOS-I-0016.**

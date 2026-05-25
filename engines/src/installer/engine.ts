@@ -4,7 +4,8 @@ import type {
   ReconciliationReport,
 } from "protocol";
 
-import { apply as applyInstallPlan } from "./applier.js";
+import { applyInstallPlan } from "./applier.js";
+import type { ApplyInstallPlanOptions } from "./applier.js";
 import { detectRepoState } from "./detector.js";
 import {
   INSTALLER_ENGINE_VERSION,
@@ -194,7 +195,7 @@ export interface DetectRepoStateOptions {
 export interface InstallerEngineContract {
   detect(readPort: FsReadPort, options?: DetectRepoStateOptions): Promise<RepoState>;
   plan(state: RepoState, desired: DesiredState): InstallPlan;
-  apply(plan: InstallPlan, managedWriter: ManagedWriter): Promise<ReconciliationReport>;
+  apply(plan: InstallPlan, managedWriter: ManagedWriter, options?: ApplyInstallPlanOptions): Promise<ReconciliationReport>;
 }
 
 export class InstallerEngine implements InstallerEngineContract {
@@ -206,7 +207,11 @@ export class InstallerEngine implements InstallerEngineContract {
     return planInstall(state, desired);
   }
 
-  apply(plan: InstallPlan, managedWriter: ManagedWriter): Promise<ReconciliationReport> {
-    return applyInstallPlan(plan, managedWriter);
+  apply(
+    plan: InstallPlan,
+    managedWriter: ManagedWriter,
+    options: ApplyInstallPlanOptions = {},
+  ): Promise<ReconciliationReport> {
+    return applyInstallPlan(plan, managedWriter, options);
   }
 }
