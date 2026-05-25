@@ -1,3 +1,6 @@
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
+
 export type {
   AllowedEngine,
   AllowedTool,
@@ -96,3 +99,10 @@ export type {
   ValidationReportPayload,
   ValidationStatus,
 } from "./generated/artifacts.js";
+
+const require = createRequire(import.meta.url);
+
+export function resolveProtocolSchemaDir(): string {
+  const packageJsonPath = require.resolve("protocol/package.json");
+  return resolve(dirname(packageJsonPath), "schemas");
+}

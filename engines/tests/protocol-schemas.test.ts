@@ -13,7 +13,7 @@ import {
 } from "../src/index.js";
 
 describe("protocol schema loader", () => {
-  it("resolves sibling protocol schemas from the engines package context", () => {
+  it("resolves protocol schemas through the protocol package", () => {
     expect(schemaFor("PolicyVerdict")).toBe(policyVerdictJsonSchema);
     expect(schemaFor("PolicyConfig")).toBe(policyConfigJsonSchema);
     expect(validatorFor("PolicyVerdict")).toBeTypeOf("function");

@@ -8,7 +8,9 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.mjs"
-    }
+    },
+    "./package.json": "./package.json",
+    "./schemas/*": "./schemas/*"
   },
   "files": [
     "dist",

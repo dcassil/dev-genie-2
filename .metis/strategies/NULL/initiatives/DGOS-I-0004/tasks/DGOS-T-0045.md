@@ -4,14 +4,14 @@ level: task
 title: "Establish the root pnpm workspace over the five new TS packages and convert file: deps to workspace:*"
 short_code: "DGOS-T-0045"
 created_at: 2026-05-25T16:30:40.014765+00:00
-updated_at: 2026-05-25T16:30:40.014765+00:00
+updated_at: 2026-05-25T16:55:49.934083+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -43,6 +43,10 @@ workspace-wide build/test/lint command set with a correct topological build
 order (protocol → daimyo → {roles, engines, protocol-proof}). The legacy plugins
 (`katana`, `dev-genie`, `guardrails`, `audit`) are explicitly NOT part of the
 workspace and must keep working exactly as today.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -85,4 +89,32 @@ workspace and must keep working exactly as today.
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-25 — Established the root pnpm workspace with explicit members only:
+  `protocol`, `daimyo`, `roles`, `engines`, `protocol-proof`. Root scripts are
+  `pnpm -r build`, `pnpm -r test`, `pnpm -r lint`, and `pnpm -r typecheck`;
+  filtered package/dependency-closure form is `pnpm --filter <package>... build`
+  (for example `pnpm --filter daimyo... build` or `pnpm --filter roles... test`).
+  Turborepo was evaluated and deferred because `pnpm -r`/`--filter` gives the
+  required ordered workspace execution without another dependency.
+- 2026-05-25 — Converted internal `file:../...` dependencies to `workspace:*`
+  and confirmed `daimyo` has no `roles` dependency. Root `pnpm install` produced
+  a single root `pnpm-lock.yaml`; stale npm lockfiles for the five workspace
+  members were removed. `pnpm -r list --depth -1` shows only the root plus the
+  five intended packages, and each consumer resolves `protocol/package.json` to
+  `/Users/danielcassil/Code/dev-genie/protocol/package.json` through pnpm's
+  workspace link.
+- 2026-05-25 — Replaced roles/engines/protocol-proof sibling
+  `../protocol/schemas` walks with protocol-owned schema resolution via
+  `resolveProtocolSchemaDir()`. The resolver is exported by `protocol`, with
+  schemas and `package.json` exposed through package exports.
+- 2026-05-25 — Verification passed under pnpm 10.33.1: `pnpm -r typecheck`,
+  `pnpm -r lint`, `pnpm -r test`, and a cold `dist` clean followed by
+  `pnpm -r build`. Protocol schema/codegen/compat gates passed; roles, engines,
+  and protocol-proof Ajv schema-loader tests passed under the pnpm workspace.
+- 2026-05-25 — Legacy plugins stayed outside the workspace and had no file
+  changes. Verified `katana` with `npm run build`, `audit` with
+  `node --test scripts/*.test.mjs scripts/lib/*.test.mjs`, `guardrails` with
+  `node --test scripts/*.test.mjs`, and `dev-genie` with JS syntax checks plus
+  manifest/package JSON parsing. Committed-dist removal remains deferred to
+  DGOS-T-0046.
+- 2026-05-25 (orchestrator verification): independently confirmed under pnpm 10.33.1 — `pnpm-workspace.yaml` covers exactly the 5 packages; all internal deps `workspace:*` (daimyo→protocol only, cycle stays broken); 5 npm locks removed + single root `pnpm-lock.yaml`; legacy plugins (katana/dev-genie/guardrails/audit) have zero git changes. Re-ran `pnpm -r typecheck` (clean) + `pnpm -r test` — all five green: protocol 76, daimyo 68/5, protocol-proof 7, engines 58, roles 34. Schema-loader fix verified (roles/engines/protocol-proof Ajv tests pass via `resolveProtocolSchemaDir()` through package exports, not sibling walk). Tree fully migrated, not half. (`.npmrc ${GITHUB_TOKEN}` warning is a pre-existing user-env nit, harmless.) No escape hatches. **exit_criteria_met: true.** Completed.

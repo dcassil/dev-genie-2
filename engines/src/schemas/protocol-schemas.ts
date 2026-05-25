@@ -1,11 +1,11 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import type { ErrorObject, ValidateFunction } from "ajv";
 import type { FormatsPlugin } from "ajv-formats";
 import { Ajv2020 } from "ajv/dist/2020.js";
+import { resolveProtocolSchemaDir } from "protocol";
 import type { JsonObject, JsonValue, PolicyConfig, PolicyVerdict } from "protocol";
 
 interface LoadedSchema {
@@ -69,7 +69,7 @@ function loadedSchemaFor(artifactType: string): LoadedSchema {
 }
 
 function loadProtocolSchemas(): readonly LoadedSchema[] {
-  const schemaDir = findProtocolSchemaDir();
+  const schemaDir = resolveProtocolSchemaDir();
   return readdirSync(schemaDir)
     .filter((entry) => entry.endsWith(".schema.json"))
     .sort()
@@ -82,19 +82,6 @@ function loadProtocolSchemas(): readonly LoadedSchema[] {
         id: schemaId(schema, fileName),
       };
     });
-}
-
-function findProtocolSchemaDir(): string {
-  const candidates = [
-    fileURLToPath(new URL("../../../protocol/schemas", import.meta.url)),
-    fileURLToPath(new URL("../../protocol/schemas", import.meta.url)),
-    resolve(process.cwd(), "../protocol/schemas"),
-  ];
-  const schemaDir = candidates.find((candidate) => existsSync(candidate));
-  if (schemaDir === undefined) {
-    throw new Error("Unable to locate sibling protocol/schemas directory");
-  }
-  return schemaDir;
 }
 
 function readJsonObject(filePath: string): JsonObject {

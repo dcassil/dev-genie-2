@@ -15,6 +15,19 @@ Metis workspace (`.metis/`) is the current strategic source of truth.
 - `audit/` - deterministic quality scanning, composite scores, baselines, and
   regression-blocking hooks.
 
+## TypeScript Workspace
+
+The repo root owns a pnpm workspace for the five new TypeScript packages only:
+`protocol/`, `daimyo/`, `roles/`, `engines/`, and `protocol-proof/`. Legacy
+plugins (`katana/`, `dev-genie/`, `guardrails/`, `audit/`) stay outside this
+workspace and keep their existing package-manager flow.
+
+Internal dependencies among the five workspace packages use `workspace:*`.
+Install from the repo root with `pnpm install`, then run workspace-wide checks
+with `pnpm -r build`, `pnpm -r test`, `pnpm -r lint`, and
+`pnpm -r typecheck`. For a package and its dependency closure, use filters such
+as `pnpm --filter roles... build` or `pnpm --filter daimyo... test`.
+
 ## Preserved Legacy State
 
 - `katana/.metis.legacy-katana/` preserves the previous Katana vision.
