@@ -1,5 +1,10 @@
 .DS_Store
 
+# Secrets / local env — never commit
+.env
+.env.local
+.env.*.local
+
 # Dependencies and builds
 node_modules/
 dist/
