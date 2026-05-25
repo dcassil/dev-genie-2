@@ -103,7 +103,24 @@ function extractAnthropicText<T>(
       `Anthropic message response did not contain text for ${output.name}`,
     );
   }
-  return text;
+  return stripCodeFence(text);
+}
+
+/**
+ * Strip a Markdown code fence wrapping the model's JSON. The system prompt asks
+ * for fence-free output, but live models intermittently wrap structured output
+ * in ```json … ``` regardless; without this the subsequent strict JSON.parse
+ * fails. Handles a leading fence with an optional language tag and a trailing
+ * closing fence; leaves unfenced text untouched.
+ */
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("```")) {
+    return trimmed;
+  }
+  const withoutOpen = trimmed.replace(/^```[^\n]*\n?/, "");
+  const withoutClose = withoutOpen.replace(/\n?```\s*$/, "");
+  return withoutClose.trim();
 }
 
 function isAnthropicTextBlock(value: JsonValue): value is AnthropicTextBlock {
