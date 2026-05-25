@@ -50,6 +50,7 @@ async function main(): Promise<void> {
           ? {}
           : { endpoint: process.env.DAIMYO_MODEL_ENDPOINT }),
         maxTokens: 4000,
+        timeoutMs: Number(process.env.ROLES_LIVE_TIMEOUT_MS ?? "120000"),
       }),
     });
     await writeJson("role-invocation.json", flow.invocation);
