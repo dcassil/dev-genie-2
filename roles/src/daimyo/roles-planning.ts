@@ -2,10 +2,12 @@ import { createHash } from "node:crypto";
 import {
   PLANNER_ROLE_ID,
   PLANNER_ROLE_VERSION,
+} from "../prompts/planner-role.js";
+import {
   PlannerRoleRunner,
   plannerRoleDefinition,
-  type StructuredModelCaller as RolesStructuredModelCaller,
-} from "roles";
+} from "../roles/planner.js";
+import type { StructuredModelCaller as RolesStructuredModelCaller } from "../runner/structured-model.js";
 import type {
   ArtifactReference,
   Confidence,
@@ -17,15 +19,14 @@ import type {
   RoleDecisionScope,
   RoleInvocation,
 } from "protocol";
-
-import type { DecisionRequest } from "../core/domain.js";
 import type {
+  DecisionRequest,
+  DecisionScope,
   PlannedTask,
   PlanningRequest,
   PlanningResult,
   RolesPlanning,
-} from "../core/ports/capabilities.js";
-import type { DecisionScope } from "../decision/autonomy.js";
+} from "daimyo";
 
 const ROLE_INVOCATION_SCHEMA_VERSION = "1.0.0";
 const PLAN_PROPOSAL_SCHEMA_VERSION = "1.0.0";
@@ -111,6 +112,10 @@ export class RolesPlanningAdapter implements RolesPlanning {
       decisions,
     };
   }
+}
+
+export function createRolesPlanning(options: RolesPlanningAdapterOptions): RolesPlanning {
+  return new RolesPlanningAdapter(options);
 }
 
 function roleInvocationFor(

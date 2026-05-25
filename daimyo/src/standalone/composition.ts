@@ -2,9 +2,13 @@ import { dirname, extname, resolve } from "node:path";
 import { ClaudeSdkAgentTransport } from "../adapters/claude-sdk-agent-transport.js";
 import { JsonWorkSource } from "../adapters/json-work-source.js";
 import { MarkdownChecklistWorkSource } from "../adapters/markdown-checklist-work-source.js";
-import { RolesPlanningAdapter } from "../adapters/roles-planning.js";
 import type { AgentTransport } from "../core/ports/agent-transport.js";
-import type { RolesPlanning, Validation } from "../core/ports/capabilities.js";
+import type {
+  PlanningRequest,
+  PlanningResult,
+  RolesPlanning,
+  Validation,
+} from "../core/ports/capabilities.js";
 import type { DecisionProvider } from "../core/ports/decision-provider.js";
 import type { WorkSource } from "../core/ports/work-source.js";
 import { JsonlExecutionStore } from "../core/jsonl-execution-store.js";
@@ -84,11 +88,7 @@ export function createStandaloneDaimyo(options: StandaloneDaimyoOptions): Standa
       executionStore,
       modelClient,
     });
-  const rolesPlanning =
-    options.rolesPlanning ??
-    new RolesPlanningAdapter({
-      modelClient,
-    });
+  const rolesPlanning = options.rolesPlanning ?? new NoRolesPlanning();
   const autonomyProfile = options.autonomyProfile ?? DEFAULT_AUTONOMY_PROFILE;
   const decisionProvider =
     options.decisionProvider ??
@@ -171,5 +171,14 @@ class UnavailableModelClient implements DecisionModelClient, StructuredModelCall
     throw new Error(
       `Structured model call unavailable. Set ${this.envName} or inject a modelClient.`,
     );
+  }
+}
+
+class NoRolesPlanning implements RolesPlanning {
+  async plan(_request: PlanningRequest): Promise<PlanningResult> {
+    return {
+      tasks: [],
+      decisions: [],
+    };
   }
 }

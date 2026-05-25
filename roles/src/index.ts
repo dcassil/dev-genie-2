@@ -105,6 +105,12 @@ export type {
 } from "./runner/structured-model.js";
 
 export {
+  createRolesPlanning,
+  RolesPlanningAdapter,
+} from "./daimyo/roles-planning.js";
+export type { RolesPlanningAdapterOptions } from "./daimyo/roles-planning.js";
+
+export {
   ROLE_INVOKE_EXIT_CODES,
   createDefaultRoleRegistry,
   exitCodeForRoleResult,

@@ -2,12 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { StructuredModelRequest as RolesStructuredModelRequest } from "roles";
 import {
   asNodeId,
   asTaskId,
   JsonlExecutionStore,
-  RolesPlanningAdapter,
   TieredDecisionProvider,
   type AutonomyProfile,
   type DecisionRecord,
@@ -17,6 +15,11 @@ import {
   type JsonObject,
   type StructuredModelInput,
   type StructuredModelRequest,
+} from "daimyo";
+import {
+  createRolesPlanning,
+  RolesPlanningAdapter,
+  type StructuredModelRequest as RolesStructuredModelRequest,
 } from "../../src/index.js";
 
 const tempDirs: string[] = [];
@@ -29,7 +32,7 @@ afterEach(async () => {
 describe("RolesPlanningAdapter", () => {
   it("maps Planner PlanProposal tasks and decisions into daimyo planning results", async () => {
     const planner = new FakePlannerModel(planProposal({ reviewRequired: false, includeDecision: true }));
-    const adapter = new RolesPlanningAdapter({
+    const adapter = createRolesPlanning({
       modelClient: planner,
       now: fixedDate,
     });

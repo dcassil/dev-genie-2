@@ -159,6 +159,22 @@ describe("standalone composition root", () => {
 
     expect(daimyo.rolesPlanning).toBe(rolesPlanning);
   });
+
+  it("uses a Roles-agnostic no-planner default when RolesPlanning is not injected", async () => {
+    const model = new FakeModelClient(verdict("decision", "option-b", 8, 3));
+    const daimyo = createStandaloneDaimyo({
+      workSource: new FakeWorkSource([]),
+      agentTransport: new FakeAgentTransport([]),
+      validation: new PassingValidation(),
+      modelClient: model,
+    });
+
+    await expect(daimyo.rolesPlanning.plan({ goal: "Plan without roles" })).resolves.toEqual({
+      tasks: [],
+      decisions: [],
+    });
+    expect(model.inputs).toEqual([]);
+  });
 });
 
 class PassingValidation implements Validation {

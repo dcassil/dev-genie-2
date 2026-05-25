@@ -4,14 +4,14 @@ level: task
 title: "Break the daimyo↔roles circular dependency by moving the Roles-backed planning default into roles"
 short_code: "DGOS-T-0044"
 created_at: 2026-05-25T16:29:48.058778+00:00
-updated_at: 2026-05-25T16:29:48.058778+00:00
+updated_at: 2026-05-25T16:45:37.300427+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -44,6 +44,10 @@ cycle is created), exposed as a roles-side composition helper. daimyo's
 standalone composition keeps the `RolesPlanning` *port* and its
 injection seam, but its built-in default becomes Roles-agnostic per ADR-5
 ("Roles (planning) — Optional"). daimyo's `package.json` drops `roles`.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -85,4 +89,19 @@ injection seam, but its built-in default becomes Roles-agnostic per ADR-5
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-25: Implemented the ADR-5 boundary fix. Moved the Roles-backed
+  `RolesPlanning` adapter and equivalent tests from `daimyo` into `roles`, exported
+  `createRolesPlanning` from `roles`, and removed `daimyo`'s hard `roles`
+  dependency/import/export. Per ADR-5's "Roles (planning) — Optional" row,
+  `createStandaloneDaimyo` now uses a Roles-agnostic no-planner default that returns
+  an empty plan when `rolesPlanning` is not injected; the CLI still runs from the
+  WorkSource plan without importing `roles`. Versions bumped: `daimyo` 0.13.1 →
+  0.14.0 for the changed public default, `roles` 0.6.0 → 0.7.0 for the new
+  roles-side adapter/helper export. Verification green: `daimyo` typecheck/lint/test
+  (68 passed, 5 skipped live)/build; `roles` typecheck/lint/test (34 passed)/build.
+  Boundary checks: `daimyo/package.json` and lock no longer mention `roles`;
+  `grep -r 'from "roles"' daimyo/src` returns no matches; `grep -rn roles daimyo/src`
+  only reports the daimyo-owned `rolesPlanning` port seam; manual package graph shows
+  `daimyo → protocol`, `roles → daimyo, protocol`, so the `daimyo ↔ roles` cycle is
+  gone (`daimyo !→ roles`, `roles → daimyo` only between the two packages).
+- 2026-05-25 (orchestrator verification): re-ran daimyo (68/5) + roles (34) + engines (58) — all green. Confirmed daimyo deps = {claude-agent-sdk, mcp-sdk, protocol} (no roles); `daimyo/src` has zero `from "roles"`; roles deps = {ajv, ajv-formats, daimyo, protocol} → one-way. The relocated test moved (not weakened): daimyo 69→68, roles 32→34. Bonus: removed the stale `roles/src/types/daimyo.d.ts` hand-shim (the T-0022 minor debt) — roles now consumes daimyo's real package-entry types (emitted since T-0037). daimyo 0.13.1→0.14.0, roles 0.6.0→0.7.0. No escape hatches. **exit_criteria_met: true.** Completed.
