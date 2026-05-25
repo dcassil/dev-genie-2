@@ -24,6 +24,11 @@
       "name": "katana",
       "source": "./katana",
       "description": "Repo-native workflow kernel: product docs, epics, stories, two-pass tasks, gates, MCP tools, board state, platform adapters, orchestration, context loading, and execution loops."
+    },
+    {
+      "name": "daimyo",
+      "source": "./daimyo",
+      "description": "Out-of-process deterministic supervisor substrate for recursive govern-verify loops. Provides the Daimyo MCP server and core port contracts for agent transport, work sources, and decision routing."
     }
   ]
 }

@@ -4,14 +4,14 @@ level: task
 title: "Register daimyo as a marketplace plugin with a self-contained bundled dist and launcher"
 short_code: "DGOS-T-0049"
 created_at: 2026-05-25T16:30:45.783394+00:00
-updated_at: 2026-05-25T16:30:45.783394+00:00
+updated_at: 2026-05-25T17:28:20.227822+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -41,6 +41,10 @@ post-cycle-break, nothing from `roles` — inlined), give it the correct
 committed-`dist/` un-ignore lines to `.gitignore`, and bump its version. The
 result: a teammate who installs/updates the daimyo plugin from `main` gets a
 working MCP server with no install step.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -80,4 +84,15 @@ working MCP server with no install step.
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-25: Registered `daimyo` in the root marketplace, preserving the
+  existing dev-genie/guardrails/audit/katana entries. Treated Daimyo as a
+  native/binary runtime-dep plugin per the corrected launcher guidance:
+  `bin/daimyo-mcp.js` manages `@anthropic-ai/claude-agent-sdk` and the release
+  bundle externalizes that dependency. Ran `pnpm release:plugin -- daimyo
+  --bump minor`, bumping `daimyo` from `0.14.1` to `0.15.0`; tracked `dist/`
+  was already deterministic. Verification passed: JSON manifest checks,
+  no bare workspace/roles imports in runtime bundles, Daimyo scratch MCP
+  initialize with first-run SDK install, Katana scratch MCP initialize, Daimyo
+  suite, five-package workspace typecheck/lint/test/build, and release-script
+  tests.
+- 2026-05-25 (orchestrator verification): marketplace.json valid, lists 5 plugins (dev-genie/guardrails/audit/katana + new daimyo, source ./daimyo); 4 legacy entries intact. daimyo package.json + plugin.json both **0.15.0 (lockstep confirmed)**; package.json diff is the version line only. daimyo registered as a native-dep plugin (claude-agent-sdk externalized + launcher-installed). Scratch self-contained MCP launch verified. No escape hatches. **exit_criteria_met: true.** Completed. (Consumer note: `/plugin install daimyo` or `/plugin update daimyo` after push.)
