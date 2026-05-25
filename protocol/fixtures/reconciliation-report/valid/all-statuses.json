@@ -1,0 +1,48 @@
+{
+  "report_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "existing",
+  "had_conflict": true,
+  "counts": {
+    "applied": 1,
+    "skipped": 1,
+    "blocked": 1,
+    "conflict": 1
+  },
+  "outcomes": [
+    {
+      "mutation_id": "claude-settings-hooks:create",
+      "status": "applied",
+      "reason_code": "written",
+      "rationale": "Claude settings were merged successfully.",
+      "detail": {
+        "target_path": ".claude/settings.json"
+      }
+    },
+    {
+      "mutation_id": "agent-config:guardrails:skip",
+      "status": "skipped",
+      "reason_code": "already_satisfied",
+      "rationale": "The managed guardrails region already matched the desired content."
+    },
+    {
+      "mutation_id": "agent-config:locked",
+      "status": "blocked",
+      "reason_code": "lock_blocked",
+      "rationale": "An agent-config lock prevented the managed write.",
+      "detail": {
+        "lock_source_line": 42
+      }
+    },
+    {
+      "mutation_id": "eslint-layered:update",
+      "status": "conflict",
+      "reason_code": "managed_region_drift",
+      "rationale": "The managed region changed since the recorded baseline and was not overwritten.",
+      "detail": {
+        "expected_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "actual_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    }
+  ]
+}

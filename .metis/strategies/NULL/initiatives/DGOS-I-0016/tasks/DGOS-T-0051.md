@@ -4,14 +4,14 @@ level: task
 title: "Author InstallPlan + ReconciliationReport protocol schemas"
 short_code: "DGOS-T-0051"
 created_at: 2026-05-25T17:50:59.829732+00:00
-updated_at: 2026-05-25T17:50:59.829732+00:00
+updated_at: 2026-05-25T18:02:37.461099+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Add two new JSON Schemas to `protocol/schemas/` as the source of truth for the Installer Engine's typed I/O — `install-plan.schema.json` (the deterministic output of `plan()`) and `reconciliation-report.schema.json` (the structured output of `apply()`) — following the exact pattern used to add `policy-verdict`/`policy-config` (standalone Engine I/O contracts, not envelope `allOf` payloads). Regenerate the protocol TypeScript bindings, add valid + invalid fixtures, add compatibility baseline entries, and minor-bump the protocol version. No engine logic is written here — this task delivers only the typed wire contracts and their codegen/test/compat substrate.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -70,3 +74,6 @@ Add two new JSON Schemas to `protocol/schemas/` as the source of truth for the I
 ## Status Updates
 
 *To be added during implementation.*
+
+- 2026-05-25: Added standalone `InstallPlan` and `ReconciliationReport` protocol schemas, fixtures, compatibility baseline snapshots, regenerated TypeScript bindings, and exported the generated types from the protocol entrypoint. Minor-bumped `protocol/package.json` from `0.5.0` to `0.6.0` and protocol compatibility metadata from `1.4.0` to `1.5.0`; no protocol `.claude-plugin/plugin.json` exists to bump.
+- 2026-05-25 (orchestrator verification): re-ran the unified protocol gate — green (86 tests; check:codegen clean; check:compatibility additive — "17 schemas, 2 added"). InstallPlan (pure plan() output: deterministic create/update/skip mutations + reasons) and ReconciliationReport (apply() output: per-mutation applied|skipped|blocked|conflict reusing the validation-report/policy-verdict status vocab) are standalone Engine I/O contracts with closed enums + valid/invalid fixtures. protocol-only (no engines change). protocol 0.5.0 → 0.6.0. No escape hatches. **exit_criteria_met: true.** Completed.

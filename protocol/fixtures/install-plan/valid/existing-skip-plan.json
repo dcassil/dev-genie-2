@@ -1,0 +1,29 @@
+{
+  "plan_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "existing",
+  "mutations": [
+    {
+      "mutation_id": "agent-config:guardrails:skip",
+      "target": "agent-config-guardrails",
+      "target_path": "AGENTS.md",
+      "action": "skip",
+      "write_strategy": "managed_region",
+      "managed_marker": "<!-- dev-genie:guardrails:begin/end -->",
+      "reason_code": "already_satisfied",
+      "rationale": "The managed guardrails region already matches the desired content.",
+      "source_writer": "dev-genie:agent-config"
+    },
+    {
+      "mutation_id": "eslint-layered:update",
+      "target": "eslint-managed-layer",
+      "target_path": "eslint.config.mjs",
+      "action": "update",
+      "write_strategy": "layered",
+      "managed_marker": null,
+      "reason_code": "stale",
+      "rationale": "The existing layered ESLint configuration is present but stale.",
+      "source_writer": "dev-genie:eslint-layered"
+    }
+  ]
+}

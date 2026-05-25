@@ -785,6 +785,96 @@ export interface TouchReport {
    */
   touched_workflow_steps: string[];
 }
+// Source: schemas/install-plan.schema.json
+/**
+ * Installer classification of the target repository state.
+ *
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "repoClassification".
+ */
+export type InstallerRepoClassification = "greenfield" | "existing";
+/**
+ * Planned mutation action.
+ *
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "installPlanAction".
+ */
+export type InstallPlanAction = "create" | "update" | "skip";
+/**
+ * Managed write strategy the applier should use for this target.
+ *
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "installWriteStrategy".
+ */
+export type InstallWriteStrategy = "managed_region" | "layered" | "json_merge" | "full_file" | "delegated";
+/**
+ * Closed lower_snake_case reason code for why this mutation was planned.
+ *
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "installPlanReasonCode".
+ */
+export type InstallPlanReasonCode = "missing" | "stale" | "already_satisfied" | "conflicting" | "locked";
+/**
+ * Existing writer or adapter responsible for carrying out this mutation.
+ *
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "installSourceWriter".
+ */
+export type InstallSourceWriter =
+  | "dev-genie:agent-config"
+  | "dev-genie:eslint-layered"
+  | "dev-genie:claude-settings"
+  | "dev-genie:audit"
+  | "katana:platform";
+
+/**
+ * Deterministic Installer Engine plan output returned by plan(state, desired). It describes the ordered managed mutations the applier may execute.
+ */
+export interface InstallPlan {
+  /**
+   * REQUIRED string. Semantic version of the InstallPlan contract emitted by the planner.
+   */
+  plan_version: string;
+  /**
+   * REQUIRED string. Installer Engine implementation version that produced this plan.
+   */
+  engine_version: string;
+  repo_classification: InstallerRepoClassification;
+  /**
+   * REQUIRED array. Deterministically ordered managed mutations to create, update, or skip.
+   */
+  mutations: InstallPlanMutation[];
+}
+/**
+ * This interface was referenced by `InstallPlan`'s JSON-Schema
+ * via the `definition` "installPlanMutation".
+ */
+export interface InstallPlanMutation {
+  /**
+   * REQUIRED string. Stable deterministic identifier for this planned mutation.
+   */
+  mutation_id: string;
+  /**
+   * REQUIRED string. Logical target id for the managed configuration or delegated install surface.
+   */
+  target: string;
+  /**
+   * REQUIRED string. Workspace-relative path targeted by this mutation.
+   */
+  target_path: string;
+  action: InstallPlanAction;
+  write_strategy: InstallWriteStrategy;
+  /**
+   * REQUIRED string or null. Managed-region marker or sentinel governing this target when one applies.
+   */
+  managed_marker: string | null;
+  reason_code: InstallPlanReasonCode;
+  /**
+   * REQUIRED string. Human-readable deterministic rationale for the planned action.
+   */
+  rationale: string;
+  source_writer: InstallSourceWriter;
+}
 // Source: schemas/plan-proposal.schema.json
 /**
  * Envelope-composed Planner Role artifact. The payload is shaped to project onto daimyo's RolesPlanning PlanningResult with snake_case wire fields and no prose parsing.
@@ -994,6 +1084,107 @@ export interface PolicyVerdict {
    * REQUIRED string. Decision Policy Engine implementation version.
    */
   engine_version: string;
+}
+/**
+ * Non-negative integer count.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "nonNegativeInteger".
+ */
+export type NonNegativeInteger = number;
+/**
+ * Apply outcome status using the installer conflict taxonomy.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "reconciliationStatus".
+ */
+export type ReconciliationStatus = "applied" | "skipped" | "blocked" | "conflict";
+/**
+ * Closed lower_snake_case reason code for why this outcome occurred.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "reconciliationReasonCode".
+ */
+export type ReconciliationReasonCode =
+  | "already_satisfied"
+  | "written"
+  | "lock_blocked"
+  | "managed_region_drift"
+  | "delegated_skip";
+/**
+ * Structured JSON value.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "jsonValue".
+ */
+export type ReconciliationJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ReconciliationJsonValue[]
+  | ReconciliationDetail;
+
+/**
+ * Structured Installer Engine apply() output describing the per-mutation result of applying an InstallPlan.
+ */
+export interface ReconciliationReport {
+  /**
+   * REQUIRED string. Semantic version of the ReconciliationReport contract emitted by apply().
+   */
+  report_version: string;
+  /**
+   * REQUIRED string. Installer Engine implementation version that produced this report.
+   */
+  engine_version: string;
+  repo_classification: InstallerRepoClassification;
+  /**
+   * REQUIRED boolean. True when any outcome has conflict status.
+   */
+  had_conflict: boolean;
+  counts: ReconciliationCounts;
+  /**
+   * REQUIRED array. Deterministically ordered per-mutation apply outcomes.
+   */
+  outcomes: ReconciliationOutcome[];
+}
+/**
+ * REQUIRED object. Rolled-up outcome counts for bootstrap branching without scanning outcomes.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "reconciliationCounts".
+ */
+export interface ReconciliationCounts {
+  applied: NonNegativeInteger;
+  skipped: NonNegativeInteger;
+  blocked: NonNegativeInteger;
+  conflict: NonNegativeInteger;
+}
+/**
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "reconciliationOutcome".
+ */
+export interface ReconciliationOutcome {
+  /**
+   * REQUIRED string. Stable deterministic identifier from the originating InstallPlan mutation.
+   */
+  mutation_id: string;
+  status: ReconciliationStatus;
+  reason_code: ReconciliationReasonCode;
+  /**
+   * REQUIRED string. Human-readable deterministic rationale for this outcome.
+   */
+  rationale: string;
+  detail?: ReconciliationDetail;
+}
+/**
+ * OPTIONAL object. Structured machine-readable outcome details such as a conflicting region hash or lock source line.
+ *
+ * This interface was referenced by `ReconciliationReport`'s JSON-Schema
+ * via the `definition` "reconciliationDetail".
+ */
+export interface ReconciliationDetail {
+  [k: string]: ReconciliationJsonValue;
 }
 // Source: schemas/review-judgment.schema.json
 /**

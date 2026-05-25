@@ -1,0 +1,29 @@
+{
+  "plan_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "greenfield",
+  "mutations": [
+    {
+      "mutation_id": "claude-settings-hooks:create",
+      "target": "claude-settings-hooks",
+      "target_path": ".claude/settings.json",
+      "action": "create",
+      "write_strategy": "json_merge",
+      "managed_marker": null,
+      "reason_code": "missing",
+      "rationale": "Claude settings are absent and must be created for the desired installer state.",
+      "source_writer": "dev-genie:claude-settings"
+    },
+    {
+      "mutation_id": "katana-platform:claude-code:create",
+      "target": "katana:claude-code",
+      "target_path": ".mcp.json",
+      "action": "create",
+      "write_strategy": "delegated",
+      "managed_marker": "<!-- katana:begin/end -->",
+      "reason_code": "missing",
+      "rationale": "Katana platform configuration is missing for a greenfield repository.",
+      "source_writer": "katana:platform"
+    }
+  ]
+}

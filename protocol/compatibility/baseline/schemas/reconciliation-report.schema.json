@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/reconciliation-report.schema.json",
+  "title": "ReconciliationReport",
+  "description": "Structured Installer Engine apply() output describing the per-mutation result of applying an InstallPlan.",
+  "$comment": "ReconciliationReport is a direct standalone Engine I/O contract, not an artifact-envelope allOf payload. Protocol wire fields use snake_case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "report_version",
+    "engine_version",
+    "repo_classification",
+    "had_conflict",
+    "counts",
+    "outcomes"
+  ],
+  "properties": {
+    "report_version": {
+      "type": "string",
+      "description": "REQUIRED string. Semantic version of the ReconciliationReport contract emitted by apply().",
+      "minLength": 1
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "REQUIRED string. Installer Engine implementation version that produced this report.",
+      "minLength": 1
+    },
+    "repo_classification": {
+      "$ref": "#/$defs/repoClassification"
+    },
+    "had_conflict": {
+      "type": "boolean",
+      "description": "REQUIRED boolean. True when any outcome has conflict status."
+    },
+    "counts": {
+      "$ref": "#/$defs/reconciliationCounts"
+    },
+    "outcomes": {
+      "type": "array",
+      "description": "REQUIRED array. Deterministically ordered per-mutation apply outcomes.",
+      "items": {
+        "$ref": "#/$defs/reconciliationOutcome"
+      }
+    }
+  },
+  "$defs": {
+    "repoClassification": {
+      "title": "InstallerRepoClassification",
+      "type": "string",
+      "description": "Installer classification of the target repository state.",
+      "enum": ["greenfield", "existing"]
+    },
+    "reconciliationCounts": {
+      "title": "ReconciliationCounts",
+      "type": "object",
+      "description": "REQUIRED object. Rolled-up outcome counts for bootstrap branching without scanning outcomes.",
+      "additionalProperties": false,
+      "required": ["applied", "skipped", "blocked", "conflict"],
+      "properties": {
+        "applied": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "skipped": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "blocked": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "conflict": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "reconciliationOutcome": {
+      "title": "ReconciliationOutcome",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mutation_id", "status", "reason_code", "rationale"],
+      "properties": {
+        "mutation_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable deterministic identifier from the originating InstallPlan mutation.",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/$defs/reconciliationStatus"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/reconciliationReasonCode"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "REQUIRED string. Human-readable deterministic rationale for this outcome.",
+          "minLength": 1
+        },
+        "detail": {
+          "$ref": "#/$defs/reconciliationDetail"
+        }
+      }
+    },
+    "reconciliationStatus": {
+      "title": "ReconciliationStatus",
+      "type": "string",
+      "description": "Apply outcome status using the installer conflict taxonomy.",
+      "enum": ["applied", "skipped", "blocked", "conflict"]
+    },
+    "reconciliationReasonCode": {
+      "title": "ReconciliationReasonCode",
+      "type": "string",
+      "description": "Closed lower_snake_case reason code for why this outcome occurred.",
+      "enum": [
+        "already_satisfied",
+        "written",
+        "lock_blocked",
+        "managed_region_drift",
+        "delegated_skip"
+      ]
+    },
+    "reconciliationDetail": {
+      "title": "ReconciliationDetail",
+      "type": "object",
+      "description": "OPTIONAL object. Structured machine-readable outcome details such as a conflicting region hash or lock source line.",
+      "additionalProperties": {
+        "$ref": "#/$defs/jsonValue"
+      }
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "description": "Non-negative integer count.",
+      "minimum": 0
+    },
+    "jsonValue": {
+      "title": "ReconciliationJsonValue",
+      "description": "Structured JSON value.",
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/jsonValue"
+          }
+        },
+        {
+          "$ref": "#/$defs/reconciliationDetail"
+        }
+      ]
+    }
+  }
+}

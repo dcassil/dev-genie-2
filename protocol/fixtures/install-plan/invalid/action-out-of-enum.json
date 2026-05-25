@@ -1,0 +1,18 @@
+{
+  "plan_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "existing",
+  "mutations": [
+    {
+      "mutation_id": "agent-config:unknown",
+      "target": "agent-config",
+      "target_path": "AGENTS.md",
+      "action": "delete",
+      "write_strategy": "managed_region",
+      "managed_marker": "<!-- dev-genie:agent-config:begin/end -->",
+      "reason_code": "stale",
+      "rationale": "This fixture uses an action that the schema must reject.",
+      "source_writer": "dev-genie:agent-config"
+    }
+  ]
+}

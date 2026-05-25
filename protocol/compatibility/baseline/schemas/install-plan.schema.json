@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dev-genie.local/protocol/schemas/install-plan.schema.json",
+  "title": "InstallPlan",
+  "description": "Deterministic Installer Engine plan output returned by plan(state, desired). It describes the ordered managed mutations the applier may execute.",
+  "$comment": "InstallPlan is a direct standalone Engine I/O contract, not an artifact-envelope allOf payload. Protocol wire fields use snake_case.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_version",
+    "engine_version",
+    "repo_classification",
+    "mutations"
+  ],
+  "properties": {
+    "plan_version": {
+      "type": "string",
+      "description": "REQUIRED string. Semantic version of the InstallPlan contract emitted by the planner.",
+      "minLength": 1
+    },
+    "engine_version": {
+      "type": "string",
+      "description": "REQUIRED string. Installer Engine implementation version that produced this plan.",
+      "minLength": 1
+    },
+    "repo_classification": {
+      "$ref": "#/$defs/repoClassification"
+    },
+    "mutations": {
+      "type": "array",
+      "description": "REQUIRED array. Deterministically ordered managed mutations to create, update, or skip.",
+      "items": {
+        "$ref": "#/$defs/installPlanMutation"
+      }
+    }
+  },
+  "$defs": {
+    "repoClassification": {
+      "title": "InstallerRepoClassification",
+      "type": "string",
+      "description": "Installer classification of the target repository state.",
+      "enum": ["greenfield", "existing"]
+    },
+    "installPlanMutation": {
+      "title": "InstallPlanMutation",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mutation_id",
+        "target",
+        "target_path",
+        "action",
+        "write_strategy",
+        "managed_marker",
+        "reason_code",
+        "rationale",
+        "source_writer"
+      ],
+      "properties": {
+        "mutation_id": {
+          "type": "string",
+          "description": "REQUIRED string. Stable deterministic identifier for this planned mutation.",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "description": "REQUIRED string. Logical target id for the managed configuration or delegated install surface.",
+          "minLength": 1
+        },
+        "target_path": {
+          "type": "string",
+          "description": "REQUIRED string. Workspace-relative path targeted by this mutation.",
+          "minLength": 1
+        },
+        "action": {
+          "$ref": "#/$defs/installPlanAction"
+        },
+        "write_strategy": {
+          "$ref": "#/$defs/installWriteStrategy"
+        },
+        "managed_marker": {
+          "type": ["string", "null"],
+          "description": "REQUIRED string or null. Managed-region marker or sentinel governing this target when one applies.",
+          "minLength": 1
+        },
+        "reason_code": {
+          "$ref": "#/$defs/installPlanReasonCode"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "REQUIRED string. Human-readable deterministic rationale for the planned action.",
+          "minLength": 1
+        },
+        "source_writer": {
+          "$ref": "#/$defs/installSourceWriter"
+        }
+      }
+    },
+    "installPlanAction": {
+      "title": "InstallPlanAction",
+      "type": "string",
+      "description": "Planned mutation action.",
+      "enum": ["create", "update", "skip"]
+    },
+    "installWriteStrategy": {
+      "title": "InstallWriteStrategy",
+      "type": "string",
+      "description": "Managed write strategy the applier should use for this target.",
+      "enum": ["managed_region", "layered", "json_merge", "full_file", "delegated"]
+    },
+    "installPlanReasonCode": {
+      "title": "InstallPlanReasonCode",
+      "type": "string",
+      "description": "Closed lower_snake_case reason code for why this mutation was planned.",
+      "enum": ["missing", "stale", "already_satisfied", "conflicting", "locked"]
+    },
+    "installSourceWriter": {
+      "title": "InstallSourceWriter",
+      "type": "string",
+      "description": "Existing writer or adapter responsible for carrying out this mutation.",
+      "enum": [
+        "dev-genie:agent-config",
+        "dev-genie:eslint-layered",
+        "dev-genie:claude-settings",
+        "dev-genie:audit",
+        "katana:platform"
+      ]
+    }
+  }
+}

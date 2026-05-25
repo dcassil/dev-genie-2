@@ -1,0 +1,24 @@
+{
+  "report_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "greenfield",
+  "had_conflict": true,
+  "counts": {
+    "applied": 0,
+    "skipped": 0,
+    "blocked": 0,
+    "conflict": 1
+  },
+  "outcomes": [
+    {
+      "mutation_id": "katana-platform:claude-code:create",
+      "status": "conflict",
+      "reason_code": "managed_region_drift",
+      "rationale": "Katana managed marker content drifted and was not overwritten.",
+      "detail": {
+        "target_path": ".mcp.json",
+        "marker": "<!-- katana:begin/end -->"
+      }
+    }
+  ]
+}

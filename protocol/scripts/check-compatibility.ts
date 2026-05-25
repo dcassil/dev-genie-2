@@ -29,12 +29,27 @@ if (baselineSchemas.length === 0) {
 
 let failureCount = 0;
 let changedSchemaCount = 0;
+let addedSchemaCount = 0;
 
 for (const baselineSchemaPath of baselineSchemas) {
   const schemaName = artifactNameFromSchemaPath(baselineSchemaPath);
   const currentSchemaPath = join(schemaRoot, `${schemaName}.schema.json`);
   if (!existsSync(currentSchemaPath)) {
     console.error(`${displayPath(currentSchemaPath)} is missing for compatibility baseline ${schemaName}`);
+    failureCount += 1;
+    continue;
+  }
+
+  const previousEntry = previousManifest.schemas[schemaName];
+  const currentEntry = currentManifest.schemas[schemaName];
+  if (previousEntry === undefined || currentEntry === undefined) {
+    if (previousEntry === undefined && currentEntry !== undefined) {
+      changedSchemaCount += 1;
+      addedSchemaCount += 1;
+      continue;
+    }
+
+    console.error(`${schemaName} is missing from a version manifest`);
     failureCount += 1;
     continue;
   }
@@ -67,5 +82,7 @@ for (const schemaName of Object.keys(currentManifest.schemas)) {
 if (failureCount > 0) {
   process.exitCode = 1;
 } else {
-  console.log(`Schema compatibility check passed (${baselineSchemas.length} schemas, ${changedSchemaCount} changed).`);
+  console.log(
+    `Schema compatibility check passed (${baselineSchemas.length} schemas, ${changedSchemaCount} changed, ${addedSchemaCount} added).`,
+  );
 }

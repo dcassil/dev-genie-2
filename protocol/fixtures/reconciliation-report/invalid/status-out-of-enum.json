@@ -1,0 +1,20 @@
+{
+  "report_version": "1.0.0",
+  "engine_version": "0.1.0",
+  "repo_classification": "existing",
+  "had_conflict": false,
+  "counts": {
+    "applied": 0,
+    "skipped": 0,
+    "blocked": 0,
+    "conflict": 0
+  },
+  "outcomes": [
+    {
+      "mutation_id": "agent-config:unknown",
+      "status": "failed",
+      "reason_code": "delegated_skip",
+      "rationale": "This fixture uses a status that the schema must reject."
+    }
+  ]
+}
