@@ -4,14 +4,14 @@ level: task
 title: "Implement the pure plan() planner with mutation/skip rules"
 short_code: "DGOS-T-0054"
 created_at: 2026-05-25T17:51:51.208451+00:00
-updated_at: 2026-05-25T17:51:51.208451+00:00
+updated_at: 2026-05-25T19:35:07.548977+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Implement `engines/src/installer/planner.ts`: a **pure, IO-free** function `plan(state: RepoState, desired: DesiredState): InstallPlan` that diffs the detected repo state against the desired plugin/config set and emits the deterministic, stably-ordered set of mutations (`create | update | skip`) with `reason_code`, `rationale`, `write_strategy`, `managed_marker`, and `source_writer` per mutation. Package-aware: it reasons about which marketplace plugins and managed config a repo should have versus what is present/stale/conflicting/locked. Same inputs always produce an identical `InstallPlan`.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -66,3 +70,14 @@ Implement `engines/src/installer/planner.ts`: a **pure, IO-free** function `plan
 ## Status Updates
 
 *To be added during implementation.*
+
+### 2026-05-25
+
+- Implemented pure synchronous installer planner in `engines/src/installer/planner.ts`; `InstallerEngine.plan()` delegates to the exported `plan(state, desired)` function.
+- Added deterministic mutation derivation for missing, stale, already-satisfied, locked, and conflicting targets, with fixed write-strategy/source-writer lookup for agent config, ESLint layered config, Claude settings hooks, audit baseline, and platform installs.
+- Added planner tests for repeated-call determinism, independently constructed identical inputs, greenfield ordering, existing-repo status mapping, idempotent all-skip plans, and InstallPlan schema validation through the engines Ajv validator.
+- Verification passed: `pnpm --filter engines typecheck`, `pnpm --filter engines lint`, `pnpm --filter engines test`, `pnpm --filter engines build`, and `pnpm -r build`.
+
+### Orchestrator verification — 2026-05-25
+
+Independently re-verified: engines typecheck/lint (`--max-warnings=0`)/test (11 files, 73 tests)/build clean; `pnpm -r build` green across all 5 packages. Confirmed `planner.ts` purity: no `node:fs`/`fs`/`path` import, no `Promise`/`async`, no `Date`/`Math.random`/`crypto`/`fetch` — fully synchronous and IO-free per ADR-1. Incidental `daimyo/dist/` re-bundle churn reverted before commit. All acceptance criteria met → completed.

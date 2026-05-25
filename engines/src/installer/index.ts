@@ -4,6 +4,7 @@ export {
 } from "./engine.js";
 export {
   INSTALL_PLAN_VERSION,
+  plan,
   planInstall,
 } from "./planner.js";
 export {

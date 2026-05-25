@@ -6,13 +6,16 @@ import type {
 
 import { applyInstallPlan } from "./applier.js";
 import { detectRepoState } from "./detector.js";
-import { planInstall } from "./planner.js";
+import {
+  INSTALLER_ENGINE_VERSION,
+  plan as planInstall,
+} from "./planner.js";
 import type {
   FsReadPort,
   ManagedWriter,
 } from "./ports.js";
 
-export const INSTALLER_ENGINE_VERSION = "0.8.0";
+export { INSTALLER_ENGINE_VERSION };
 
 export type PluginDetectionSignalKind =
   | "claude_plugin_manifest"
@@ -173,6 +176,9 @@ export interface DesiredConfigTarget {
   readonly target: string;
   readonly target_path: string;
   readonly required: boolean;
+  readonly status?: "present" | "weaker" | "conflicting" | "missing";
+  readonly desired_content?: string;
+  readonly baseline_content?: string;
 }
 
 export interface DesiredState {
@@ -197,7 +203,7 @@ export class InstallerEngine implements InstallerEngineContract {
   }
 
   plan(state: RepoState, desired: DesiredState): InstallPlan {
-    return planInstall(state, desired, INSTALLER_ENGINE_VERSION);
+    return planInstall(state, desired);
   }
 
   apply(plan: InstallPlan, managedWriter: ManagedWriter): Promise<ReconciliationReport> {
