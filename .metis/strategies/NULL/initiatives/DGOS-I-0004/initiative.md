@@ -4,14 +4,14 @@ level: initiative
 title: "Platform Packaging & Installer"
 short_code: "DGOS-I-0004"
 created_at: 2026-05-21T17:42:28.277649+00:00
-updated_at: 2026-05-25T16:29:09.204804+00:00
+updated_at: 2026-05-25T17:40:14.860192+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
 
 tags:
   - "#initiative"
-  - "#phase/decompose"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -187,3 +187,49 @@ candidate split — see Decomposition notes.
 - **Workspace scope** is deliberately the five new TS packages only (smallest blast radius). Legacy plugins (katana/dev-genie/guardrails/audit) stay out; pulling them in later is a possible follow-on.
 - **Cycle break landing spot:** the Roles-backed planning default moves from daimyo into the `roles` package (roles already deps daimyo), keeping daimyo's `RolesPlanning` *port* but making its standalone default Roles-agnostic per ADR-5.
 - **Installer sequencing fork (DGOS-T-0050):** the original installer/reconciliation-Engine scope is preserved in this initiative but the heavy net-new Engine build is flagged as a candidate **follow-on initiative** under DGOS-V-0001. DGOS-T-0050 makes the explicit do-here-vs-defer call; a human may want to pre-bless creating that follow-on initiative.
+
+## DGOS-T-0050 scoping decision (2026-05-25)
+
+DGOS-T-0050 implements the lightweight installer alignment here: update the
+existing `/dev-genie-init` registry/docs, remove old sibling `file:` package
+metadata from the dev-genie plugin, keep installer language focused on real
+marketplace plugins (`dev-genie`, `guardrails`, `audit`, `katana`, `daimyo`),
+and align `katana install <platform>` with the bundled no-install
+`bin/katana-mcp.js` launcher model.
+
+The full deterministic installer/reconciliation Engine is deferred and should
+be split into a follow-on initiative under DGOS-V-0001. That follow-on should
+cover package-aware reconciliation, lock-aware managed writes, idempotent
+greenfield and existing-repo fixture coverage, explicit skipped/blocked/conflict
+reporting, and the typed Engine contract that maps installer outputs back into
+bootstrap sequencing.
+
+Implementation Plan mapping:
+
+- Define installer and reconciliation responsibilities as an Engine contract:
+  deferred to the follow-on Engine initiative.
+- Preserve and refine idempotent managed-write behavior: existing dev-genie and
+  katana idempotent writers remain in place; net-new package-aware behavior is
+  deferred.
+- Specify reporting for skipped, blocked, and conflicting mutations: current
+  surfaces keep their existing reports; the richer conflict taxonomy is
+  deferred.
+- Align installer outputs with bootstrap sequencing and repo detection inputs:
+  completed here for the existing docs/registry and katana install defaults.
+- Add fixture coverage for greenfield and existing-repo reconciliation paths:
+  deferred with the net-new Engine build; this task adds only focused CLI
+  coverage for the changed katana install default.
+
+## Outcome (2026-05-25)
+
+**Completed — all 7 tasks (DGOS-T-0044…0050) done, verified, committed.** The packaging coupling that prompted this initiative is resolved:
+- **Cycle broken** (T-0044): daimyo no longer depends on roles; the Roles-backed planning default moved into `roles`. Graph acyclic.
+- **pnpm workspace** (T-0045): root workspace over the 5 new TS packages (`protocol`/`daimyo`/`roles`/`engines`/`protocol-proof`); `file:` → `workspace:*`; single root `pnpm-lock.yaml`; protocol schema loader made pnpm-symlink-safe via `resolveProtocolSchemaDir()`. Legacy plugins deliberately excluded + verified unaffected.
+- **Library dist removed from git** (T-0046): protocol/roles/engines/protocol-proof no longer commit `dist/` — the cross-package churn is gone.
+- **Bundle-at-release + launcher pattern** (T-0047/T-0048): `scripts/bundle-plugin.mjs` produces self-contained committed plugin bundles on a deliberate release step; `docs/plugin-launchers.md` codifies the native-dep vs pure-TS launcher rule. **Finding:** daimyo is native-dep (claude-agent-sdk ships a platform binary), so it uses the ensure-native launcher.
+- **daimyo registered** (T-0049): now the 5th marketplace plugin (0.15.0), self-contained launch verified.
+- **Installers aligned** (T-0050): katana `install` defaults to the bundled `node bin/...` launcher; dev-genie orchestration/docs distinguish plugins vs internal libraries; stale dev-genie `file:../daimyo` removed.
+
+All suites green throughout (5 workspace packages + katana 302 + dev-genie 75 + guardrails/audit). Plugin versions: daimyo 0.15.0, katana 0.1.8, dev-genie 0.3.1.
+
+**Recommended follow-on initiative (decision-maker call):** the net-new **deterministic installer/reconciliation Engine** (package-aware reconciliation, lock-aware managed writes, skipped/blocked/conflict taxonomy, greenfield vs existing-repo fixtures, the typed Engine contract feeding bootstrap sequencing) was deliberately deferred — it's substantial and belongs in its own initiative under DGOS-V-0001, not folded into packaging. Not yet created; awaiting go-ahead.
