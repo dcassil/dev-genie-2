@@ -1,8 +1,5 @@
 {
   "name": "dev-genie",
-  "version": "0.3.0",
-  "private": true,
-  "dependencies": {
-    "daimyo": "file:../daimyo"
-  }
+  "version": "0.3.1",
+  "private": true
 }

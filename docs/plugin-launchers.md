@@ -5,6 +5,13 @@ cache. There is no package-manager install step before Claude Code invokes the
 plugin, so each plugin must ship a `bin/` launcher that works with only the files
 inside that plugin folder.
 
+The root marketplace currently registers five plugins: `dev-genie`,
+`guardrails`, `audit`, `katana`, and `daimyo`. The pnpm workspace packages
+`protocol`, `roles`, `engines`, and `protocol-proof` are internal libraries, not
+marketplace plugins. They are built locally and bundled into real plugin
+artifacts during release; installer and orchestration flows must not try to
+install or launch those libraries directly.
+
 Use this decision rule for every plugin:
 
 **native runtime dep present → ensure-and-recover launcher; pure-TS (all deps bundled/pure-JS) → bundle-only launcher.**
@@ -116,10 +123,11 @@ Do not extract a shared runtime helper unless the release process physically
 copies or inlines it into each plugin's `bin/` script. For now, keep the launcher
 scripts self-contained and allow small intentional duplication.
 
-## Daimyo Classification For DGOS-T-0049
+## Daimyo Classification
 
-Daimyo already has a bundle-only-shaped launcher at `daimyo/bin/daimyo-mcp.js`,
-but its current dependency tree is not pure-TS.
+Daimyo is registered as a marketplace plugin and uses an ensure-and-recover MCP
+launcher at `daimyo/bin/daimyo-mcp.js` because its current dependency tree is
+not pure-TS.
 
 Verification on 2026-05-25 found that `daimyo/package.json` declares
 `@anthropic-ai/claude-agent-sdk` as `^0.3.148`, the workspace lock resolves it to
@@ -129,12 +137,12 @@ package contains a `claude` Mach-O executable, and the SDK bundle throws
 `Native CLI binary for ${process.platform}-${process.arch} not found` unless it
 can resolve that binary or receives `pathToClaudeCodeExecutable`.
 
-Therefore DGOS-T-0049 must not assume Daimyo is pure-TS while it relies on the
-SDK's packaged executable. It has two valid packaging paths:
+Therefore Daimyo must not be treated as bundle-only while it relies on the SDK's
+packaged executable. It has two valid packaging paths:
 
-1. Keep using the SDK-managed executable and classify Daimyo as a native/binary
-   runtime-dep plugin with an ensure-and-recover launcher adapted for the SDK's
-   platform packages.
+1. Current path: keep using the SDK-managed executable and classify Daimyo as a
+   native/binary runtime-dep plugin with an ensure-and-recover launcher adapted
+   for the SDK's platform packages.
 2. Provide `pathToClaudeCodeExecutable` from the host environment and verify the
    bundled Daimyo runtime no longer requires the SDK optional binary packages;
    only then may Daimyo use the bundle-only launcher.

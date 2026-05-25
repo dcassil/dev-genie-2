@@ -1,7 +1,8 @@
 import { parseArgs } from "node:util";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getAdapter, listPlatforms } from "../platform/registry.js";
-import type { UnknownPlatformError } from "../platform/registry.js";
-import type { InstallOptions, WrittenFile } from "../platform/port.js";
+import type { InstallOptions, PlatformId } from "../platform/port.js";
 
 export interface InstallCommandArgs {
   platform: string;
@@ -16,6 +17,25 @@ export interface InstallCommandArgs {
 export interface InstallCommandDeps {
   stdout: (s: string) => void;
   stderr: (s: string) => void;
+}
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+export function defaultKatanaMcpArgs(): string[] {
+  return [resolve(here, "../../bin/katana-mcp.js")];
+}
+
+function parseMcpArgs(value: string | undefined): string[] {
+  if (value === undefined) return defaultKatanaMcpArgs();
+  const trimmed = value.trim();
+  if (trimmed === "") return [];
+  return trimmed.split(",").map((arg) => arg.trim());
+}
+
+function isKnownPlatform(platform: string): platform is PlatformId {
+  return platform === "claude-code" ||
+    platform === "cursor" ||
+    platform === "openai-codex";
 }
 
 export async function runInstall(
@@ -46,24 +66,18 @@ export async function runInstall(
       return 2;
     }
 
-    let adapter;
-    try {
-      adapter = getAdapter(platform as any);
-    } catch (err) {
-      if ((err as Error).name === "UnknownPlatformError") {
-        const available = listPlatforms();
-        deps.stderr(`${(err as Error).message}\n`);
-        deps.stderr(`Available platforms: ${available.join(", ")}\n`);
-        return 2;
-      }
-      throw err;
+    if (!isKnownPlatform(platform)) {
+      const available = listPlatforms();
+      deps.stderr(`Unknown platform: ${platform}. Known: ${available.join(", ")}\n`);
+      deps.stderr(`Available platforms: ${available.join(", ")}\n`);
+      return 2;
     }
+    const adapter = getAdapter(platform);
 
     const workspace = result.values.workspace ?? process.cwd();
     const katanaRoot = result.values["katana-root"] ?? `${workspace}/.katana`;
-    const mcpCommand = result.values["mcp-command"] ?? "npx";
-    const mcpArgsStr = result.values["mcp-args"] ?? "-y,katana-mcp";
-    const mcpArgs = mcpArgsStr.split(",");
+    const mcpCommand = result.values["mcp-command"] ?? "node";
+    const mcpArgs = parseMcpArgs(result.values["mcp-args"]);
     const dryRun = result.values["dry-run"] ?? false;
     const force = result.values.force ?? false;
 

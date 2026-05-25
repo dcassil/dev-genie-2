@@ -20,7 +20,7 @@ export interface InstallOptions {
   /** Absolute path to the katana installation directory, typically `<workspaceRoot>/.katana`. */
   katanaRoot: string;
 
-  /** Command to invoke the MCP server; e.g. "npx katana-mcp" or custom launcher. */
+  /** Command to invoke the MCP server; defaults to "node" with the bundled bin/katana-mcp.js launcher. */
   mcpCommand: string;
 
   /** Optional additional arguments passed to mcpCommand. */

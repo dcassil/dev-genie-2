@@ -1,7 +1,7 @@
 import {
   asTaskId,
   createStandaloneDaimyo,
-} from "daimyo";
+} from "../../daimyo/dist/index.mjs";
 
 const injectedDecisionProvider = {
   async decidePermission(request) {

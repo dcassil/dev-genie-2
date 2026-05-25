@@ -1,6 +1,6 @@
 {
   "name": "katana",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "Agent-driven kanban workflow for AI coding agents with MCP tools for Katana documents, phases, validation, and decomposition.",
   "author": {
     "name": "Daniel Cassil",

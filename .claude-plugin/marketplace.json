@@ -8,7 +8,7 @@
     {
       "name": "dev-genie",
       "source": "./dev-genie",
-      "description": "Umbrella bootstrap plugin: /dev-genie-init detects project state and orchestrates installation of guardrails + audit, optionally scaffolding a baseline architecture."
+      "description": "Umbrella bootstrap plugin: /dev-genie-init detects project state and orchestrates marketplace plugin setup for guardrails + audit, with optional katana and daimyo integration."
     },
     {
       "name": "guardrails",

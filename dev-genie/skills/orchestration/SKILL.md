@@ -5,7 +5,7 @@ description: Canonical, ordered registry of dev-genie sub-plugins. Tells the age
 
 # dev-genie orchestration
 
-dev-genie owns no scoring logic, no scaffolds, and no per-stack rules. Its sole job is to drive sub-plugin setup in the right order. This skill is the **single source of truth** for that order.
+dev-genie owns no scoring logic, no scaffolds, and no per-stack rules. Its sole job is to drive marketplace plugin setup in the right order. This skill is the **single source of truth** for that order.
 
 ## How to use this skill
 
@@ -25,13 +25,28 @@ When invoked (typically by the `/dev-genie-init` command):
 
 Stop and ask the user before any destructive action. Never bypass a sub-plugin's own setup flow.
 
+## Packaging model
+
+The dev-genie marketplace currently registers five plugins: `dev-genie`,
+`guardrails`, `audit`, `katana`, and `daimyo`. Marketplace plugins are pulled
+from `main` and launched from their own plugin folder with no package-manager
+install step managed by dev-genie. Plugins that need native or binary runtime
+dependencies must own that first-run recovery in their own `bin/` launcher
+(`katana` and `daimyo` do this); bundle-only plugins launch their committed
+bundle directly.
+
+The pnpm workspace packages `protocol`, `roles`, `engines`, and
+`protocol-proof` are internal libraries, not installable plugins. They are
+bundled into marketplace plugin `dist/` artifacts during release and must not
+appear in this orchestration registry.
+
 ## Sub-plugin registry (ordered)
 
 The order matters: guardrails must run before audit so audit takes its baseline against the scaffolded result, not against an empty repo.
 
 ### 1. guardrails
 
-- **Purpose**: architecture scaffolds + per-stack guard rails skills.
+- **Purpose**: marketplace plugin for architecture scaffolds + per-stack guard rails skills.
 - **Install check**: a guardrails plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../guardrails/` exists, OR a `guardrails/` directory exists at the workspace root, OR the `/scaffold-architecture` slash command is registered. If none of these is true, instruct the user to install the `guardrails` plugin and pause.
 - **Setup command**: `/scaffold-architecture <pattern>`. The pattern should be the `suggested_architecture` from project-detection if confidence is high; otherwise ask the user to choose from `react-next-vercel-webapp`, `node-api`, `supabase-api`, `supabase-node-rag`, or **skip** if the repo already has its own architecture.
 - **Post-setup verification**: confirm that either (a) `eslint.config.mjs` and `tsconfig.json` from the chosen architecture exist in the target dir, or (b) the user explicitly skipped scaffolding because the repo already has a chosen architecture.
@@ -40,22 +55,22 @@ The order matters: guardrails must run before audit so audit takes its baseline 
 
 ### 2. audit
 
-- **Purpose**: composite-score scan + regression-blocking pre-commit hook.
+- **Purpose**: marketplace plugin for composite-score scan + regression-blocking pre-commit hook.
 - **Install check**: an audit plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../audit/` exists, OR an `audit/` directory exists at the workspace root, OR the `/audit-init` slash command is registered. If `.audit/audit.config.json` already exists in the target repo, treat audit as already-baselined and confirm with the user before re-running.
 - **Setup command**: `/audit-init`.
 - **Post-setup verification**: confirm `.audit/audit.config.json` and `.audit/audit.results.json` exist in the target repo, and that a pre-commit hook (typically `.git/hooks/pre-commit`) was installed and runs cleanly.
 
 ### 3. katana
 
-- **Purpose**: agent-driven kanban workflow that decomposes work product-doc → epic → story → task[high-pass] → task[low-pass]; ships as Claude Code plugin + MCP server + `.katana/` workspace.
-- **Install check**: a katana plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../katana/` exists, OR a `katana/` directory exists at the workspace root, OR the `/katana-init` slash command is registered. If `.katana/` already exists in the target repo, treat katana as already-installed and confirm with the user before re-running.
-- **Setup command**: `/katana-init`.
+- **Purpose**: optional marketplace plugin for agent-driven kanban workflow that decomposes work product-doc → epic → story → task[high-pass] → task[low-pass]; ships as Claude Code plugin + MCP server + `.katana/` workspace.
+- **Install check**: a katana plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../katana/` exists, OR a `katana/` directory exists at the workspace root, OR `katana install --help` works, OR the Katana MCP server is visible in `claude mcp list`. If `.katana/` already exists in the target repo, treat katana as already-installed and confirm with the user before re-running.
+- **Setup command**: `katana install <platform>` for the target agent surface, or the platform's registered Katana plugin flow. The install command must wire MCP to `node <katana plugin root>/bin/katana-mcp.js` by default, not `npx katana-mcp`.
 - **Post-setup verification**: confirm `.katana/config.toml` and `.katana/vision.md` exist in the target repo, and that the katana MCP server is registered (e.g. visible in `claude mcp list`).
 - **Notes**: katana is standalone-first. The greenfield walk MUST ask the user whether to install katana (it is optional; not every project wants kanban-shaped doc decomposition). Default to "no" unless project-detection signals an agent-workflow project.
 
 ### 4. daimyo
 
-- **Purpose**: out-of-process recursive govern-verify Loop supervisor. Installs the same `daimyo` artifact used standalone and by dev-genie; dev-genie may inject richer WorkSource, DecisionProvider, Validation, and notifier adapters only through Daimyo ports.
+- **Purpose**: optional marketplace plugin for the out-of-process recursive govern-verify Loop supervisor. Installs the same `daimyo` artifact used standalone and by dev-genie; dev-genie may inject richer WorkSource, DecisionProvider, Validation, and notifier adapters only through Daimyo ports.
 - **Install check**: a daimyo plugin is reachable. Practical signals: `${CLAUDE_PLUGIN_ROOT}/../daimyo/` exists, OR a `daimyo/` directory exists at the workspace root, OR `daimyo --help` runs, OR the Daimyo MCP server is visible in `claude mcp list`. If none of these is true, instruct the user to install the `daimyo` plugin and pause.
 - **Setup command**: no project mutation is required for standalone install. For a standalone markdown plan, run `daimyo run --plan <plan.md>` after confirming the selected plan and model API key environment. For dev-genie integration, instantiate Daimyo through its composition root and inject dev-genie adapters through the port options.
 - **Post-setup verification**: confirm `daimyo --help` works or the Daimyo MCP server is registered, then confirm a Supervisor can be constructed from `createStandaloneDaimyo(...)` with either the default adapters or injected dev-genie adapters.

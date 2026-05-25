@@ -2,7 +2,7 @@
 
 `/dev-genie-init` runs in one of two branches:
 
-- **Greenfield** — the repo has no `package.json`, no `eslint.config.*`, no `tsconfig.json`, no `package.json#scripts`, no git hooks. dev-genie runs the orchestration registry to install guardrails + audit from scratch.
+- **Greenfield** — the repo has no `package.json`, no `eslint.config.*`, no `tsconfig.json`, no `package.json#scripts`, no git hooks. dev-genie runs the orchestration registry to configure the real marketplace plugins: guardrails + audit first, then optional katana and daimyo if the user wants workflow docs or long-running Loop supervision.
 - **Existing repo (reconciliation)** — anything else. dev-genie detects what's already there, compares it to the recommended baseline, surfaces the gap, and asks before changing anything.
 
 This document describes the **reconciliation** branch.

@@ -4,14 +4,14 @@ level: task
 title: "Align the dev-genie installer and katana install surfaces with the new packaging model"
 short_code: "DGOS-T-0050"
 created_at: 2026-05-25T16:30:46.622333+00:00
-updated_at: 2026-05-25T16:30:46.622333+00:00
+updated_at: 2026-05-25T17:38:51.635787+00:00
 parent: DGOS-I-0004
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -46,6 +46,10 @@ removed committed library `dist/` or a pre-workspace `file:` layout, and that th
 deterministic installer/reconciliation behavior described in the initiative's
 Architecture section is captured as a scoped contract (built here only if small;
 otherwise specified and forwarded to a new initiative).
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -84,4 +88,19 @@ otherwise specified and forwarded to a new initiative).
 
 ## Status Updates
 
-*To be added during implementation.*
+- 2026-05-25: Explicit do-here-vs-defer decision: implement lightweight
+  alignment in this task only. In scope: registry/docs consistency for
+  marketplace plugins vs internal libraries, removal of old dev-genie
+  `file:../daimyo` package metadata, and `katana install <platform>` defaulting
+  to the self-contained bundled launcher. Deferred/recommended follow-on:
+  net-new deterministic installer/reconciliation Engine covering
+  package-aware reconciliation, lock-aware managed writes, conflict/skipped/
+  blocked reporting, and greenfield/existing-repo fixture matrices.
+- 2026-05-25: Validation completed. Marketplace JSON parses with five plugins
+  (`dev-genie`, `guardrails`, `audit`, `katana`, `daimyo`). Focused grep found
+  no `file:../daimyo` references in dev-genie install metadata and no old
+  `npx katana-mcp` default in `katana install`; remaining `npx` references are
+  explicit test fixture overrides. `katana install claude-code` smoke-writes
+  `.mcp.json` with `command: "node"` and args pointing to
+  `katana/bin/katana-mcp.js`.
+- 2026-05-25 (orchestrator verification): marketplace 5 plugins valid; dev-genie 0.3.1 with deps now `{}` (stale `file:../daimyo` removed, demo updated to import the daimyo bundle); katana 0.1.8 (install defaults to `node bin/katana-mcp.js`). All five workspace suites green (protocol 76, daimyo 68/5, protocol-proof 7, engines 58, roles 34); katana 302 + build green (after local better-sqlite3 ABI rebuild); dev-genie 75 node tests. Both touched plugins version-bumped per repo rule. **Lightweight alignment done here; the deterministic installer/reconciliation Engine is recommended as a follow-on initiative (surfaced to the decision-maker).** No escape hatches. **exit_criteria_met: true.** Completed.
