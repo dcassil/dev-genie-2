@@ -17,32 +17,83 @@ import {
 
 describe("InstallerEngine", () => {
   it("detects repository state through an injected read-only port", async () => {
-    const reads: string[] = [];
     const readPort: FsReadPort = {
       async exists(path) {
-        reads.push(path);
-        return true;
+        return path === "/repo";
       },
-      async readFile(path) {
-        reads.push(path);
-        return "";
+      async readFile(_path) {
+        throw new Error("file not found");
       },
       async readDir(path) {
-        reads.push(path);
-        return [];
+        if (path === "/repo") {
+          return [];
+        }
+        throw new Error("dir not found");
+      },
+    };
+
+    const state = await new InstallerEngine().detect(readPort, { workspaceRoot: "/repo" });
+
+    expect(state.repo_classification).toBe("greenfield");
+    expect(state.plugins.map((plugin) => plugin.plugin_id)).toEqual([
+      "dev-genie",
+      "guardrails",
+      "audit",
+      "katana",
+      "daimyo",
+    ]);
+    expect(state.plugins.every((plugin) => !plugin.present)).toBe(true);
+    expect(state.locks).toEqual([]);
+    expect(state.last_run).toBeNull();
+  });
+
+  it("can still use the detector with the default workspace root", async () => {
+    const readPort: FsReadPort = {
+      async exists(path) {
+        return path === ".";
+      },
+      async readFile(_path) {
+        throw new Error("file not found");
+      },
+      async readDir(path) {
+        if (path === ".") {
+          return [];
+        }
+        throw new Error("dir not found");
       },
     };
 
     const state = await new InstallerEngine().detect(readPort);
 
-    expect(reads).toEqual(["."]);
-    expect(state).toEqual({
-      repo_classification: "existing",
-      plugins: [],
-      managed_regions: [],
-      locks: [],
-      last_run: null,
-    });
+    expect(state.repo_classification).toBe("greenfield");
+  });
+
+  it("exposes a node read adapter with read-only filesystem methods", async () => {
+    const { NodeFsReadPort } = await import("../src/index.js");
+    const port = new NodeFsReadPort();
+
+    expect(await port.exists(new URL("../src/installer/detector.ts", import.meta.url).pathname)).toBe(true);
+    await expect(port.readFile(new URL("../src/installer/detector.ts", import.meta.url).pathname))
+      .resolves
+      .toContain("export async function detect");
+  });
+
+  it("detects repository state through an injected read-only port", async () => {
+    const readPort: FsReadPort = {
+      async exists(_path) {
+        return true;
+      },
+      async readFile(_path) {
+        return "";
+      },
+      async readDir(_path) {
+        return [];
+      },
+    };
+
+    const state = await new InstallerEngine().detect(readPort, { workspaceRoot: "/repo" });
+
+    expect(state.repo_classification).toBe("existing");
   });
 
   it("keeps plan(state, desired) synchronous, pure, and protocol-valid", async () => {
@@ -133,6 +184,67 @@ function repoState(): RepoState {
     managed_regions: [],
     locks: [],
     last_run: null,
+    detection_report: {
+      repoPath: "/repo",
+      hasPackageJson: false,
+      eslint: {
+        found: false,
+        files: [],
+        flat: false,
+        legacy: false,
+        notes: "no eslint config found",
+      },
+      typescript: {
+        found: false,
+        files: [],
+        notes: "no tsconfig found",
+      },
+      prettier: {
+        found: false,
+        files: [],
+        notes: "no prettier config",
+      },
+      hooks: {
+        found: false,
+        husky: false,
+        lefthook: false,
+        nativePreCommit: false,
+        preCommitFramework: false,
+        files: [],
+        notes: "no git hooks configured",
+      },
+      ci: {
+        found: false,
+        dir: ".github/workflows",
+        workflows: [],
+        anyRunsLint: false,
+        anyRunsTypecheck: false,
+        anyRunsAudit: false,
+        anyRunsBuild: false,
+        files: [],
+        notes: "no CI config found",
+      },
+      scripts: {
+        found: false,
+        files: [],
+        notes: "none of [lint, typecheck, format, test, build, audit] present",
+      },
+      packageScripts: {},
+      audit: {
+        found: false,
+        hasDir: false,
+        hasBaseline: false,
+        hasHook: false,
+        files: [],
+        notes: "no .audit/ directory",
+      },
+      packageManager: {
+        found: false,
+        files: [],
+        notes: "no lockfile found",
+      },
+      agentConfigs: [],
+    },
   };
 }
 

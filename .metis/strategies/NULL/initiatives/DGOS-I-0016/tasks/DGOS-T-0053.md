@@ -4,14 +4,14 @@ level: task
 title: "Implement the repo-state detector behind an injected read port"
 short_code: "DGOS-T-0053"
 created_at: 2026-05-25T17:51:50.995538+00:00
-updated_at: 2026-05-25T17:51:50.995538+00:00
+updated_at: 2026-05-25T19:26:59.391363+00:00
 parent: DGOS-I-0016
 blocked_by: []
 archived: false
 
 tags:
   - "#task"
-  - "#phase/todo"
+  - "#phase/completed"
 
 
 exit_criteria_met: false
@@ -28,6 +28,10 @@ initiative_id: DGOS-I-0016
 ## Objective
 
 Implement the repo-state detector in `engines/src/installer/detector.ts` as a function that, given an injected read-only `FsReadPort` and a target workspace path, returns a fully-populated `RepoState`. It detects: which marketplace plugins are present, which managed config files + managed regions exist (by sentinel marker), agent-config lock declarations, and the last-run record — then classifies the repo as `greenfield | existing`. All filesystem access goes through the injected `FsReadPort`; the detector performs **no writes** and is deterministic given the port's responses.
+
+## Acceptance Criteria
+
+## Acceptance Criteria
 
 ## Acceptance Criteria
 
@@ -65,4 +69,12 @@ Implement the repo-state detector in `engines/src/installer/detector.ts` as a fu
 
 ## Status Updates
 
-*To be added during implementation.*
+### 2026-05-25
+
+- Implemented `detect()` behind `FsReadPort`, including dev-genie-shaped detection report data, plugin signals, managed-region bounds/content, lock declarations, last-run fingerprint, and greenfield/existing classification.
+- Added read-only `NodeFsReadPort` adapter and in-memory detector coverage for deterministic greenfield/existing detection plus no-write-import inspection.
+- Verified `pnpm --filter engines typecheck`, `pnpm --filter engines lint`, `pnpm --filter engines test`, `pnpm --filter engines build`, and `pnpm -r build`.
+
+### Orchestrator verification — 2026-05-25
+
+Independently re-verified: engines typecheck/lint (`--max-warnings=0`)/test (10 files, 69 tests)/build all clean; `pnpm -r build` green across all 5 packages. Confirmed `detector.ts` imports no `node:fs`/`fs` (all FS via injected `FsReadPort`; `NodeFsReadPort` default adapter in `ports.ts`). Legacy `dev-genie/`/`katana/` sources unmodified. Incidental `daimyo/dist/` re-bundle churn reverted before commit. All acceptance criteria met → completed.

@@ -7,22 +7,39 @@ export {
   planInstall,
 } from "./planner.js";
 export {
+  detect,
   detectRepoState,
 } from "./detector.js";
+export {
+  NodeFsReadPort,
+} from "./ports.js";
 export {
   RECONCILIATION_REPORT_VERSION,
   applyInstallPlan,
 } from "./applier.js";
 export type {
+  AgentConfigDetectionReport,
+  AgentConfigLockDeclaration,
+  AuditDetectionReport,
+  CiDetectionReport,
+  CiWorkflowDetection,
+  DetectRepoStateOptions,
   DesiredConfigTarget,
   DesiredPlugin,
   DesiredState,
   DetectedManagedRegionPresence,
   DetectedPluginPresence,
+  DetectionNotesSection,
+  EslintDetectionReport,
+  ExistingConfigDetectionReport,
   InstallerEngineContract,
   LastRunRecordReference,
   LockDeclaration,
+  ManagedRegionBounds,
+  PluginDetectionSignal,
+  PluginDetectionSignalKind,
   RepoState,
+  TypescriptDetectionReport,
 } from "./engine.js";
 export type {
   FsReadPort,
