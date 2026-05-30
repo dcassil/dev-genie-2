@@ -1,17 +1,18 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   bumpVersion,
   readRequiredRuntimeDeps,
 } from "./bundle-plugin.mjs";
 
-const repoRoot = resolve(import.meta.dirname, "..");
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("bumps plugin versions predictably", () => {
   assert.equal(bumpVersion("1.2.3", "patch"), "1.2.4");
