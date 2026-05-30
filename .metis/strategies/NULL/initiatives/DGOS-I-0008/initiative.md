@@ -1,14 +1,12 @@
 ---
-id: existing-repo-major-feature-mvp
+id: validation-engine-completion
 level: initiative
-title: "Existing Repo Major Feature v0.5 Full Flow"
+title: "Validation Engine & Completion Authority"
 short_code: "DGOS-I-0008"
-runtime_primitive: protocol
-created_at: 2026-05-19T16:57:23.448785+00:00
-updated_at: 2026-05-19T16:57:23.448785+00:00
+created_at: 2026-05-21T17:45:11.486781+00:00
+updated_at: 2026-05-21T17:45:11.486781+00:00
 parent: DGOS-V-0001
-blocked_by:
-  - DGOS-I-0031
+blocked_by: []
 archived: false
 
 tags:
@@ -17,56 +15,169 @@ tags:
 
 
 exit_criteria_met: false
-estimated_complexity: XL
+estimated_complexity: L
 strategy_id: NULL
-initiative_id: existing-repo-major-feature-mvp
+initiative_id: validation-engine-completion
 ---
 
-# Existing Repo Major Feature v0.5 Full Flow Initiative
+# Validation Engine & Completion Authority Initiative
 
 ## Context
 
-This initiative is the v0.5 full-flow proof for an existing-repo major feature. It is not the first MVP. DGOS-I-0031, "Protocol Proof MVP — One Role, One Artifact, One Gate," is the prerequisite v0.1 proof that validates the artifact-protocol thesis with the smallest useful end-to-end flow.
+The retro exposed a core weakness in the old model: completion was too easy to assert and too hard to verify. Structural document validation alone is not enough, and `exit_criteria_met` must represent an authoritative validation result rather than an agent claim.
 
-After DGOS-I-0031 proves one Role consuming one artifact, producing one artifact, and passing one gate, this initiative expands that protocol across primitives: Repo Intelligence and Strategy Engines, Planner/Architect/Principal FE/Principal BE/Project Manager/Quality Governor Roles, the Developer Execution Loop, and the Validation Engine.
+This initiative rewrites the original validation work around one stronger rule: the Validation Engine owns the completion decision.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Implement request -> classify -> inspect repo -> product/stories -> architecture impact -> FE/BE plans -> task set -> first execution record.
-- Make no-UI and no-backend skip results first-class.
-- Dogfood on this repository after the restructure.
-- Prove a multi-primitive full flow can hand off artifacts without prompt-only coupling after the v0.1 protocol proof succeeds.
+- Run the same validation engine at leaf and parent scopes.
+- Produce `ValidationReport` artifacts that drive completion decisions.
+- Aggregate lint, tests, acceptance-criteria checks, build checks, audit signals, and architecture-rule checks where relevant.
+- Make `exit_criteria_met` reflect authoritative validation output.
 
 **Non-Goals:**
-- Complete every supported workflow shape.
-- Launch parallel child agents in the MVP.
-- Build full wireframing or schema migration support unless required by the selected feature.
-- Serve as the first protocol proof.
+- Let executing agents self-certify completion.
+- Own decomposition or decision routing logic.
+- Replace the Audit or Guardrails packages as separate deterministic owners.
+
+## Architecture
+
+### Overview
+
+Validation is one Engine with two invocation scopes:
+
+- leaf scope: fast, narrow validation on the leaf's own changes
+- parent scope: authoritative validation across the parent's owned work surface
+
+### Sequence Diagrams
+
+Leaf finishes local work -> runs narrow validation -> returns a claim -> parent runs authoritative validation -> emits `ValidationReport` -> completion or rework decision follows.
 
 ## Detailed Design
 
-This flow starts with a user request and RepoProfile. Strategy selects existing_repo_major_feature. Planner emits ProductDoc/Epic/Story drafts. Architect emits ArchitectureImpact. Principal FE and Principal BE emit plans or skip records. Project Manager emits TaskSet. Developer executes one bounded task through Katana. Validation decides whether that task is complete.
+The Validation Engine should support adapters for:
 
-The flow must reuse the protocol decisions proven by DGOS-I-0031:
+- document gates
+- lint and type checks
+- tests and build checks
+- acceptance-criteria verification hooks
+- Guardrails rule checks
+- Audit scan integration
 
-- Role invocations use `RoleInvocation` and `RoleResult` envelopes.
-- Role outputs are validated before downstream primitives rely on them.
-- Missing context, low confidence, skip, and needs-human results have explicit routing behavior.
-- Dogfood findings from the one-role proof are incorporated before multi-role chaining begins.
+It should record enough structured detail for retries, rework loops, and post-hoc inspection. Audit should start at the epic level and move lower only if experience shows that is necessary.
+
+### Validation examples
+
+The first concrete validation pass should define one report shape used at both leaf and parent scopes, with parent scope remaining authoritative for completion.
+
+Example leaf-local validation report:
+
+```json
+{
+  "validation_report_id": "validation-local-task-admin-settings-save-003",
+  "scope": "leaf",
+  "subject_loop_id": "task-admin-settings-save",
+  "subject_surfaces": {
+    "owns_files": [
+      "src/features/admin/settings/data/save.ts",
+      "src/routes/api/admin/settings.ts"
+    ],
+    "owns_interfaces": [
+      "PUT /api/admin/settings"
+    ]
+  },
+  "checks": [
+    {
+      "check_type": "lint",
+      "status": "passed"
+    },
+    {
+      "check_type": "targeted_tests",
+      "status": "passed",
+      "evidence_ref": "test-run-admin-settings-save-003"
+    }
+  ],
+  "overall_status": "passed",
+  "completion_authority": "non_authoritative",
+  "recommended_next_action": "bubble_done_to_parent"
+}
+```
+
+Example parent authoritative validation report:
+
+```json
+{
+  "validation_report_id": "validation-parent-story-admin-settings-save-002",
+  "scope": "parent",
+  "subject_loop_id": "story-admin-settings-save",
+  "subject_surfaces": {
+    "owns_interfaces": [
+      "PUT /api/admin/settings"
+    ],
+    "owns_workflow_steps": [
+      "admin-settings:save"
+    ]
+  },
+  "checks": [
+    {
+      "check_type": "integration_tests",
+      "status": "passed",
+      "evidence_ref": "integration-admin-settings-save-002"
+    },
+    {
+      "check_type": "acceptance_criteria",
+      "status": "passed"
+    },
+    {
+      "check_type": "audit_scan",
+      "status": "passed"
+    }
+  ],
+  "overall_status": "passed",
+  "completion_authority": "authoritative",
+  "exit_criteria_met": true,
+  "recommended_next_action": "mark_parent_complete"
+}
+```
+
+Example authoritative rework result:
+
+```json
+{
+  "validation_report_id": "validation-parent-story-admin-settings-save-003",
+  "scope": "parent",
+  "subject_loop_id": "story-admin-settings-save",
+  "checks": [
+    {
+      "check_type": "integration_tests",
+      "status": "failed",
+      "diagnostic": "save succeeds but reload path still shows stale state"
+    }
+  ],
+  "overall_status": "failed",
+  "completion_authority": "authoritative",
+  "exit_criteria_met": false,
+  "recommended_next_action": "rework_child_scope",
+  "rework_targets": [
+    "task-admin-settings-save",
+    "task-admin-settings-display"
+  ]
+}
+```
+
+These examples establish the required rule: leaf validation can support confidence and routing, but only parent-scope validation can set `exit_criteria_met` and authorize completion or rework.
 
 ## Alternatives Considered
 
-- Start with greenfield: rejected because existing repo work exercises reconciliation, context, and validation sooner.
-- Start with bugs: rejected because the architecture needs multi-role planning pressure.
-- Start with multi-agent orchestration: rejected until single-thread artifact handoff works.
-- Treat this as v0.1: rejected because it requires too many co-dependent primitives before the protocol can teach us anything.
+- Keep validation structural-only: rejected because completion authority would remain weak.
+- Build separate leaf and parent validation systems: rejected because the difference is scope, not engine ownership.
+- Let Loops decide completion without a formal report: rejected because it breaks the claim-versus-verify invariant.
 
 ## Implementation Plan
 
-- [ ] Define the existing_repo_major_feature strategy recipe.
-- [ ] Confirm DGOS-I-0031 is complete and its dogfood findings are incorporated.
-- [ ] Implement the minimum artifact types and primitive outputs for the flow.
-- [ ] Wire repo-intelligence scan into planner input.
-- [ ] Generate FE/BE plan skip records when no surface exists.
-- [ ] Execute one task and persist ExecutionRecord + ValidationReport.
+- [ ] Define `ValidationReport` shape and completion-decision semantics.
+- [ ] Implement leaf vs parent invocation scopes for the same engine.
+- [ ] Add adapters for lint, tests, build, audit, and architecture checks.
+- [ ] Define how `exit_criteria_met` is derived from validation output.
+- [ ] Add fixture coverage for success, failure, retry, and escalation paths.

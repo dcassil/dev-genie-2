@@ -1,11 +1,10 @@
 ---
-id: workflow-test-dashboard-strategy
+id: workflow-test-harness-scenario
 level: initiative
-title: "Workflow Test: Dashboard Strategy and Task Mapping"
+title: "Workflow Test Harness & Scenario Corpus"
 short_code: "DGOS-I-0015"
-runtime_primitive: meta
-created_at: 2026-05-19T17:18:46.174117+00:00
-updated_at: 2026-05-19T17:18:46.174117+00:00
+created_at: 2026-05-21T17:47:46.117205+00:00
+updated_at: 2026-05-21T17:47:46.117205+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
@@ -16,53 +15,66 @@ tags:
 
 
 exit_criteria_met: false
-estimated_complexity: M
+estimated_complexity: L
 strategy_id: NULL
-initiative_id: workflow-test-dashboard-strategy
+initiative_id: workflow-test-harness-scenario
 ---
 
-# Workflow Test: Dashboard Strategy and Task Mapping Initiative
+# Workflow Test Harness & Scenario Corpus Initiative
 
 ## Context
 
-Dashboard work is the canonical strategy test because it needs Strategy Engine classification, product planning, UX, architecture, FE/BE planning Roles, reusable components, vertical slices, and hardening. It also tests whether the Project Manager Role avoids naive page-only decomposition.
+The old plan had one harness initiative plus seven scenario initiatives. Those scenarios are better treated as fixtures or tasks under one testing owner, because they are validation cases rather than independent projects.
+
+This initiative merges the harness and scenario corpus into one place.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Verify dashboard strategy selects a hybrid plan: skeleton, reusable components, data contracts, vertical slices, hardening.
-- Verify Designer, Architect, Principal FE, Principal BE, Quality Governor, and Project Manager all participate when needed.
-- Verify no-backend or no-new-component cases produce skip records.
-- Verify task sequencing prevents duplicated component work.
+- Build one harness that can exercise primitive-specific and workflow-specific behavior.
+- Capture the seven original scenarios as fixtures or tasks under one owner.
+- Assert the claim-versus-verify invariant, typed Role results, Engine reports, and Loop resume behavior.
+- Provide durable regression coverage for architectural decisions.
 
 **Non-Goals:**
-- Implement a real dashboard.
-- Decide a final visual style.
+- Treat each scenario as its own strategic initiative.
+- Replace lower-level unit or fixture tests inside individual initiatives.
+- Limit testing to happy paths only.
+
+## Architecture
+
+### Overview
+
+The harness should execute reusable scenarios against the artifact protocol, Role contracts, validation behavior, and recursive loop semantics.
+
+### Sequence Diagrams
+
+Scenario fixture loaded -> harness drives the required primitives or adapters -> outputs are compared against expected artifacts, statuses, and validation results -> regressions are reported.
 
 ## Detailed Design
 
-Expected route:
+The scenario corpus should include the original cases:
 
-RepoProfile -> Planner -> Designer -> Architect -> Principal BE -> Principal FE -> Quality Governor -> Project Manager.
+- vision to reviewed task set
+- runtime product decision loop
+- dashboard strategy and task mapping
+- autonomous design decision modes
+- architecture escalation and approval
+- validation failure recovery loop
+- runtime primitive contract and skip behavior
 
-Expected task strategy:
+The harness should validate primitive-specific behavior rather than just end-state success. It should confirm that the right type of artifact or status was produced by the right primitive at the right point.
 
-1. App/dashboard skeleton
-2. Reusable primitives such as StatCard, DataTable wrapper, FilterBar, ChartPanel, EmptyState, ErrorState, LoadingSkeleton, DateRangeControl, DashboardSection
-3. Data contracts and query/API functions
-4. Vertical feature slices
-5. Responsive/accessibility/test hardening
+## Alternatives Considered
 
-## Test Cases
-
-- Existing component library: Principal FE reuses components and creates fewer primitive tasks.
-- No backend changes: Principal BE returns skip with rationale.
-- New data contract: Architect and Principal BE require review if policy marks API/schema as review-required.
-- Project Manager emits hybrid task graph, not only page tasks.
+- Keep one initiative per scenario: rejected because the scenarios are test fixtures, not strategic workstreams.
+- Build only end-to-end smoke tests: rejected because primitive contracts need more precise assertions.
+- Test only final outputs and ignore intermediate artifacts: rejected because the architecture depends on typed intermediate state.
 
 ## Implementation Plan
 
-- [ ] Add dashboard repo fixture with partial component library.
-- [ ] Add expected primitive route graph.
-- [ ] Assert task categories and dependency order.
-- [ ] Assert reusable component tasks precede vertical feature slice tasks.
+- [ ] Define harness interfaces for artifact, Role, Engine, and Loop assertions.
+- [ ] Port the seven original scenarios into fixtures or tasks under this initiative.
+- [ ] Add assertions for Role skip records, Engine validation reports, and Loop resume records.
+- [ ] Add claim-versus-verify completion checks to scenario expectations.
+- [ ] Use the harness as a regression suite for future architectural changes.

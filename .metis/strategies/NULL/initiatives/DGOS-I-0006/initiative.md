@@ -1,11 +1,10 @@
 ---
-id: context-engine-and-minimal-context
+id: repo-intelligence-engine
 level: initiative
-title: "Context Engine and Minimal Context Loader"
+title: "Repo Intelligence Engine"
 short_code: "DGOS-I-0006"
-runtime_primitive: engine
-created_at: 2026-05-19T16:57:17.602007+00:00
-updated_at: 2026-05-19T16:57:17.602007+00:00
+created_at: 2026-05-21T17:45:11.450195+00:00
+updated_at: 2026-05-21T17:45:11.450195+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
@@ -18,42 +17,62 @@ tags:
 exit_criteria_met: false
 estimated_complexity: M
 strategy_id: NULL
-initiative_id: context-engine-and-minimal-context
+initiative_id: repo-intelligence-engine
 ---
 
-# Context Engine and Minimal Context Loader Initiative
+# Repo Intelligence Engine Initiative
 
 ## Context
 
-Roles and Loops perform best when they receive the smallest complete context: active task, relevant parent docs, architecture/design constraints, repo facts, nearby files, validation failures, and durable notes. Context loading should be a deterministic Context Engine with typed ContextBundle outputs, not repeated prompt prose embedded in each Role.
+Repo detection and repository fact gathering currently live too close to installer and planning behavior. The recreated architecture moves that work into a dedicated Engine so bootstrap, strategy, context loading, and validation can all consume the same repository facts.
+
+This initiative merges the original extraction and move-detection work into one bounded owner.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Define context bundles for each Role and execution phase.
-- Load parent/child artifacts, sibling plans, repo profile facts, relevant files, and validation history.
-- Keep context minimal and explain why each item was included.
-- Support micro-workflow context when a runtime question is raised.
+- Define a `RepoProfile` or equivalent repository fact artifact.
+- Detect frameworks, scripts, CI, hooks, routes, schema, ownership signals, and architecture cues.
+- Support bootstrap phase-0 detection and downstream context assembly.
+- Keep repository inspection deterministic and explainable.
 
 **Non-Goals:**
-- Build a vector database in the MVP.
-- Load entire repositories by default.
-- Replace role-specific instructions.
+- Choose the final strategy recipe.
+- Perform long-running orchestration.
+- Own code changes outside deterministic scan or inventory behavior.
+
+## Architecture
+
+### Overview
+
+The Repo Intelligence Engine inspects the repository and emits structured facts. Other primitives consume those facts instead of rescanning ad hoc.
+
+### Sequence Diagrams
+
+Bootstrap or Strategy requests repo facts -> Repo Intelligence scans the repository -> emits a `RepoProfile` with provenance -> downstream Strategy, Context, or Guardrails consumers use that artifact.
 
 ## Detailed Design
 
-ContextBundle should include artifact refs, file refs, command refs, validation refs, notes, exclusions, and unresolved missing context. Each Role declares required and optional context slots. The context engine fills slots deterministically first, then allows targeted code search when needed.
+The engine should detect:
+
+- package and toolchain facts
+- framework and runtime indicators
+- scripts, CI, and hook setup
+- file ownership or structure cues
+- architecture patterns or mismatches where deterministic inspection can support them
+
+Every detected fact should carry enough provenance to explain why it was included. The engine should prefer stable signals over heuristic guesswork and surface uncertainty explicitly.
 
 ## Alternatives Considered
 
-- Let every Role or Loop gather context itself: rejected because it duplicates work and causes inconsistent context quality.
-- Always load full parent chains and repo summaries: rejected because context bloat weakens task focus.
-- Use only semantic search: rejected because many references are explicit artifact links.
+- Leave repo detection embedded in Dev-Genie installer flow: rejected because multiple primitives need the same facts.
+- Let each primitive scan the repo independently: rejected because it causes duplicated logic and inconsistent views of the same repository.
+- Make Repo Intelligence partially model-driven: rejected as the default because the core fact layer should stay deterministic.
 
 ## Implementation Plan
 
-- [ ] Define ContextBundle schema.
-- [ ] Add role context profiles for planner, architect, FE, BE, developer, quality.
-- [ ] Implement artifact-chain loading from Katana storage.
-- [ ] Add deterministic relevant-file hooks from task files, repo profile, and validation failures.
-- [ ] Use the context engine in the developer execution loop.
+- [ ] Define `RepoProfile` scope and fact categories.
+- [ ] Implement deterministic scanners for frameworks, scripts, CI, hooks, and structure cues.
+- [ ] Add provenance and confidence conventions for detected facts.
+- [ ] Wire Repo Intelligence outputs into bootstrap and strategy inputs.
+- [ ] Add fixture coverage for greenfield and existing-repo patterns.

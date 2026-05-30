@@ -1,12 +1,12 @@
 {
-  "status": "skipped",
+  "status": "failed",
   "live_flag": {
     "name": "ROLES_LIVE_SDK_TESTS",
-    "enabled": false
+    "enabled": true
   },
   "credential_preflight": {
     "required_env": "ANTHROPIC_API_KEY",
-    "present": false
+    "present": true
   },
-  "finding": "ROLES_LIVE_SDK_TESTS=1 was not set; live Roles dogfood call was not attempted."
+  "finding": "architect-architecture-impact expected status=produced but got blocked"
 }

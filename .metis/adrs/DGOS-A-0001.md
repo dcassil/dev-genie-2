@@ -4,16 +4,16 @@ level: adr
 title: "Engine / Role / Loop Primitive Split"
 number: 1
 short_code: "DGOS-A-0001"
-created_at: 2026-05-19T19:46:10.465480+00:00
-updated_at: 2026-05-19T19:46:10.465480+00:00
-decision_date: 2026-05-19
+created_at: 2026-05-21T17:33:49.504686+00:00
+updated_at: 2026-05-21T18:03:47.722999+00:00
+decision_date: 
 decision_maker: Dev-Genie maintainers
 parent: 
 archived: false
 
 tags:
   - "#adr"
-  - "#phase/draft"
+  - "#phase/decided"
 
 
 exit_criteria_met: false
@@ -25,25 +25,25 @@ initiative_id: NULL
 
 ## Context
 
-The Dev-Genie vision and initiative set used the word "plugin" for runtime units with incompatible execution models. That overloaded term covered deterministic services, model-backed specialist personas, and long-running execution processes. Treating those units as one kind of component makes lifecycle, invocation, observability, testing, and governance ambiguous.
+The Dev-Genie vision and initiative set used the word `plugin` for runtime units with incompatible execution models. That overloaded term covered deterministic services, model-backed specialist personas, and long-running execution processes. Treating those units as one kind of component makes lifecycle, invocation, observability, testing, and governance ambiguous.
 
 The concrete ambiguity appears in current planning language:
 
 - Deterministic capabilities such as Validation, Context loading, Repo Intelligence, Strategy classification, and Decision Policy evaluation need repeatable inputs, repeatable outputs, and no model call in the core decision path.
 - Specialist responsibilities such as Planner, Designer, Architect, Principal FE, Principal BE, Project Manager, and Quality Governor need LLM reasoning bounded by role prompts, context profiles, and artifact I/O contracts.
-- Stateful execution responsibilities such as the Developer execution loop and future Orchestrator loop need resumable task state, retry policy, validation feedback, and durable progress records.
+- Stateful execution responsibilities such as the Developer execution loop and the govern-verify orchestration loop need resumable task state, retry policy, validation feedback, and durable progress records.
 
-A single "plugin" abstraction hides these differences and leads to weak contracts: deterministic units get described like agents, role reasoning gets mixed into engines, and loops appear as one-shot calls even though they must preserve state across decisions and validation cycles.
+A single `plugin` abstraction hides these differences and leads to weak contracts: deterministic units get described like agents, role reasoning gets mixed into engines, and loops appear as one-shot calls even though they must preserve state across decisions and validation cycles.
 
 ## Decision
 
-Dev-Genie will split runtime vocabulary into three first-class primitives: Engine, Role, and Loop. The word "plugin" remains available only for packaging or installation boundaries when referring to local plugin folders, marketplace metadata, or platform distribution. Runtime design, artifact contracts, routing, and observability must use the primitive name.
+Dev-Genie will split runtime vocabulary into three first-class primitives: Engine, Role, and Loop. The word `plugin` remains available only for packaging or installation boundaries when referring to local plugin folders, marketplace metadata, or platform distribution. Runtime design, artifact contracts, routing, and observability must use the primitive name.
 
 ### Engine
 
 An Engine is deterministic runtime code with typed inputs and outputs and no LLM reasoning in its core path. Engines may call tools, parse files, run validators, evaluate policy, and emit artifacts, but the same inputs must produce the same decision result except for explicit environmental changes such as command output or filesystem state.
 
-Examples include Document Engine, Strategy Engine or strategy classifier, Repo Intelligence Engine, Context Engine, Validation Engine, Decision Policy Engine, Guardrails checks, Audit checks, and Dev-Genie installer/reconciliation behavior when run as deterministic setup logic.
+Examples include Document Engine, Strategy Engine, Repo Intelligence Engine, Context Engine, Validation Engine, Decision Policy Engine, Guardrails checks, Audit checks, and Dev-Genie installer/reconciliation behavior when run as deterministic setup logic.
 
 Lifecycle:
 
@@ -94,7 +94,7 @@ Observability requirements:
 
 A Loop is a long-running stateful runtime process that coordinates work over time. It may call Engines and Roles, but its defining responsibility is preserving task or orchestration state across iterations, validation feedback, retries, nested decisions, and resume boundaries.
 
-Examples include the Developer execution loop, validation recovery loop behavior inside task execution, multi-agent wave execution controller, and future Orchestrator loop.
+Examples include the Developer execution loop, validation recovery behavior inside task execution, multi-agent wave execution controller, and the recursive govern-verify loop.
 
 Lifecycle:
 
@@ -116,11 +116,11 @@ Observability requirements:
 - A Loop must be reconstructable from durable state after process loss.
 - Completion must be justified by artifacts and gates rather than the loop's assertion.
 
-## Alternatives Considered
+## Alternatives Analysis
 
 | Option | Pros | Cons | Risk Level | Implementation Cost |
-|--------|------|------|------------|---------------------|
-| Keep "plugin" as one runtime word | Simple vocabulary; matches existing directory and marketplace language | Continues conflating deterministic services, LLM roles, and stateful loops; weakens contracts; makes routing and observability inconsistent | High | Low initially, high later |
+|--------|------|------|------------|-------------------|
+| Keep `plugin` as one runtime word | Simple vocabulary; matches existing directory and marketplace language | Continues conflating deterministic services, LLM roles, and stateful loops; weakens contracts; makes routing and observability inconsistent | High | Low initially, high later |
 | Use two primitives only: Tool and Agent | Easier than three terms; separates deterministic code from LLM behavior | Still conflates one-shot Roles with long-running Loops; hides state, retry, resume, and validation recovery requirements | Medium | Medium |
 | Split into Engine, Role, and Loop | Matches actual runtime differences; gives each unit an explicit lifecycle, invocation model, and observability contract | Requires vocabulary migration across vision, initiatives, schemas, docs, and tests | Low | Medium |
 
@@ -133,7 +133,6 @@ The split also preserves existing packaging flexibility. A local plugin package 
 ## Consequences
 
 ### Positive
-
 - Runtime contracts become testable because each primitive has the right lifecycle and invocation expectations.
 - Orchestration can route to Engines, Roles, and Loops without guessing whether a unit is deterministic, model-backed, or stateful.
 - Observability becomes sharper: deterministic decisions, model decisions, and loop state transitions get different required records.
@@ -141,22 +140,11 @@ The split also preserves existing packaging flexibility. A local plugin package 
 - The vocabulary makes it easier to keep role-specific reasoning out of deterministic engines and long-running state out of one-shot role calls.
 
 ### Negative
-
-- Existing vision, initiative, schema, and test language must be migrated away from overloaded "plugin" usage.
+- Existing vision, initiative, schema, and test language must be migrated away from overloaded `plugin` usage.
 - Some current initiatives straddle more than one primitive and will need explicit ownership boundaries during decomposition.
 - Local package names may still use plugin terminology, so documentation must distinguish package boundaries from runtime primitives.
 - Contributors must learn one more layer of vocabulary before adding new runtime behavior.
 
 ### Neutral
-
 - The split does not require immediate code movement. It changes the architectural contract first, then guides future implementation and decomposition.
 - The split does not decide which package owns a primitive. It only defines how runtime units behave and how they are observed.
-
-## Follow-Up Actions
-
-- Update DGOS-V-0001 with a Runtime Primitives section and replace overloaded runtime uses of "plugin" with Engine, Role, Loop, package, or primitive.
-- Add `runtime_primitive` frontmatter to initiatives DGOS-I-0001 through DGOS-I-0030 using `engine`, `role`, `loop`, `protocol`, or `meta`.
-- Update initiative Context sections so runtime-specific work names the correct primitive.
-- Update artifact and workflow scenario schemas to assert primitive-specific output requirements.
-- During decomposition, split initiatives that still combine multiple primitive owners into tasks with explicit Engine, Role, Loop, protocol, or meta ownership.
-- Keep marketplace and installation docs clear that a package can contain multiple runtime primitives while runtime routing invokes the primitive, not the package.

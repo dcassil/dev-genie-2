@@ -27,6 +27,7 @@ coverage/
 *.db-shm
 *.db-wal
 *.log
+.metis.orig/
 
 # Local runtime state
 .audit/

@@ -1,19 +1,19 @@
 ---
-id: 002-role-plugin-invocation-convention
+id: 001-role-invocation-convention
 level: adr
 title: "Role Invocation Convention"
-number: 2
+number: 1
 short_code: "DGOS-A-0002"
-created_at: 2026-05-19T20:01:28.192767+00:00
-updated_at: 2026-05-19T20:01:28.192767+00:00
-decision_date: 2026-05-19
+created_at: 2026-05-21T17:33:49.522551+00:00
+updated_at: 2026-05-21T18:03:47.741951+00:00
+decision_date: 
 decision_maker: Dev-Genie maintainers
 parent: 
 archived: false
 
 tags:
   - "#adr"
-  - "#phase/draft"
+  - "#phase/decided"
 
 
 exit_criteria_met: false
@@ -25,7 +25,7 @@ initiative_id: NULL
 
 ## Context
 
-DGOS-A-0001 split runtime vocabulary into Engines, Roles, and Loops. That split still leaves one critical runtime question open: how does the Orchestrator Loop invoke a Role at execution time?
+DGOS-A-0001 split runtime vocabulary into Engines, Roles, and Loops. That split still leaves one critical runtime question open: how does a Loop invoke a Role at execution time?
 
 The current initiative set references several possible models without choosing one:
 
@@ -34,15 +34,15 @@ The current initiative set references several possible models without choosing o
 - Slash command: rely on platform-specific command files that expand into role prompts.
 - Skill load: load role guidance into the current agent context and ask it to behave as that Role.
 - Child process via worktree: run an external role runner process against a repo path or isolated worktree.
-- In-process function call: link role code directly into the Orchestrator process.
+- In-process function call: link role code directly into the orchestrator process.
 
-Without a single convention, the artifact protocol cannot be implemented reliably. The orchestrator needs one call surface with explicit inputs, typed outputs, timeout behavior, error handling, trace records, and cost accounting.
+Without a single convention, the artifact protocol cannot be implemented reliably. The caller needs one call surface with explicit inputs, typed outputs, timeout behavior, error handling, trace records, and cost accounting.
 
 ## Decision
 
 For v1, Dev-Genie Role invocations will use a local subprocess Role runner with typed artifact envelopes.
 
-The Orchestrator invokes a Role by running a command equivalent to:
+The orchestrator invokes a Role by running a command equivalent to:
 
 ```bash
 dev-genie role invoke <role-id> --input <RoleInvocation.json> --output <RoleResult.json>
@@ -50,12 +50,12 @@ dev-genie role invoke <role-id> --input <RoleInvocation.json> --output <RoleResu
 
 The exact binary name can change, but the convention is fixed:
 
-- Input is a `RoleInvocation` JSON artifact envelope written by the orchestrator.
+- Input is a `RoleInvocation` JSON artifact envelope written by the caller.
 - Output is a `RoleResult` JSON artifact envelope written by the Role runner.
 - Human-readable markdown can be included as an artifact body, but the handoff API is the JSON envelope.
 - The Role runner may call an LLM, local deterministic Engines, MCP tools, or platform adapters internally, but those are implementation details hidden behind the subprocess boundary.
 - The Role invocation is one-shot. Long-running execution state belongs to Loops, not Roles.
-- The Role runner exits with a machine-readable status and a process exit code. The orchestrator never parses prose to determine success.
+- The Role runner exits with a machine-readable status and a process exit code. The caller never parses prose to determine success.
 
 `RoleInvocation` must include:
 
@@ -87,11 +87,11 @@ The exact binary name can change, but the convention is fixed:
 - retry recommendation
 - trace refs
 
-### DGOS-I-0031 v0.1 Subset
+### Protocol Proof MVP subset
 
-DGOS-I-0031 uses the smallest stable subset of this convention needed to prove one Role consuming one artifact, producing one artifact, and passing one validation gate. The v0.1 proof must not implement the full v1 envelope before the protocol thesis is tested.
+The Protocol Proof MVP uses the smallest stable subset of this convention needed to prove one Role consuming one artifact, producing one artifact, and passing one validation gate. The proof should not implement the full v1 envelope before the protocol thesis is tested.
 
-For the Protocol Proof MVP, `RoleInvocation` requires only:
+For the proof, `RoleInvocation` requires only:
 
 - `invocation_id`
 - `role_id`
@@ -103,7 +103,7 @@ For the Protocol Proof MVP, `RoleInvocation` requires only:
 - `trace`
 - `timeout_ms`
 
-For the Protocol Proof MVP, `RoleResult` requires only:
+For the proof, `RoleResult` requires only:
 
 - `invocation_id`
 - `role_id`
@@ -116,78 +116,46 @@ For the Protocol Proof MVP, `RoleResult` requires only:
 - `diagnostics`
 - `trace`
 
-Budget policy, allowed tools, context bundle refs, policy refs, retry policy, and cost accounting remain part of the v1 convention but are optional in the v0.1 proof.
+Budget policy, allowed tools, context bundle refs, policy refs, retry policy, and cost accounting remain part of the v1 convention but are optional in the MVP subset.
+
+## Alternatives Analysis
+
+| Option | Pros | Cons | Risk Level | Implementation Cost |
+|--------|------|------|------------|-------------------|
+| MCP tool call | Good typed surface | Requires every Role to be exposed through an MCP server and couples v1 to server lifecycle, transport, and client support | Medium | Medium |
+| Subagent spawn via Task tool | Strong for parallel human-like work | Too platform-specific and hard to make return-typed; better for Loop-managed worker agents than one-shot Role invocation | Medium | Medium |
+| Slash command or skill load | Useful UX on platforms that support it | Prompt expansion pollutes caller context and does not guarantee typed returns or isolation | High | Low |
+| In-process function call | Simple for tests | Couples Roles to orchestrator implementation language and weakens isolation and timeout enforcement | Medium | Low |
+| Local subprocess Role runner | Deterministic invocation boundary, typed return contract, bounded context, portability across host platforms | Requires envelope schemas and runner tooling | Low | Medium |
 
 ## Rationale
 
-The subprocess convention gives the orchestrator a deterministic invocation boundary without forcing every Role to be implemented as a specific host-platform feature.
+The subprocess convention gives the caller a deterministic invocation boundary without forcing every Role to be implemented as a specific host-platform feature.
 
-It scores well against the required criteria:
+It satisfies the core requirements:
 
-- Deterministic invocation: the orchestrator starts a process with explicit input and output files.
+- Deterministic invocation: the caller starts a process with explicit input and output files.
 - Return-typed artifact handoff: all Role output must be written as `RoleResult` plus artifact refs.
-- Context-window isolation: the Role runner receives a bounded context bundle instead of inheriting the orchestrator's chat context.
-- Parallelism: the orchestrator can run multiple Role subprocesses concurrently with independent invocation ids and working directories.
-- Cost: the invocation envelope carries budget/model policy, and the result reports usage.
-- Debuggability: every invocation has durable input, output, stdout/stderr, exit code, trace refs, and artifact hashes.
+- Context-window isolation: the Role runner receives a bounded context bundle instead of inheriting the caller's chat context.
+- Parallelism: the caller can run multiple Role subprocesses concurrently with independent invocation ids and working directories.
+- Cost: the invocation envelope carries budget and model policy, and the result reports usage.
+- Debuggability: every invocation has durable input, output, stdout or stderr, exit code, trace refs, and artifact hashes.
 - Cross-platform portability: MCP, Claude slash commands, Codex skills, Cursor rules, and other host features can wrap or implement the runner, but the core contract stays local and file-based.
-
-## Alternatives Considered
-
-| Option | Why Not Chosen |
-|--------|----------------|
-| MCP tool call | Good typed surface, but it requires every Role to be exposed through an MCP server and couples v1 to server lifecycle, transport, and client support. Use MCP as an adapter later, not the primary convention. |
-| Subagent spawn via Task tool | Strong for parallel human-like work, but too platform-specific and hard to make return-typed. Use it for Loop-managed worker agents, not one-shot Role invocation. |
-| Slash command | Useful UX on platforms that support it, but it is prompt expansion rather than a stable runtime API. It cannot be the orchestrator's primary contract. |
-| Skill load | Useful for local guidance, but it pollutes the caller context and does not isolate role reasoning or guarantee typed returns. |
-| Child process via worktree | Chosen in the narrower form of a local subprocess Role runner. A full isolated worktree is optional for Roles and required only when the Role needs repo writes, which should be rare. |
-| In-process function call | Simple for tests, but it couples Roles to orchestrator implementation language and makes isolation, timeout enforcement, and adapter portability weaker. Use only as a fake adapter in tests. |
 
 ## Consequences
 
-### Artifact Shape
+### Positive
+- All Role contracts now share a stable invocation and return shape.
+- The artifact protocol can depend on `RoleInvocation` and `RoleResult` schemas instead of prompt conventions.
+- Context isolation becomes enforceable because Roles receive bounded input bundles.
+- The same convention works whether the host environment is Codex, Claude Code, Cursor, or an MCP-capable orchestrator.
+- Missing-context, low-confidence, blocked, and needs-human outcomes become first-class machine-readable states.
 
-All Role contracts must define `RoleInvocation` and `RoleResult` schemas. Markdown-only outputs are not valid Role outputs. Role-produced artifacts must include content hashes and ownership metadata so Document Engine can validate, index, supersede, or reject them.
+### Negative
+- A runner binary or equivalent local adapter must exist and be versioned.
+- Envelope schemas, timeout behavior, and trace handling add implementation work before full orchestration exists.
+- Existing initiative language that assumes loose prompt handoffs must be rewritten.
 
-### Error Handling
-
-The orchestrator handles these failure modes uniformly:
-
-- timeout: mark invocation `failed`, preserve partial traces, and follow retry policy.
-- non-zero exit: mark invocation `failed` unless a valid `RoleResult` says `blocked` or `needs_human`.
-- malformed result: mark invocation `failed` and route to Validation or implementation bug triage.
-- low confidence: follow Decision Policy; usually retry with more context, escalate to human, or route to another Role.
-- missing context populated: route to Context Engine or Repo Intelligence before retrying, unless policy says human review is required.
-- skipped: require a skip reason and verifier policy before downstream artifacts can rely on the skip.
-
-### Timeouts and Retries
-
-Each Role invocation receives an explicit timeout and retry policy. Retries must create new invocation ids linked to the failed invocation. The orchestrator may retry with expanded context, different model tier, or a human-review requirement, but it must not silently loop.
-
-### Observability
-
-Every invocation records:
-
-- command, role id, role version, adapter version
-- input artifact refs and hashes
-- context bundle refs
-- policy refs
-- stdout/stderr locations
-- output artifact refs and hashes
-- status, confidence, missing context, review requirement
-- cost and duration
-
-### Multi-Agent Waves
-
-Multi-Agent Wave Execution remains a Loop concern. Wave workers are long-running Developer Loops or migration Loops, not Role invocations. The Wave Loop may call Roles through this same subprocess convention when it needs planning, architecture, design, or quality decisions. If a Role decision changes a shared contract during a wave, the Wave Loop must quiesce dependent workers before resuming them.
-
-## Follow-Up
-
-The following initiatives must be updated to reflect this ADR:
-
-- DGOS-I-0030: replace vague typed-contract language with the subprocess Role runner convention.
-- DGOS-I-0028: specify orchestration dispatch, failure handling, low-confidence behavior, and missing-context behavior through `RoleInvocation` and `RoleResult`.
-- DGOS-I-0009: clarify that parallel waves use Loop-managed workers and call one-shot Roles through the same convention when needed.
-- DGOS-I-0002: add `RoleInvocation` and `RoleResult` schemas to the artifact protocol.
-- DGOS-I-0005: route `DecisionRequest` resolution through the subprocess Role runner.
-- DGOS-I-0020 and DGOS-I-0021: attach policy decisions and budget/model tier policy to each Role invocation.
+### Neutral
+- Multi-agent wave execution remains a Loop concern. Wave workers are not Role invocations, though they may call Roles through the same subprocess convention when they need specialist decisions.
+- In-process adapters can still exist for tests, but they are not the architectural contract.

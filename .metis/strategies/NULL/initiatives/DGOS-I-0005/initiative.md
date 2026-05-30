@@ -1,11 +1,10 @@
 ---
-id: runtime-decision-request-and-micro
+id: strategy-engine-decomposition
 level: initiative
-title: "Runtime Decision Request and Micro-Workflow Protocol"
+title: "Strategy Engine & Decomposition Recipes"
 short_code: "DGOS-I-0005"
-runtime_primitive: protocol
-created_at: 2026-05-19T16:57:14.775150+00:00
-updated_at: 2026-05-19T16:57:14.775150+00:00
+created_at: 2026-05-21T17:42:28.295538+00:00
+updated_at: 2026-05-21T17:42:28.295538+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
@@ -18,47 +17,64 @@ tags:
 exit_criteria_met: false
 estimated_complexity: L
 strategy_id: NULL
-initiative_id: runtime-decision-request-and-micro
+initiative_id: strategy-engine-decomposition
 ---
 
-# Runtime Decision Request and Micro-Workflow Protocol Initiative
+# Strategy Engine & Decomposition Recipes Initiative
 
 ## Context
 
-During implementation, the Developer Execution Loop often encounters product, planning, design, architecture, backend, frontend, migration, or quality questions. Today the executing agent either guesses, stops for the human, or expands the task informally. This initiative defines the DecisionRequest and micro-workflow protocol that lets a Loop route to the correct Role, capture the DecisionRecord, and return updated instructions to the current task.
+The original strategy initiative correctly separated deterministic strategy work from model-backed planning, but the retro and later review sharpened one missing rule: decomposition should default to capability or contract boundaries rather than pass labels.
+
+This initiative owns classification, recipe selection, and decomposition heuristics. Planner Role behavior stays downstream and consumes the artifacts emitted here.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Let a running task raise a typed DecisionRequest.
-- Route the request to the correct Role based on question type and artifact context.
-- Put the task into an awaiting-ai-decision state when needed.
-- Return a DecisionRecord and patch the active task instructions.
-- Create new tasks only when the decision is large enough to require independent execution.
+- Define work patterns for greenfield, feature, bug, refactor, migration, port, and mixed work.
+- Make strategy recipes declarative: required inputs, produced artifacts, primitive routes, validation gates, and skip conditions.
+- Prefer story decomposition that aligns with independent review and validation boundaries.
+- Support initial, delta, execution, and review planning modes.
 
 **Non-Goals:**
-- Make every question a human interruption.
-- Let implementation agents make hidden architecture/product decisions.
-- Force every micro-decision into a full task document.
+- Execute implementation tasks.
+- Own the board or phase machine.
+- Hardcode high/low/UI pass splitting as the default decomposition model.
+
+## Architecture
+
+### Overview
+
+The Strategy Engine consumes RepoProfile, user request, existing artifacts, and optional human constraints. It returns a recipe selection, decomposition guidance, and a confidence score. Low confidence requires human review before downstream artifacts are created.
+
+### Sequence Diagrams
+
+Request and repo state enter the Strategy Engine -> a work pattern and recipe are selected -> decomposition guidance identifies story boundaries and artifact needs -> Planner and downstream primitives consume that output.
 
 ## Detailed Design
 
-DecisionRequest fields: source task, question type, blocking status, observed files/artifacts, attempted approach, options considered, urgency, requested role, and suggested follow-up size.
+The engine should output a `PlanningPass` or equivalent strategy artifact with work altitude, pattern, mode, required artifacts, missing artifacts, dependencies, parallel groups, risks, human decisions, and next primitive routes.
 
-The Orchestration Engine routes requests to Planner, Designer, Architect, Principal BE, Principal FE, Quality Governor, or Human Review. The answer writes a DecisionRecord and either updates the task body, appends implementation instructions, or creates a follow-up task.
+Decomposition rules should prefer:
 
-Lifecycle options: working -> awaiting-ai-decision -> working, or working -> blocked-human-review. Micro-decisions must be visible in execution records.
+- stories aligned to capability or contract boundaries
+- tasks narrow enough to fit within one story boundary
+- low file overlap and low hidden coupling between sibling tasks
+- pass-oriented story splits only when they reduce coupling or clarify ownership
+
+This initiative also owns delta replanning when new questions or changed requirements alter the best recipe.
 
 ## Alternatives Considered
 
-- Let developer agents decide locally: rejected because it hides product/design/architecture drift.
-- Always create a new task: rejected because most runtime questions are small clarifications.
-- Always ask the human: rejected because Roles can handle many scoped decisions.
+- One giant planning prompt: rejected because recipes, gates, and artifact requirements need deterministic inspection.
+- Pattern-specific scripts only: rejected because human-readable reasoning is still needed for ambiguous product and architecture choices.
+- Pass-label-first decomposition: rejected as the default because it increases overlap and agent confusion.
+- Katana-only decomposition: rejected because decomposition needs upstream strategy selection first.
 
 ## Implementation Plan
 
-- [ ] Define DecisionRequest and DecisionRecord artifacts.
-- [ ] Add task phase/status support for awaiting AI decision.
-- [ ] Add routing rules from question type to Role.
-- [ ] Implement task patching with decision provenance.
-- [ ] Add gates that require high-risk decisions to be reviewed before completion.
+- [ ] Extract strategy recipe concepts into machine-readable definitions.
+- [ ] Implement classification for work type, project state, and delivery shape.
+- [ ] Emit decomposition guidance that defaults to capability or contract boundaries.
+- [ ] Add recipe support for existing-repo major-feature flow first.
+- [ ] Add delta replanning for changed requirements or runtime questions.

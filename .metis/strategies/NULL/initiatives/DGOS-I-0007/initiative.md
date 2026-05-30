@@ -1,11 +1,10 @@
 ---
-id: validation-engine-and-gate-adapter
+id: context-engine
 level: initiative
-title: "Validation Engine and Gate Adapter Integration"
+title: "Context Engine"
 short_code: "DGOS-I-0007"
-runtime_primitive: engine
-created_at: 2026-05-19T16:57:20.660936+00:00
-updated_at: 2026-05-19T16:57:20.660936+00:00
+created_at: 2026-05-21T17:45:11.469946+00:00
+updated_at: 2026-05-21T17:45:11.469946+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
@@ -16,46 +15,66 @@ tags:
 
 
 exit_criteria_met: false
-estimated_complexity: L
+estimated_complexity: M
 strategy_id: NULL
-initiative_id: validation-engine-and-gate-adapter
+initiative_id: context-engine
 ---
 
-# Validation Engine and Gate Adapter Integration Initiative
+# Context Engine Initiative
 
 ## Context
 
-Katana has document gates. Guardrails has architecture and lint/type constraints. Audit has quality regression scoring. These should be coordinated through a deterministic Validation Engine so completion is decided mechanically and written to ValidationReport artifacts rather than accepted from Developer Execution Loop assertion.
+Loops and Roles need bounded, relevant context rather than full repo or chat inheritance. Without a dedicated Context Engine, each runtime surface will assemble context differently, increasing cost, inconsistency, and hidden coupling.
+
+This initiative preserves the original Context Engine intent and aligns it with the recursive loop and typed Role invocation model.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Define a validation matrix per artifact/task type.
-- Route lint, typecheck, tests, build, audit, dependency checks, document gates, and architecture rules.
-- Store ValidationReport artifacts and feed failures back into execution loops.
-- Keep Guardrails and Audit independently installable while making them callable from Katana.
+- Assemble minimal useful context bundles for Roles and execution nodes.
+- Use artifact refs, repo facts, validation history, and ownership boundaries to choose context deterministically.
+- Reduce overloading of model context windows.
+- Make context selection inspectable and reproducible.
 
 **Non-Goals:**
-- Replace project-specific CI.
-- Require every repo to use every validator.
-- Auto-fix validation failures outside the active task scope.
+- Decide strategy or completion authority.
+- Replace Repo Intelligence with direct scanning logic.
+- Let execution nodes pull arbitrary broad context by default.
+
+## Architecture
+
+### Overview
+
+The Context Engine sits between artifact and repository facts on one side and Role or Loop invocation on the other. It selects the smallest useful context bundle for the operation being requested.
+
+### Sequence Diagrams
+
+Role or Loop requests context -> Context Engine loads active artifacts, parent ownership, repo facts, and recent validation/decision records -> emits a bounded context bundle -> caller uses that bundle for the next step.
 
 ## Detailed Design
 
-Validation profiles declare commands, required gates, optional checks, severity, retry behavior, and completion requirements. Katana invokes validators via adapters and writes a ValidationReport with command output summaries, pass/fail status, and actionable pointers.
+Context assembly should consider:
 
-Pre-commit rules from Audit and Guardrails should become reusable gate adapters where possible.
+- current artifact and direct parent chain
+- relevant sibling or dependency artifacts only when ownership boundaries require them
+- repo facts from Repo Intelligence
+- recent validation failures and DecisionRecords
+- relevant files or interfaces tied to the owned work surface
+
+The engine should bias toward narrow bundles and record why each item was included.
+
+Sibling context should not be loaded by leaf choice alone. The parent decides whether sibling context is needed by comparing declared ownership surfaces and runtime touch reports, then requests targeted sibling context only for soft or hard conflict cases.
 
 ## Alternatives Considered
 
-- Keep validation in package-specific commands only: rejected because the execution loop needs one completion decision.
-- Trust test scripts from package.json blindly: rejected because some repos lack scripts or have incomplete coverage.
-- Fail on absolute quality scores: rejected because existing repos need regression-based adoption.
+- Let each Role or Loop assemble context ad hoc: rejected because it leads to inconsistent and unreviewable context choices.
+- Always load large parent chains and broad file sets: rejected because it increases cost and confusion.
+- Use only chat history for context: rejected because durable, machine-readable state is a core requirement.
 
 ## Implementation Plan
 
-- [ ] Define ValidationReport and validation profile schemas.
-- [ ] Add adapters for Katana gates, package scripts, Guardrails checks, and Audit scans.
-- [ ] Feed validation failures into runLoop priorGateFailures.
-- [ ] Add completion gates for task, story, and epic artifacts.
-- [ ] Add pre-commit gate integration for protected branches, migration ranges, and lint/type rule edits.
+- [ ] Define `ContextBundle` shape and provenance fields.
+- [ ] Implement deterministic selection rules for artifacts, repo facts, and file refs.
+- [ ] Add support for validation-history, DecisionRecord inclusion, and parent-triggered sibling-context expansion.
+- [ ] Add role- and loop-specific context profiles.
+- [ ] Add fixture coverage for narrow vs expanded context selection paths.

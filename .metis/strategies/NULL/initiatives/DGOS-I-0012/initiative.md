@@ -1,11 +1,10 @@
 ---
-id: workflow-test-harness-and-scenario
+id: bootstrap-project-readiness
 level: initiative
-title: "Workflow Test Harness and Scenario Corpus"
+title: "Bootstrap & Project Readiness"
 short_code: "DGOS-I-0012"
-runtime_primitive: meta
-created_at: 2026-05-19T17:18:28.881034+00:00
-updated_at: 2026-05-19T17:18:28.881034+00:00
+created_at: 2026-05-21T17:47:46.065391+00:00
+updated_at: 2026-05-21T17:47:46.065391+00:00
 parent: DGOS-V-0001
 blocked_by: []
 archived: false
@@ -16,56 +15,66 @@ tags:
 
 
 exit_criteria_met: false
-estimated_complexity: M
+estimated_complexity: L
 strategy_id: NULL
-initiative_id: workflow-test-harness-and-scenario
+initiative_id: bootstrap-project-readiness
 ---
 
-# Workflow Test Harness and Scenario Corpus Initiative
+# Bootstrap & Project Readiness Initiative
 
 ## Context
 
-Before the runtime primitives are built, the repo needs a workflow test harness and scenario corpus. These tests should prove each Engine independently, prove Role contracts with fake and live adapters, prove Loop state behavior, and prove full workflows end-to-end. The corpus should be artifact-driven, deterministic where possible, and usable by both unit tests and dogfood runs.
+The retro established bootstrap as a first-class workflow phase rather than implicit setup. Before normal execution begins, the system must initialize the workspace, detect repository state, obtain human approval on the vision and architecture path, and produce readiness work.
+
+This initiative is new because that sequencing did not have a clean owner in the original set.
 
 ## Goals & Non-Goals
 
 **Goals:**
-- Define a standard scenario format with input artifacts, repo fixture, policy config, expected primitive calls, expected output artifacts, and review prompts.
-- Provide fixtures for product planning, runtime decisions, dashboard task mapping, design autonomy, architecture escalation, validation recovery, and Role skip behavior.
-- Let each engine run against scenarios before full orchestration exists.
-- Make failures explain which contract or primitive behavior regressed.
+- Define the bootstrap workflow from init through project readiness.
+- Support both greenfield and existing-repo entry paths.
+- Make human gates explicit for vision approval, architecture pattern choice, and user autonomy-profile capture.
+- Produce readiness initiatives rather than doing all setup inline.
 
 **Non-Goals:**
-- Build a full UI test runner.
-- Require live model calls for every scenario.
-- Replace normal unit tests in plugin packages.
+- Replace installer or repo-intelligence engines.
+- Execute downstream feature work.
+- Bypass strategic approval checkpoints.
+
+## Architecture
+
+### Overview
+
+Bootstrap coordinates deterministic engines and human gates in a fixed early workflow: init -> autonomy profile capture -> detect -> vision -> architecture choice -> readiness work -> audit baseline.
+
+### Sequence Diagrams
+
+User starts bootstrap -> autonomy profile is captured for engineering, product, and design -> workspace is initialized -> repo state is detected -> vision is written and approved -> architecture path is chosen and approved -> readiness initiatives are produced -> audit baseline is established.
 
 ## Detailed Design
 
-Scenario files should live under a test corpus such as tests/workflows/scenarios. Each scenario declares:
+Bootstrap should support:
 
-- name and purpose
-- starting repository fixture
-- starting artifacts
-- decision policy config
-- allowed autonomous scopes
-- expected primitive route sequence
-- expected artifacts and skip records
-- expected human review checkpoints
-- validation expectations
+- autonomy-profile capture as the first bootstrap interaction, with persistent storage for engineering, product, and design involvement levels
+- greenfield vs existing-repo branching
+- explicit explanation of why existing-repo evaluation matters
+- architecture pattern choice via documentation, mapping, or user selection
+- readiness initiative generation for setup, refactor guidance, and baseline work
+- recording that the project is ready for normal recursive execution
 
-The harness should support dry-run execution with fake primitive adapters and later live dogfood execution with real primitives.
+This initiative owns the workflow sequencing, not the deterministic behavior of the engines it orchestrates.
 
 ## Alternatives Considered
 
-- Add workflow tests only after implementation: rejected because the implementation would drift without fixed acceptance scenarios.
-- Use prose-only acceptance examples: rejected because routing, policy, and artifact outputs must be mechanically checked.
-- Require full end-to-end tests for every change: rejected because each engine also needs isolated contract tests.
+- Keep bootstrap implicit inside installer flow: rejected because vision and architecture approval are strategic gates, not installer side effects.
+- Do all readiness work inline before creating initiatives: rejected because it hides planning and resource decisions.
+- Use one path for greenfield and existing repos: rejected because existing repos require evaluation and reconciliation choices that greenfield projects do not.
 
 ## Implementation Plan
 
-- [ ] Define workflow scenario schema.
-- [ ] Add fixture loading and fake primitive adapters.
-- [ ] Add assertions for route sequence, artifacts, policy decisions, and review checkpoints.
-- [ ] Add scenario corpus for DGOS-I-0013 through DGOS-I-0019.
-- [ ] Wire the harness into CI once package layout is settled.
+- [ ] Define the bootstrap sequence and state transitions, including autonomy-profile capture before repository detection.
+- [ ] Specify greenfield vs existing-repo branch behavior.
+- [ ] Define the three bootstrap autonomy questions, answer set, and persistence model.
+- [ ] Add explicit human gates for vision and architecture approval, while honoring delegated domains after baseline approval.
+- [ ] Define readiness initiative outputs and audit-baseline handoff.
+- [ ] Add fixture coverage for both bootstrap entry paths.
